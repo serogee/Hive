@@ -25,3 +25,7 @@ value class RoomId(val value: String)
 @JvmInline
 @Serializable
 value class ParticipantId(val value: String)
+
+@JvmInline
+@Serializable
+value class SubmissionId(val value: String)

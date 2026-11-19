@@ -84,6 +84,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
                             _state.update { it.copy(connection = Connection.LIVE) }
                         }
                         is RoomEvent.ParticipantJoined -> apply(event, token)
+                        else -> refresh(token)
                     }
                 }
             } catch (e: CancellationException) {

@@ -2,6 +2,7 @@ package io.github.serogee.hive.core.api
 
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.ParticipantId
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
@@ -19,6 +20,7 @@ data class CreateRoomRequest(
     val hostDisplayName: String? = null,
     /** Epoch milliseconds after which the room accepts no answers. */
     val deadlineAt: Long? = null,
+    val revealPolicy: RevealPolicy = RevealPolicy.AT_END,
 )
 
 /** What anyone with the room code may see before joining. It contains no answers. */
@@ -33,6 +35,7 @@ data class RoomSummary(
     val status: RoomStatus,
     val questionCount: Int,
     val deadlineAt: Long? = null,
+    val revealPolicy: RevealPolicy = RevealPolicy.AT_END,
 )
 
 @Serializable
@@ -65,4 +68,6 @@ data class RoomState(
     val you: ParticipantView,
     val participants: List<ParticipantView>,
     val revision: Long,
+    /** The current question while the room is live. */
+    val live: LiveQuestion? = null,
 )

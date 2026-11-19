@@ -7,7 +7,9 @@ import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.core.sample.SampleStacks
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.serialization.builtins.ListSerializer
 
 class ContractsTest {
     @Test
@@ -20,6 +22,29 @@ class ContractsTest {
         assertTrue(json.contains("\"type\":\"true_false\""))
         assertTrue(json.contains("\"type\":\"identification\""))
         assertEquals(stack, HiveJson.decodeFromString(StackSnapshot.serializer(), json))
+    }
+
+    @Test
+    fun playerQuestionsCarryNoAnswerKey() {
+        val questions = SampleStacks.networkingFundamentals.questions.mapIndexed { index, question ->
+            question.toPlayerQuestion(index + 1)
+        }
+
+        val json = HiveJson.encodeToString(ListSerializer(PlayerQuestion.serializer()), questions)
+
+        assertFalse(json.contains("correctChoiceId"))
+        assertFalse(json.contains("\"answer\""))
+        assertFalse(json.contains("explanation"))
+        assertFalse(json.contains("DNS"))
+        assertTrue(json.contains("\"choices\""))
+    }
+
+    @Test
+    fun hostCommandsAreTaggedObjects() {
+        val json = HiveJson.encodeToString(HostCommand.serializer(), HostCommand.NextQuestion)
+
+        assertEquals("{\"type\":\"next_question\"}", json)
+        assertEquals(HostCommand.Start, HiveJson.decodeFromString(HostCommand.serializer(), "{\"type\":\"start\"}"))
     }
 
     @Test
