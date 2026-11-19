@@ -9,6 +9,7 @@ import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.Membership
+import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.api.RoomSummary
 import io.github.serogee.hive.core.model.RoomMode
@@ -100,6 +101,23 @@ class DemoServerTest {
         assertTrue(async.deadlineAt!! > now)
         assertEquals(RoomStatus.ENDED, ended.status)
         assertEquals(ErrorCode.ROOM_CLOSED, lateJoin.body<ApiError>().code)
+        db.close()
+    }
+
+    @Test
+    fun seededResultsContainATie() = testApplication {
+        val db = DemoDatabase.open(dbPath).also { DemoSeed.reset(it, now) }
+        val client = demoClient(db)
+        val sam: AuthSession = client.login("sam").body()
+        val ended: RoomSummary = client.get(ApiPaths.roomByCode(DemoSeed.ENDED_CODE)).body()
+
+        val results: RoomResults = client.get(ApiPaths.results(ended.id.value)) { bearerAuth(sam.accessToken) }.body()
+
+        assertEquals(listOf("Jamie", "Sam Cruz", "Riley"), results.leaderboard.map { it.displayName })
+        assertEquals(listOf(3, 3, 1), results.leaderboard.map { it.score })
+        assertEquals(listOf(1, 1, 3), results.leaderboard.map { it.rank })
+        assertEquals(3, results.yourAnswers.sumOf { it.points })
+        assertEquals(3, results.questions.first().answeredCount)
         db.close()
     }
 
