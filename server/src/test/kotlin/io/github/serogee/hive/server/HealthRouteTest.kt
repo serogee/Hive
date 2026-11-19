@@ -25,7 +25,7 @@ class HealthRouteTest {
     @Test
     fun configReadsOptionsBeforeEnvironment() {
         val config = ServerConfig.from(
-            args = arrayOf("--port=9090"),
+            args = arrayOf("--port=9090", "--reset-demo"),
             env = mapOf("HIVE_PORT" to "7070", "HIVE_HOST" to "127.0.0.1", "HIVE_DEMO_DB" to "tmp/demo.db"),
         )
 
@@ -33,5 +33,6 @@ class HealthRouteTest {
         assertEquals("127.0.0.1", config.host)
         assertEquals(ServerMode.DEMO, config.mode)
         assertEquals(Path.of("tmp", "demo.db"), config.demoDatabase)
+        assertTrue(config.resetDemo)
     }
 }

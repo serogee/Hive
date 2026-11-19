@@ -37,3 +37,11 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.register<JavaExec>("resetDemo") {
+    group = "application"
+    description = "Replaces the demo database with fresh seed data."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set(application.mainClass)
+    args("--reset-demo")
+}
