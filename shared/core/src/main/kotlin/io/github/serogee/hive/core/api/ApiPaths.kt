@@ -20,6 +20,12 @@ object ApiPaths {
 
     fun events(roomId: String) = "$ROOMS/$roomId/events"
 
+    fun commands(roomId: String) = "$ROOMS/$roomId/commands"
+
+    fun answers(roomId: String) = "$ROOMS/$roomId/answers"
+
+    fun results(roomId: String) = "$ROOMS/$roomId/results"
+
     /** Carries the reconnect credential that a join or room creation returned. */
     const val PARTICIPANT_TOKEN_HEADER = "X-Hive-Participant"
 }

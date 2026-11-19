@@ -34,6 +34,18 @@ enum class ErrorCode {
 
     @SerialName("guests_only")
     GUESTS_ONLY,
+
+    @SerialName("invalid_command")
+    INVALID_COMMAND,
+
+    @SerialName("question_not_open")
+    QUESTION_NOT_OPEN,
+
+    @SerialName("answer_already_recorded")
+    ANSWER_ALREADY_RECORDED,
+
+    @SerialName("results_not_ready")
+    RESULTS_NOT_READY,
 }
 
 /** The body of every unsuccessful response. */

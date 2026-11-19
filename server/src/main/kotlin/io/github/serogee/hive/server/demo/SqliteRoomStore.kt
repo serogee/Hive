@@ -1,17 +1,23 @@
 package io.github.serogee.hive.server.demo
 
 import io.github.serogee.hive.core.api.HiveJson
+import io.github.serogee.hive.core.engine.Progress
 import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.ParticipantId
+import io.github.serogee.hive.core.model.QuestionId
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.model.StackSnapshot
+import io.github.serogee.hive.core.model.SubmissionId
 import io.github.serogee.hive.host.ParticipantRecord
 import io.github.serogee.hive.host.RoomRecord
 import io.github.serogee.hive.host.RoomStore
+import io.github.serogee.hive.host.SubmissionRecord
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.Types
@@ -35,14 +41,52 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
         connection.queryRooms("SELECT * FROM rooms WHERE host_account_id = ?", accountId.value)
     }
 
-    override suspend fun insertParticipant(participant: ParticipantRecord, revision: Long) = db.write { connection ->
-        insertParticipant(connection, participant)
-        connection.prepareStatement("UPDATE rooms SET revision = ? WHERE id = ?").use {
-            it.setLong(1, revision)
-            it.setString(2, participant.roomId.value)
+    override suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long) = db.write { connection ->
+        connection.prepareStatement(
+            "UPDATE rooms SET status = ?, question_index = ?, question_open = ?, revision = ? WHERE id = ?",
+        ).use {
+            it.setString(1, progress.status.name)
+            if (progress.questionIndex != null) it.setInt(2, progress.questionIndex!!) else it.setNull(2, Types.INTEGER)
+            it.setInt(3, if (progress.questionOpen) 1 else 0)
+            it.setLong(4, revision)
+            it.setString(5, roomId.value)
             it.executeUpdate()
         }
         Unit
+    }
+
+    override suspend fun insertSubmission(submission: SubmissionRecord, revision: Long) = db.write { connection ->
+        insertSubmission(connection, submission)
+        setRevision(connection, submission.roomId, revision)
+    }
+
+    override suspend fun findSubmissionByKey(roomId: RoomId, participantId: ParticipantId, idempotencyKey: String) =
+        db.read { connection ->
+            connection.querySubmissions(
+                "SELECT * FROM submissions WHERE room_id = ? AND participant_id = ? AND idempotency_key = ?",
+                roomId.value,
+                participantId.value,
+                idempotencyKey,
+            ).firstOrNull()
+        }
+
+    override suspend fun findSubmission(roomId: RoomId, participantId: ParticipantId, questionId: QuestionId) =
+        db.read { connection ->
+            connection.querySubmissions(
+                "SELECT * FROM submissions WHERE room_id = ? AND participant_id = ? AND question_id = ?",
+                roomId.value,
+                participantId.value,
+                questionId.value,
+            ).firstOrNull()
+        }
+
+    override suspend fun submissions(roomId: RoomId) = db.read { connection ->
+        connection.querySubmissions("SELECT * FROM submissions WHERE room_id = ? ORDER BY rowid", roomId.value)
+    }
+
+    override suspend fun insertParticipant(participant: ParticipantRecord, revision: Long) = db.write { connection ->
+        insertParticipant(connection, participant)
+        setRevision(connection, participant.roomId, revision)
     }
 
     override suspend fun replaceParticipantToken(participantId: ParticipantId, tokenHash: String) = db.write { connection ->
@@ -82,8 +126,8 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
             connection.prepareStatement(
                 """
                 INSERT INTO rooms (id, code, title, host_name, host_account_id, mode, admission, status,
-                    stack_json, created_at, deadline_at, revision)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    stack_json, created_at, deadline_at, revision, reveal_policy, question_index, question_open)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
             ).use {
                 it.setString(1, room.id.value)
@@ -98,6 +142,9 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
                 it.setLong(10, room.createdAt)
                 if (room.deadlineAt != null) it.setLong(11, room.deadlineAt!!) else it.setNull(11, Types.INTEGER)
                 it.setLong(12, room.revision)
+                it.setString(13, room.revealPolicy.name)
+                if (room.questionIndex != null) it.setInt(14, room.questionIndex!!) else it.setNull(14, Types.INTEGER)
+                it.setInt(15, if (room.questionOpen) 1 else 0)
                 it.executeUpdate()
             }
         }
@@ -119,6 +166,49 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
                 it.executeUpdate()
             }
         }
+
+        fun insertSubmission(connection: Connection, submission: SubmissionRecord) {
+            connection.prepareStatement(
+                """
+                INSERT INTO submissions (id, room_id, participant_id, question_id, answer_json, correct, points,
+                    idempotency_key, accepted_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+            ).use {
+                it.setString(1, submission.id.value)
+                it.setString(2, submission.roomId.value)
+                it.setString(3, submission.participantId.value)
+                it.setString(4, submission.questionId.value)
+                it.setString(5, HiveJson.encodeToString(Answer.serializer(), submission.answer))
+                it.setInt(6, if (submission.correct) 1 else 0)
+                it.setInt(7, submission.points)
+                it.setString(8, submission.idempotencyKey)
+                it.setLong(9, submission.acceptedAt)
+                it.executeUpdate()
+            }
+        }
+
+        private fun setRevision(connection: Connection, roomId: RoomId, revision: Long) {
+            connection.prepareStatement("UPDATE rooms SET revision = ? WHERE id = ?").use {
+                it.setLong(1, revision)
+                it.setString(2, roomId.value)
+                it.executeUpdate()
+            }
+        }
+
+        private fun Connection.querySubmissions(sql: String, vararg args: String) = query(sql, args) { it.toSubmission() }
+
+        private fun ResultSet.toSubmission() = SubmissionRecord(
+            id = SubmissionId(getString("id")),
+            roomId = RoomId(getString("room_id")),
+            participantId = ParticipantId(getString("participant_id")),
+            questionId = QuestionId(getString("question_id")),
+            answer = HiveJson.decodeFromString(Answer.serializer(), getString("answer_json")),
+            correct = getInt("correct") == 1,
+            points = getInt("points"),
+            idempotencyKey = getString("idempotency_key"),
+            acceptedAt = getLong("accepted_at"),
+        )
 
         private fun Connection.queryRooms(sql: String, vararg args: String) = query(sql, args) { it.toRoom() }
 
@@ -145,6 +235,9 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
             createdAt = getLong("created_at"),
             deadlineAt = getLong("deadline_at").takeUnless { wasNull() },
             revision = getLong("revision"),
+            revealPolicy = RevealPolicy.valueOf(getString("reveal_policy")),
+            questionIndex = getInt("question_index").takeUnless { wasNull() },
+            questionOpen = getInt("question_open") == 1,
         )
 
         private fun ResultSet.toParticipant() = ParticipantRecord(

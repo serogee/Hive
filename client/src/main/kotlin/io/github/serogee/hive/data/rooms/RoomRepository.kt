@@ -1,11 +1,15 @@
 package io.github.serogee.hive.data.rooms
 
+import io.github.serogee.hive.core.api.AnswerReceipt
 import io.github.serogee.hive.core.api.CreateRoomRequest
+import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.Membership
 import io.github.serogee.hive.core.api.RoomEvent
+import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.api.RoomSummary
+import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
@@ -62,4 +66,12 @@ class RoomRepository(
     suspend fun state(roomId: RoomId, participantToken: String?): RoomState = api.roomState(roomId, participantToken)
 
     fun events(roomId: RoomId, participantToken: String?): Flow<RoomEvent> = api.roomEvents(roomId, participantToken)
+
+    suspend fun command(roomId: RoomId, command: HostCommand, participantToken: String?): RoomState =
+        api.command(roomId, command, participantToken)
+
+    suspend fun submitAnswer(roomId: RoomId, request: SubmitAnswerRequest, participantToken: String?): AnswerReceipt =
+        api.submitAnswer(roomId, request, participantToken)
+
+    suspend fun results(roomId: RoomId, participantToken: String?): RoomResults = api.results(roomId, participantToken)
 }

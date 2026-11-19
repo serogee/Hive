@@ -48,5 +48,10 @@ fun ErrorCode.httpStatus(): HttpStatusCode = when (this) {
     ErrorCode.GUESTS_ONLY,
     -> HttpStatusCode.Forbidden
     ErrorCode.ROOM_NOT_FOUND -> HttpStatusCode.NotFound
-    ErrorCode.ROOM_CLOSED -> HttpStatusCode.Conflict
+    ErrorCode.ROOM_CLOSED,
+    ErrorCode.INVALID_COMMAND,
+    ErrorCode.QUESTION_NOT_OPEN,
+    ErrorCode.ANSWER_ALREADY_RECORDED,
+    ErrorCode.RESULTS_NOT_READY,
+    -> HttpStatusCode.Conflict
 }

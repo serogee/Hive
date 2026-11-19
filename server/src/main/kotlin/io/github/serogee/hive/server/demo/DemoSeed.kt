@@ -1,15 +1,20 @@
 package io.github.serogee.hive.server.demo
 
+import io.github.serogee.hive.core.engine.Grading
 import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.Answer
+import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.ParticipantId
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
+import io.github.serogee.hive.core.model.SubmissionId
 import io.github.serogee.hive.core.sample.SampleStacks
 import io.github.serogee.hive.host.ParticipantRecord
 import io.github.serogee.hive.host.RoomRecord
+import io.github.serogee.hive.host.SubmissionRecord
 import io.github.serogee.hive.host.Tokens
 import java.sql.Connection
 import kotlin.time.Duration.Companion.days
@@ -116,7 +121,7 @@ object DemoSeed {
             status = RoomStatus.ENDED,
             createdAt = endedAt - 1.hours.inWholeMilliseconds,
             deadlineAt = null,
-        )
+        ).copy(questionIndex = stack.questions.lastIndex)
 
         val participants = listOf(
             participant("demo-p-discussion-host", discussion, alex.displayName, RoomRole.HOST, alex, now),
@@ -128,9 +133,43 @@ object DemoSeed {
         )
 
         listOf(discussion, async, ended).forEach { room ->
-            val revision = 1L + participants.count { it.roomId == room.id && it.role == RoomRole.PLAYER }
+            val revision = 1L + participants.count { it.roomId == room.id && it.role == RoomRole.PLAYER } +
+                (if (room == ended) endedAnswers.size else 0)
             SqliteRoomStore.insertRoom(connection, room.copy(revision = revision))
         }
         participants.forEach { SqliteRoomStore.insertParticipant(connection, it) }
+        endedAnswers.forEachIndexed { index, (playerId, questionNumber, answer) ->
+            val question = stack.questions[questionNumber - 1]
+            val correct = Grading.isCorrect(question, answer)
+            SqliteRoomStore.insertSubmission(
+                connection,
+                SubmissionRecord(
+                    id = SubmissionId("demo-s-ended-$index"),
+                    roomId = ended.id,
+                    participantId = ParticipantId(playerId),
+                    questionId = question.id,
+                    answer = answer,
+                    correct = correct,
+                    points = Grading.points(question, correct),
+                    idempotencyKey = "demo-seed-$index",
+                    acceptedAt = endedAt - 30.minutes.inWholeMilliseconds + index * 1.minutes.inWholeMilliseconds,
+                ),
+            )
+        }
     }
+
+    /**
+     * Answers in the ended room. Jamie and Sam tie on 3 points and share first place; Riley has 1.
+     * Each entry is a participant ID, a question number, and the answer.
+     */
+    private val endedAnswers = listOf(
+        Triple("demo-p-ended-jamie", 1, Answer.SelectedChoice(ChoiceId("nf-q1-c3"))),
+        Triple("demo-p-ended-riley", 1, Answer.SelectedChoice(ChoiceId("nf-q1-c2"))),
+        Triple("demo-p-ended-sam", 1, Answer.SelectedChoice(ChoiceId("nf-q1-c4"))),
+        Triple("demo-p-ended-jamie", 2, Answer.TrueFalse(true)),
+        Triple("demo-p-ended-riley", 2, Answer.TrueFalse(true)),
+        Triple("demo-p-ended-sam", 2, Answer.TrueFalse(false)),
+        Triple("demo-p-ended-jamie", 6, Answer.Text("80")),
+        Triple("demo-p-ended-sam", 6, Answer.Text("443")),
+    )
 }

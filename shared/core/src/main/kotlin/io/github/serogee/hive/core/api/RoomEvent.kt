@@ -30,4 +30,37 @@ sealed interface RoomEvent {
         override val revision: Long,
         val participant: ParticipantView,
     ) : RoomEvent
+
+    @Serializable
+    @SerialName("question_opened")
+    data class QuestionOpened(
+        override val roomId: RoomId,
+        override val revision: Long,
+        val questionNumber: Int,
+    ) : RoomEvent
+
+    /** Sent after an answer is saved. It does not say who answered or what. */
+    @Serializable
+    @SerialName("answer_recorded")
+    data class AnswerRecorded(
+        override val roomId: RoomId,
+        override val revision: Long,
+        val questionNumber: Int,
+        val answeredCount: Int,
+    ) : RoomEvent
+
+    @Serializable
+    @SerialName("question_closed")
+    data class QuestionClosed(
+        override val roomId: RoomId,
+        override val revision: Long,
+        val questionNumber: Int,
+    ) : RoomEvent
+
+    @Serializable
+    @SerialName("room_ended")
+    data class RoomEnded(
+        override val roomId: RoomId,
+        override val revision: Long,
+    ) : RoomEvent
 }
