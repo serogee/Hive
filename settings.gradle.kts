@@ -25,3 +25,4 @@ rootProject.name = "hive"
 include(":shared:core")
 include(":shared:host")
 include(":server")
+include(":client")
