@@ -1,8 +1,5 @@
 package io.github.serogee.hive.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -10,7 +7,6 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -19,13 +15,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import io.github.serogee.hive.ui.accounts.AccountsScreen
+import io.github.serogee.hive.ui.common.Page
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -82,22 +79,10 @@ fun HiveApp() {
             startDestination = HomeRoute,
             modifier = Modifier.padding(padding),
         ) {
-            composable<HomeRoute> { PlaceholderScreen("Home") }
-            composable<MyStacksRoute> { PlaceholderScreen("My Stacks") }
-            composable<QuizRoomRoute> { PlaceholderScreen("Quiz Room") }
-            composable<AccountsRoute> { PlaceholderScreen("Accounts") }
+            composable<HomeRoute> { Page("Home") {} }
+            composable<MyStacksRoute> { Page("My Stacks") {} }
+            composable<QuizRoomRoute> { Page("Quiz Room") {} }
+            composable<AccountsRoute> { AccountsScreen() }
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(title: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
     }
 }
