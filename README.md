@@ -7,7 +7,7 @@ Hive is an offline-first Android app for creating question stacks, reviewing the
 | Directory      | Contents                                                                              |
 | -------------- | ------------------------------------------------------------------------------------- |
 | `client/`      | Android app: Compose screens, ViewModels, local storage, networking, embedded host    |
-| `server/`      | Standalone Ktor server with demo and production configurations                        |
+| `server/`      | Standalone Ktor server. Only the demo configuration runs so far.                      |
 | `shared/core/` | Plain Kotlin models, API contracts, and quiz rules with no Android or Ktor dependency |
 | `shared/host/` | Reusable room service and Ktor room handlers for the server and the embedded host     |
 
@@ -30,8 +30,25 @@ Start the demo server on port 8080:
 .\gradlew.bat :server:run
 ```
 
+Replace the demo data with fresh seed data (stop the server first):
+
+```powershell
+.\gradlew.bat :server:resetDemo
+```
+
 Build and install the debug app on a connected phone:
 
 ```powershell
 .\gradlew.bat :client:installDebug
 ```
+
+## Two-phone demo
+
+The demo server stores its data in `server/data/hive-demo.db`. It has two fictional accounts, `alex` and `sam`, both with the password `hive-demo`. The seeded rooms use the codes `NETDSC` (Discussion lobby hosted by Alex), `NETASY` (Asynchronous room hosted by Sam), and `NETEND` (ended room).
+
+1. Connect the laptop and both phones to the same Wi-Fi network.
+2. Start the demo server. It prints the addresses that phones can use, such as `http://192.168.1.20:8080`. Allow Java through Windows Firewall when asked.
+3. On each phone, open Accounts, enter that address, and tap Test and save.
+4. On the Host phone, sign in as `alex`, open Quiz Room, and tap the Discussion room under Rooms you host.
+5. On the Player phone, stay signed out, enter `NETDSC` under Join a quiz, and join as a guest.
+6. Both lobbies now list Alex Rivera as Host and the guest's name below.

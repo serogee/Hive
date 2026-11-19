@@ -1,0 +1,88 @@
+package io.github.serogee.hive.host
+
+import io.github.serogee.hive.core.api.CreateRoomRequest
+import io.github.serogee.hive.core.api.ErrorCode
+import io.github.serogee.hive.core.api.HiveJson
+import io.github.serogee.hive.core.api.JoinRoomRequest
+import io.github.serogee.hive.core.api.RoomEvent
+import io.github.serogee.hive.core.model.RoomId
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import io.ktor.server.routing.route
+import io.ktor.server.websocket.webSocket
+import io.ktor.websocket.CloseReason
+import io.ktor.websocket.Frame
+import io.ktor.websocket.close
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
+
+/** Room endpoints. Mount inside `route("/v1")`. */
+fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier) {
+    route("/rooms") {
+        post {
+            val caller = call.account(accounts)
+            val request = call.receive<CreateRoomRequest>()
+            call.respond(HttpStatusCode.Created, service.createRoom(caller, request))
+        }
+
+        get("/hosted") {
+            val caller = call.account(accounts)
+                ?: throw HiveException(ErrorCode.SIGN_IN_REQUIRED, "Sign in to see rooms you host.")
+            call.respond(service.hostedRooms(caller))
+        }
+
+        get("/by-code/{code}") {
+            call.respond(service.lookup(call.parameters["code"].orEmpty()))
+        }
+
+        route("/{id}") {
+            post("/participants") {
+                val roomId = RoomId(call.parameters["id"].orEmpty())
+                val caller = call.account(accounts)
+                val request = call.receive<JoinRoomRequest>()
+                call.respond(service.join(roomId, caller, request, call.participantToken()))
+            }
+
+            get("/state") {
+                val roomId = RoomId(call.parameters["id"].orEmpty())
+                call.respond(service.state(roomId, call.account(accounts), call.participantToken()))
+            }
+
+            webSocket("/events") {
+                val roomId = RoomId(call.parameters["id"].orEmpty())
+                val caller = try {
+                    call.account(accounts)
+                } catch (e: HiveException) {
+                    close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, e.code.name))
+                    return@webSocket
+                }
+                val token = call.participantToken()
+                val authorized = runCatching { service.authorize(roomId, caller, token) }
+                if (authorized.isFailure) {
+                    close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, ErrorCode.NOT_A_PARTICIPANT.name))
+                    return@webSocket
+                }
+
+                suspend fun sendEvent(event: RoomEvent) =
+                    send(Frame.Text(HiveJson.encodeToString(RoomEvent.serializer(), event)))
+
+                // Subscribe before reading the revision, so no event falls between the two.
+                val forwarding = launch(start = CoroutineStart.UNDISPATCHED) {
+                    service.events(roomId).collect { sendEvent(it) }
+                }
+                sendEvent(RoomEvent.Subscribed(roomId, service.state(roomId, caller, token).revision))
+                try {
+                    for (frame in incoming) {
+                        // Clients send nothing on this channel; reading detects the close.
+                    }
+                } finally {
+                    forwarding.cancel()
+                }
+            }
+        }
+    }
+}
