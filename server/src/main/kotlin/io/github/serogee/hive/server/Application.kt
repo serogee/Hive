@@ -1,28 +1,41 @@
 package io.github.serogee.hive.server
 
-import io.github.serogee.hive.core.api.API_VERSION
-import io.github.serogee.hive.core.api.ApiPaths
-import io.github.serogee.hive.core.api.HealthResponse
-import io.ktor.serialization.kotlinx.json.json
+import io.github.serogee.hive.host.AccountVerifier
+import io.github.serogee.hive.host.RoomService
+import io.github.serogee.hive.host.RoomStore
+import io.github.serogee.hive.host.healthRoutes
+import io.github.serogee.hive.host.installHiveApi
+import io.github.serogee.hive.host.roomRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.calllogging.CallLogging
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.response.respond
-import io.ktor.server.routing.get
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 
-fun Application.hiveModule(config: ServerConfig) {
-    check(config.mode == ServerMode.DEMO) {
-        "Production mode needs Supabase settings, which are not available yet."
-    }
+/**
+ * The storage and sign-in implementations for one configuration.
+ *
+ * Demo and production use the same routes. Only this choice differs.
+ */
+class Backend(
+    val rooms: RoomStore,
+    val accounts: AccountVerifier,
+    /** Routes that exist only in this configuration, such as demo login. */
+    val extraRoutes: Route.() -> Unit = {},
+)
 
-    install(ContentNegotiation) { json() }
+fun Application.hiveModule(backend: Backend) {
+    installHiveApi()
     install(CallLogging)
 
+    val roomService = RoomService(backend.rooms, requireAccountToHost = true)
+
     routing {
-        get(ApiPaths.HEALTH) {
-            call.respond(HealthResponse(status = "ok", apiVersion = API_VERSION))
+        route("/v1") {
+            healthRoutes()
+            roomRoutes(roomService, backend.accounts)
+            backend.extraRoutes(this)
         }
     }
 }
