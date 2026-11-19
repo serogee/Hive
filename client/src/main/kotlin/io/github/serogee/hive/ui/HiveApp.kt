@@ -1,6 +1,5 @@
 package io.github.serogee.hive.ui
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Groups
@@ -15,14 +14,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.padding
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import io.github.serogee.hive.ui.accounts.AccountsScreen
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.home.HomeScreen
+import io.github.serogee.hive.ui.rooms.HostSetupScreen
+import io.github.serogee.hive.ui.rooms.LobbyScreen
+import io.github.serogee.hive.ui.rooms.QuizRoomScreen
+import io.github.serogee.hive.ui.rooms.SessionEntryScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -36,6 +43,19 @@ object QuizRoomRoute
 
 @Serializable
 object AccountsRoute
+
+/** Sign-in requested by another screen. Returns there afterwards. */
+@Serializable
+object SignInRoute
+
+@Serializable
+data class SessionEntryRoute(val code: String)
+
+@Serializable
+object HostSetupRoute
+
+@Serializable
+data class LobbyRoute(val roomId: String)
 
 private data class Tab(val label: String, val icon: ImageVector, val route: Any)
 
@@ -51,25 +71,20 @@ fun HiveApp() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
+    val onTab = tabs.any { destination?.hasRoute(it.route::class) == true }
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                tabs.forEach { tab ->
-                    NavigationBarItem(
-                        selected = destination?.hasRoute(tab.route::class) == true,
-                        onClick = {
-                            navController.navigate(tab.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(tab.icon, contentDescription = null) },
-                        label = { Text(tab.label) },
-                    )
+            if (onTab) {
+                NavigationBar {
+                    tabs.forEach { tab ->
+                        NavigationBarItem(
+                            selected = destination?.hasRoute(tab.route::class) == true,
+                            onClick = { navController.openTab(tab.route) },
+                            icon = { Icon(tab.icon, contentDescription = null) },
+                            label = { Text(tab.label) },
+                        )
+                    }
                 }
             }
         },
@@ -79,10 +94,60 @@ fun HiveApp() {
             startDestination = HomeRoute,
             modifier = Modifier.padding(padding),
         ) {
-            composable<HomeRoute> { Page("Home") {} }
-            composable<MyStacksRoute> { Page("My Stacks") {} }
-            composable<QuizRoomRoute> { Page("Quiz Room") {} }
+            composable<HomeRoute> {
+                HomeScreen(
+                    onJoinCode = { navController.navigate(SessionEntryRoute(it)) },
+                    onOpenStacks = { navController.openTab(MyStacksRoute) },
+                    onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
+                )
+            }
+            composable<MyStacksRoute> {
+                Page("My Stacks") {
+                    Text("Creating, importing, and reviewing stacks comes next. Online rooms use the Networking Fundamentals sample stack for now.")
+                }
+            }
+            composable<QuizRoomRoute> {
+                QuizRoomScreen(
+                    onJoinCode = { navController.navigate(SessionEntryRoute(it)) },
+                    onOpenRoom = { navController.navigate(LobbyRoute(it)) },
+                    onCreateRoom = { navController.navigate(HostSetupRoute) },
+                    onSignIn = { navController.navigate(SignInRoute) },
+                )
+            }
             composable<AccountsRoute> { AccountsScreen() }
+            composable<SignInRoute> { AccountsScreen(onSignedIn = { navController.popBackStack() }) }
+            composable<SessionEntryRoute> { entry ->
+                SessionEntryScreen(
+                    code = entry.toRoute<SessionEntryRoute>().code,
+                    onJoined = { membership ->
+                        navController.navigate(LobbyRoute(membership.room.id.value)) {
+                            popUpTo<SessionEntryRoute> { inclusive = true }
+                        }
+                    },
+                    onSignIn = { navController.navigate(SignInRoute) },
+                )
+            }
+            composable<HostSetupRoute> {
+                HostSetupScreen(onCreated = { membership ->
+                    navController.navigate(LobbyRoute(membership.room.id.value)) {
+                        popUpTo<HostSetupRoute> { inclusive = true }
+                    }
+                })
+            }
+            composable<LobbyRoute> { entry ->
+                LobbyScreen(
+                    roomId = entry.toRoute<LobbyRoute>().roomId,
+                    onLeft = { navController.popBackStack() },
+                )
+            }
         }
+    }
+}
+
+private fun NavHostController.openTab(route: Any) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }

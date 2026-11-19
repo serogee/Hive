@@ -6,6 +6,7 @@ import io.github.serogee.hive.data.auth.AuthProvider
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.auth.DemoAuthProvider
 import io.github.serogee.hive.data.remote.HiveApi
+import io.github.serogee.hive.data.rooms.RoomRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -27,6 +28,7 @@ class AppContainer(application: Application) {
     }
 
     val auth = AuthRepository(preferences, authProvider)
+    val rooms = RoomRepository(api, preferences)
 }
 
 class HiveApplication : Application() {
