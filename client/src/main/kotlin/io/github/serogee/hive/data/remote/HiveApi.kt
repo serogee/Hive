@@ -1,6 +1,7 @@
 package io.github.serogee.hive.data.remote
 
 import io.github.serogee.hive.core.api.Account
+import io.github.serogee.hive.core.api.AnswerReceipt
 import io.github.serogee.hive.core.api.ApiError
 import io.github.serogee.hive.core.api.ApiPaths
 import io.github.serogee.hive.core.api.AuthSession
@@ -9,11 +10,14 @@ import io.github.serogee.hive.core.api.DemoLoginRequest
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HealthResponse
 import io.github.serogee.hive.core.api.HiveJson
+import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.Membership
 import io.github.serogee.hive.core.api.RoomEvent
+import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.api.RoomSummary
+import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.RoomId
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -98,6 +102,28 @@ class HiveApi(
 
     suspend fun roomState(roomId: RoomId, participantToken: String?): RoomState =
         http.get(url(ApiPaths.state(roomId.value))) {
+            signedIn()
+            participant(participantToken)
+        }.unwrap()
+
+    suspend fun command(roomId: RoomId, command: HostCommand, participantToken: String?): RoomState =
+        http.post(url(ApiPaths.commands(roomId.value))) {
+            signedIn()
+            participant(participantToken)
+            contentType(ContentType.Application.Json)
+            setBody(command)
+        }.unwrap()
+
+    suspend fun submitAnswer(roomId: RoomId, request: SubmitAnswerRequest, participantToken: String?): AnswerReceipt =
+        http.post(url(ApiPaths.answers(roomId.value))) {
+            signedIn()
+            participant(participantToken)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.unwrap()
+
+    suspend fun results(roomId: RoomId, participantToken: String?): RoomResults =
+        http.get(url(ApiPaths.results(roomId.value))) {
             signedIn()
             participant(participantToken)
         }.unwrap()

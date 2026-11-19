@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -24,106 +25,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import io.github.serogee.hive.core.api.ErrorCode
-import io.github.serogee.hive.core.api.RoomEvent
+import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomRole
-import io.github.serogee.hive.data.remote.ApiException
-import io.github.serogee.hive.data.rooms.RoomRepository
+import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.label
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class Connection { CONNECTING, LIVE, RECONNECTING }
-
-data class LobbyUiState(
-    val room: RoomState? = null,
-    val connection: Connection = Connection.CONNECTING,
-    /** A failure that reconnecting cannot fix, such as a deleted room. */
-    val fatalError: String? = null,
-)
-
-/**
- * Keeps one participant's view of a room current.
- *
- * Each connection starts with a snapshot, so a missed event is repaired on reconnect.
- */
-class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomRepository) : ViewModel() {
-    private val _state = MutableStateFlow(LobbyUiState())
-    val state: StateFlow<LobbyUiState> = _state.asStateFlow()
-
-    init {
-        viewModelScope.launch { follow() }
-    }
-
-    private suspend fun follow() {
-        val token = rooms.participantToken(roomId)
-        var backoff = 1_000L
-        while (true) {
-            try {
-                // Fails fast with an ApiException when the room is gone or the credential is unknown.
-                refresh(token)
-                rooms.events(roomId, token).collect { event ->
-                    when (event) {
-                        is RoomEvent.Subscribed -> {
-                            refresh(token)
-                            backoff = 1_000L
-                            _state.update { it.copy(connection = Connection.LIVE) }
-                        }
-                        is RoomEvent.ParticipantJoined -> apply(event, token)
-                        else -> refresh(token)
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: ApiException) {
-                if (e.error.code in FATAL) {
-                    _state.update { it.copy(fatalError = e.error.message) }
-                    return
-                }
-            } catch (_: Exception) {
-                // Network failure. Reconnect below.
-            }
-            _state.update { it.copy(connection = Connection.RECONNECTING) }
-            delay(backoff)
-            backoff = (backoff * 2).coerceAtMost(10_000L)
-        }
-    }
-
-    private suspend fun refresh(token: String?) {
-        val snapshot = rooms.state(roomId, token)
-        _state.update { it.copy(room = snapshot) }
-    }
-
-    private suspend fun apply(event: RoomEvent.ParticipantJoined, token: String?) {
-        val current = _state.value.room
-        if (current != null && event.revision == current.revision + 1) {
-            _state.update {
-                it.copy(room = current.copy(participants = current.participants + event.participant, revision = event.revision))
-            }
-        } else if (current == null || event.revision > current.revision) {
-            refresh(token)
-        }
-    }
-
-    private companion object {
-        val FATAL = setOf(ErrorCode.ROOM_NOT_FOUND, ErrorCode.NOT_A_PARTICIPANT)
-    }
-}
-
+/** One room from lobby to results, for the Host or a Player. */
 @Composable
 fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     val container = LocalAppContainer.current
@@ -136,7 +51,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     Page(room?.room?.title ?: "Room") {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AssistChip(onClick = {}, label = { Text(state.connection.label()) })
-            room?.let { Text("${it.room.mode.label()} · ${it.room.questionCount} questions") }
+            room?.let { Text("${it.room.mode.label()} · ${it.room.questionCount} questions · ${it.room.status.label()}") }
         }
         state.fatalError?.let {
             ErrorText(it)
@@ -148,37 +63,31 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
         }
 
         val isHost = room.you.role == RoomRole.HOST
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (isHost) {
-                    Text("Room code", style = MaterialTheme.typography.labelLarge)
-                    Text(room.room.code, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
-                    Text("Players enter this code in Quiz Room. Who can join: ${room.room.admission.label()}")
+        when (room.room.status) {
+            RoomStatus.LOBBY -> LobbyContent(room, isHost, busy = state.busy, onStart = { viewModel.command(HostCommand.Start) })
+            RoomStatus.LIVE -> {
+                val live = room.live
+                if (live == null) {
+                    Text("This room is open. Self-paced rooms arrive in a later update.")
+                } else if (isHost) {
+                    HostLiveContent(live, state.busy, onCommand = viewModel::command)
                 } else {
-                    Text("You joined as ${room.you.displayName}", style = MaterialTheme.typography.titleMedium)
-                    Text("Waiting for ${room.room.hostName} to start.")
+                    PlayerLiveContent(
+                        live = live,
+                        pending = state.pending,
+                        onSubmit = { viewModel.submit(live.question.id, it) },
+                        onRetry = viewModel::retrySubmit,
+                    )
                 }
             }
-        }
-
-        Text("In this room (${room.participants.size})", style = MaterialTheme.typography.titleMedium)
-        room.participants.forEach { participant ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                val you = if (participant.id == room.you.id) " (you)" else ""
-                Text(participant.displayName + you)
-                Text(
-                    when {
-                        participant.role == RoomRole.HOST -> "Host"
-                        participant.isGuest -> "Guest"
-                        else -> "Account"
-                    },
-                    color = MaterialTheme.colorScheme.primary,
-                )
+            RoomStatus.ENDED -> {
+                val results = state.results
+                if (results == null) CircularProgressIndicator() else ResultsContent(results, isHost)
             }
-            HorizontalDivider()
         }
+        ErrorText(state.error)
 
-        if (!isHost) {
+        if (!isHost && room.room.status != RoomStatus.ENDED) {
             OutlinedButton(onClick = { confirmLeave = true }) { Text("Leave room") }
         }
     }
@@ -199,6 +108,46 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Stay") } },
         )
+    }
+}
+
+@Composable
+private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStart: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (isHost) {
+                Text("Room code", style = MaterialTheme.typography.labelLarge)
+                Text(room.room.code, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+                Text("Players enter this code in Quiz Room. Who can join: ${room.room.admission.label()}")
+            } else {
+                Text("You joined as ${room.you.displayName}", style = MaterialTheme.typography.titleMedium)
+                Text("Waiting for ${room.room.hostName} to start.")
+            }
+        }
+    }
+
+    if (isHost) {
+        val players = room.participants.count { it.role == RoomRole.PLAYER }
+        Button(onClick = onStart, enabled = !busy && players > 0, modifier = Modifier.fillMaxWidth()) {
+            Text(if (players > 0) "Start quiz" else "Waiting for Players")
+        }
+    }
+
+    Text("In this room (${room.participants.size})", style = MaterialTheme.typography.titleMedium)
+    room.participants.forEach { participant ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            val you = if (participant.id == room.you.id) " (you)" else ""
+            Text(participant.displayName + you)
+            Text(
+                when {
+                    participant.role == RoomRole.HOST -> "Host"
+                    participant.isGuest -> "Guest"
+                    else -> "Account"
+                },
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        HorizontalDivider()
     }
 }
 
