@@ -43,13 +43,18 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
     }
 
     fun dropAll() = connection.createStatement().use { statement ->
-        listOf("participants", "rooms", "sessions", "accounts").forEach {
+        listOf("submissions", "participants", "rooms", "sessions", "accounts").forEach {
             statement.executeUpdate("DROP TABLE IF EXISTS $it")
         }
     }
 
     fun createSchema() = connection.createStatement().use { statement ->
         SCHEMA.forEach(statement::executeUpdate)
+        statement.executeUpdate("PRAGMA user_version = $SCHEMA_VERSION")
+    }
+
+    private fun schemaVersion(): Int = connection.createStatement().use { statement ->
+        statement.executeQuery("PRAGMA user_version").use { if (it.next()) it.getInt(1) else 0 }
     }
 
     override fun close() = connection.close()
@@ -59,8 +64,14 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
             path.toAbsolutePath().parent?.let(Files::createDirectories)
             val connection = DriverManager.getConnection("jdbc:sqlite:$path")
             connection.createStatement().use { it.execute("PRAGMA foreign_keys = ON") }
-            return DemoDatabase(connection).also { it.createSchema() }
+            return DemoDatabase(connection).also { db ->
+                // Demo data is disposable. An older layout is replaced, and startup seeds it again.
+                if (db.schemaVersion() != SCHEMA_VERSION) db.dropAll()
+                db.createSchema()
+            }
         }
+
+        const val SCHEMA_VERSION = 2
 
         private val SCHEMA = listOf(
             """
@@ -91,7 +102,10 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
                 stack_json TEXT NOT NULL,
                 created_at INTEGER NOT NULL,
                 deadline_at INTEGER,
-                revision INTEGER NOT NULL
+                revision INTEGER NOT NULL,
+                reveal_policy TEXT NOT NULL,
+                question_index INTEGER,
+                question_open INTEGER NOT NULL
             )
             """,
             """
@@ -106,6 +120,22 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
             )
             """,
             "CREATE INDEX IF NOT EXISTS participants_by_room ON participants(room_id)",
+            """
+            CREATE TABLE IF NOT EXISTS submissions (
+                id TEXT PRIMARY KEY,
+                room_id TEXT NOT NULL REFERENCES rooms(id),
+                participant_id TEXT NOT NULL REFERENCES participants(id),
+                question_id TEXT NOT NULL,
+                answer_json TEXT NOT NULL,
+                correct INTEGER NOT NULL,
+                points INTEGER NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                accepted_at INTEGER NOT NULL,
+                UNIQUE (participant_id, question_id),
+                UNIQUE (participant_id, idempotency_key)
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS submissions_by_room ON submissions(room_id)",
         ).map { it.trimIndent() }
     }
 }

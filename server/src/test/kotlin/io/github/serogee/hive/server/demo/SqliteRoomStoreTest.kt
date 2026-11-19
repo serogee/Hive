@@ -2,9 +2,15 @@ package io.github.serogee.hive.server.demo
 
 import io.github.serogee.hive.core.api.Account
 import io.github.serogee.hive.core.api.CreateRoomRequest
+import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
+import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.core.model.Answer
+import io.github.serogee.hive.core.model.ChoiceId
+import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.core.model.RoomMode
+import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.sample.SampleStacks
 import io.github.serogee.hive.host.RoomService
 import java.nio.file.Files
@@ -35,6 +41,13 @@ class SqliteRoomStoreTest {
             val room = service.createRoom(host, CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.DISCUSSION)).room
             val guest = service.join(room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
             service.join(room.id, null, JoinRoomRequest("Jamie", asGuest = true), guest.participantToken)
+            service.command(room.id, host, null, HostCommand.Start)
+            service.submitAnswer(
+                room.id,
+                null,
+                guest.participantToken,
+                SubmitAnswerRequest(QuestionId("nf-q1"), Answer.SelectedChoice(ChoiceId("nf-q1-c3")), "k1"),
+            )
             room.id
         }
 
@@ -42,7 +55,10 @@ class SqliteRoomStoreTest {
             val state = RoomService(SqliteRoomStore(db), requireAccountToHost = true).state(roomId, host, null)
 
             assertEquals(listOf("Host", "Jamie"), state.participants.map { it.displayName })
-            assertEquals(2, state.revision)
+            assertEquals(4, state.revision)
+            assertEquals(RoomStatus.LIVE, state.room.status)
+            assertEquals(1, state.live?.answeredCount)
+            assertEquals(true, state.live?.isOpen)
             assertEquals(SampleStacks.networkingFundamentals.questions.size, state.room.questionCount)
         }
     }

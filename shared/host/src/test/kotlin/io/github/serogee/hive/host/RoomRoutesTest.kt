@@ -1,17 +1,24 @@
 package io.github.serogee.hive.host
 
 import io.github.serogee.hive.core.api.Account
+import io.github.serogee.hive.core.api.AnswerReceipt
 import io.github.serogee.hive.core.api.ApiError
 import io.github.serogee.hive.core.api.ApiPaths
 import io.github.serogee.hive.core.api.CreateRoomRequest
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HiveJson
+import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.Membership
+import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.RoomEvent
+import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.api.RoomSummary
+import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.core.model.Answer
+import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.sample.SampleStacks
 import io.ktor.client.HttpClient
@@ -36,6 +43,7 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class RoomRoutesTest {
     private val alex = Account(AccountId("account-alex"), "Alex Rivera")
@@ -93,6 +101,49 @@ class RoomRoutesTest {
         assertEquals(ErrorCode.ROOM_NOT_FOUND, missing.body<ApiError>().code)
         assertEquals(ErrorCode.SIGN_IN_REQUIRED, signedOut.body<ApiError>().code)
         assertEquals(ErrorCode.SESSION_EXPIRED, expired.body<ApiError>().code)
+    }
+
+    @Test
+    fun hostRunsAQuestionAndGuestAnswersOverHttp() = testApplication {
+        val client = hiveClient()
+        val host: Membership = client.post(ApiPaths.ROOMS) {
+            bearerAuth("alex-token")
+            contentType(ContentType.Application.Json)
+            setBody(CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.DISCUSSION))
+        }.body()
+        val roomId = host.room.id.value
+        val guest: Membership = client.post(ApiPaths.participants(roomId)) {
+            contentType(ContentType.Application.Json)
+            setBody(JoinRoomRequest("Jamie", asGuest = true))
+        }.body()
+
+        val started: RoomState = client.post(ApiPaths.commands(roomId)) {
+            bearerAuth("alex-token")
+            contentType(ContentType.Application.Json)
+            setBody<HostCommand>(HostCommand.Start)
+        }.body()
+        val question = started.live!!.question
+        val submit = SubmitAnswerRequest(question.id, Answer.SelectedChoice(ChoiceId("nf-q1-c3")), "key-1")
+        val receipts = List(2) {
+            client.post(ApiPaths.answers(roomId)) {
+                header(ApiPaths.PARTICIPANT_TOKEN_HEADER, guest.participantToken)
+                contentType(ContentType.Application.Json)
+                setBody(submit)
+            }.body<AnswerReceipt>()
+        }
+        client.post(ApiPaths.commands(roomId)) {
+            bearerAuth("alex-token")
+            contentType(ContentType.Application.Json)
+            setBody<HostCommand>(HostCommand.EndRoom)
+        }
+        val results: RoomResults = client.get(ApiPaths.results(roomId)) {
+            header(ApiPaths.PARTICIPANT_TOKEN_HEADER, guest.participantToken)
+        }.body()
+
+        assertTrue(question is PlayerQuestion.MultipleChoice)
+        assertEquals(receipts[0], receipts[1])
+        assertEquals(2, results.leaderboard.single().score)
+        assertEquals(1, results.questions.first().answeredCount)
     }
 
     @Test

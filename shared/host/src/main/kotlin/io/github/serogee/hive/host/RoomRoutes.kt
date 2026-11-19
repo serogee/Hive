@@ -3,8 +3,10 @@ package io.github.serogee.hive.host
 import io.github.serogee.hive.core.api.CreateRoomRequest
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HiveJson
+import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.RoomEvent
+import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.RoomId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
@@ -50,6 +52,23 @@ fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier) {
             get("/state") {
                 val roomId = RoomId(call.parameters["id"].orEmpty())
                 call.respond(service.state(roomId, call.account(accounts), call.participantToken()))
+            }
+
+            post("/commands") {
+                val roomId = RoomId(call.parameters["id"].orEmpty())
+                val command = call.receive<HostCommand>()
+                call.respond(service.command(roomId, call.account(accounts), call.participantToken(), command))
+            }
+
+            post("/answers") {
+                val roomId = RoomId(call.parameters["id"].orEmpty())
+                val request = call.receive<SubmitAnswerRequest>()
+                call.respond(service.submitAnswer(roomId, call.account(accounts), call.participantToken(), request))
+            }
+
+            get("/results") {
+                val roomId = RoomId(call.parameters["id"].orEmpty())
+                call.respond(service.results(roomId, call.account(accounts), call.participantToken()))
             }
 
             webSocket("/events") {

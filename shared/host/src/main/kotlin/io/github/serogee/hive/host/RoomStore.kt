@@ -1,15 +1,21 @@
 package io.github.serogee.hive.host
 
+import io.github.serogee.hive.core.api.AnswerReceipt
 import io.github.serogee.hive.core.api.ParticipantView
 import io.github.serogee.hive.core.api.RoomSummary
+import io.github.serogee.hive.core.engine.Progress
 import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.ParticipantId
+import io.github.serogee.hive.core.model.QuestionId
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.model.StackSnapshot
+import io.github.serogee.hive.core.model.SubmissionId
 
 data class RoomRecord(
     val id: RoomId,
@@ -24,7 +30,20 @@ data class RoomRecord(
     val createdAt: Long,
     val deadlineAt: Long?,
     val revision: Long,
+    val revealPolicy: RevealPolicy = RevealPolicy.AT_END,
+    /** Index of the current question, or null before the first one. */
+    val questionIndex: Int? = null,
+    val questionOpen: Boolean = false,
 ) {
+    val progress: Progress get() = Progress(status, questionIndex, questionOpen)
+
+    fun with(progress: Progress, revision: Long) = copy(
+        status = progress.status,
+        questionIndex = progress.questionIndex,
+        questionOpen = progress.questionOpen,
+        revision = revision,
+    )
+
     fun summary() = RoomSummary(
         id = id,
         code = code,
@@ -35,6 +54,7 @@ data class RoomRecord(
         status = status,
         questionCount = stack.questions.size,
         deadlineAt = deadlineAt,
+        revealPolicy = revealPolicy,
     )
 }
 
@@ -50,6 +70,21 @@ data class ParticipantRecord(
     val joinedAt: Long,
 ) {
     fun view() = ParticipantView(id, displayName, role, isGuest = accountId == null)
+}
+
+/** One accepted answer. A participant has at most one per question. */
+data class SubmissionRecord(
+    val id: SubmissionId,
+    val roomId: RoomId,
+    val participantId: ParticipantId,
+    val questionId: QuestionId,
+    val answer: Answer,
+    val correct: Boolean,
+    val points: Int,
+    val idempotencyKey: String,
+    val acceptedAt: Long,
+) {
+    fun receipt() = AnswerReceipt(id, questionId, answer, acceptedAt)
 }
 
 /**
@@ -68,6 +103,9 @@ interface RoomStore {
 
     suspend fun roomsHostedBy(accountId: AccountId): List<RoomRecord>
 
+    /** Stores the room's new progress and revision. */
+    suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long)
+
     /** Adds [participant] and stores [revision] as the room's new revision. */
     suspend fun insertParticipant(participant: ParticipantRecord, revision: Long)
 
@@ -80,4 +118,14 @@ interface RoomStore {
 
     /** Returns participants in join order. */
     suspend fun participants(roomId: RoomId): List<ParticipantRecord>
+
+    /** Saves an accepted answer and stores [revision] as the room's new revision. */
+    suspend fun insertSubmission(submission: SubmissionRecord, revision: Long)
+
+    suspend fun findSubmissionByKey(roomId: RoomId, participantId: ParticipantId, idempotencyKey: String): SubmissionRecord?
+
+    suspend fun findSubmission(roomId: RoomId, participantId: ParticipantId, questionId: QuestionId): SubmissionRecord?
+
+    /** Returns accepted answers in the order they arrived. */
+    suspend fun submissions(roomId: RoomId): List<SubmissionRecord>
 }
