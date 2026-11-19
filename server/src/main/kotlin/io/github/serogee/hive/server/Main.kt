@@ -1,8 +1,9 @@
 package io.github.serogee.hive.server
 
-import io.github.serogee.hive.host.AccountVerifier
+import io.github.serogee.hive.server.demo.DemoAccounts
 import io.github.serogee.hive.server.demo.DemoDatabase
 import io.github.serogee.hive.server.demo.SqliteRoomStore
+import io.github.serogee.hive.server.demo.demoAuthRoutes
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import java.net.Inet4Address
@@ -15,7 +16,8 @@ fun main(args: Array<String>) {
     }
 
     val db = DemoDatabase.open(config.demoDatabase)
-    val backend = Backend(SqliteRoomStore(db), AccountVerifier.None)
+    val accounts = DemoAccounts(db)
+    val backend = Backend(SqliteRoomStore(db), accounts) { demoAuthRoutes(accounts) }
 
     printAddresses(config.port)
     embeddedServer(CIO, host = config.host, port = config.port) {

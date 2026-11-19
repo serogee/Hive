@@ -34,6 +34,7 @@ fun Application.hiveModule(backend: Backend) {
     routing {
         route("/v1") {
             healthRoutes()
+            accountRoutes(backend.accounts)
             roomRoutes(roomService, backend.accounts)
             backend.extraRoutes(this)
         }
