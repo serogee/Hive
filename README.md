@@ -44,7 +44,7 @@ Build and install the debug app on a connected phone:
 
 ## Two-phone demo
 
-The demo server stores its data in `server/data/hive-demo.db`. It has two fictional accounts, `alex` and `sam`, both with the password `hive-demo`. The seeded rooms use the codes `NETDSC` (Discussion lobby hosted by Alex), `NETASY` (Asynchronous room hosted by Sam), and `NETEND` (ended room).
+The demo server stores its data in `server/data/hive-demo.db`. It has two fictional accounts, `alex` and `sam`, both with the password `hive-demo`. The seeded rooms use the codes `NETDSC` (Discussion lobby hosted by Alex), `NETASY` (Asynchronous room hosted by Sam), and `NETEND` (ended room whose results include a tie). When a server update changes the database layout, the next start replaces the demo data.
 
 1. Connect the laptop and both phones to the same Wi-Fi network.
 2. Start the demo server. It prints the addresses that phones can use, such as `http://192.168.1.20:8080`. Allow Java through Windows Firewall when asked.
@@ -52,3 +52,6 @@ The demo server stores its data in `server/data/hive-demo.db`. It has two fictio
 4. On the Host phone, sign in as `alex`, open Quiz Room, and tap the Discussion room under Rooms you host.
 5. On the Player phone, stay signed out, enter `NETDSC` under Join a quiz, and join as a guest.
 6. Both lobbies now list Alex Rivera as Host and the guest's name below.
+7. On the Host phone, tap Start quiz. The Player phone shows the first question.
+8. On the Player phone, choose an answer and tap Submit answer. It shows Answer received after the server saves it, and the Host phone counts the answer.
+9. On the Host phone, close the question, then tap Next question or end the quiz. After the quiz ends, both phones show the results.
