@@ -1,1 +1,16 @@
 .local/
+
+# Gradle
+.gradle/
+.kotlin/
+build/
+local.properties
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Demo server data
+server/data/
