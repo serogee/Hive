@@ -119,6 +119,12 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
                 Text("Room code", style = MaterialTheme.typography.labelLarge)
                 Text(room.room.code, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
                 Text("Players enter this code in Quiz Room. Who can join: ${room.room.admission.label()}")
+                if (!room.room.acceptsAccounts) {
+                    val addresses = LocalAppContainer.current.rooms.playerAddresses()
+                    Text("Players on this phone's Wi-Fi or hotspot also enter this address:")
+                    if (addresses.isEmpty()) Text("Connect to Wi-Fi or turn on the hotspot to get an address.")
+                    addresses.forEach { Text(it.removePrefix("http://"), style = MaterialTheme.typography.titleLarge) }
+                }
             } else {
                 Text("You joined as ${room.you.displayName}", style = MaterialTheme.typography.titleMedium)
                 Text("Waiting for ${room.room.hostName} to start.")

@@ -16,18 +16,34 @@ import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.AppPreferences
 import io.github.serogee.hive.data.SavedMembership
+import io.github.serogee.hive.data.local.LocalRoomStore
 import io.github.serogee.hive.data.remote.HiveApi
+import io.github.serogee.hive.localhost.LocalHost
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
+/**
+ * Rooms on any server: the configured online server, a room hosted on this phone, or a room on
+ * another Host's phone. Screens pass room IDs and never choose a server themselves.
+ */
 class RoomRepository(
     private val api: HiveApi,
     private val preferences: AppPreferences,
+    private val localHost: LocalHost,
+    private val localRooms: LocalRoomStore,
 ) {
     val joinedRoom: Flow<SavedMembership?> = preferences.joinedRoom
     val preferredName: Flow<String?> = preferences.preferredName
 
-    suspend fun lookup(code: String): RoomSummary = api.lookupRoom(code)
+    /** Rooms hosted on this phone, newest first. */
+    val localHostedRooms: Flow<List<RoomSummary>> = localRooms.rooms.map { rooms ->
+        rooms.map { it.summary().copy(acceptsAccounts = false) }
+    }
+    val localHostRunning = localHost.running
+
+    /** Looks up a code on the configured server, or on a Host phone at [hostAddress]. */
+    suspend fun lookup(code: String, hostAddress: String? = null): RoomSummary = api.lookupRoom(code, hostAddress)
 
     suspend fun hostedRooms(): List<RoomSummary> = api.hostedRooms()
 
@@ -35,15 +51,34 @@ class RoomRepository(
     suspend fun createRoom(stack: StackSnapshot, mode: RoomMode, admission: AdmissionPolicy): Membership =
         api.createRoom(CreateRoomRequest(stack, mode, admission))
 
+    /** Hosts a room on this phone. It works without an account, internet, or remote backend. */
+    suspend fun createLocalRoom(stack: StackSnapshot, mode: RoomMode, admission: AdmissionPolicy, hostName: String): Membership {
+        localHost.start()
+        val membership = api.createRoom(CreateRoomRequest(stack, mode, admission, hostDisplayName = hostName), localHost.selfUrl)
+        preferences.addHostToken(membership.room.id, membership.participantToken)
+        preferences.setPreferredName(hostName)
+        return membership
+    }
+
+    /** Restarts the embedded server after the app restarts, while a hosted room is still open. */
+    suspend fun resumeLocalHosting(): Boolean {
+        if (!localRooms.hasActiveRooms()) return false
+        localHost.start()
+        return true
+    }
+
+    suspend fun stopLocalHosting() = localHost.stop()
+
+    fun playerAddresses(): List<String> = localHost.playerAddresses()
+
     /**
      * Joins as a Player and remembers the membership. Joining the same room again sends the saved
      * credential, so a retry never creates a second participant.
      */
-    suspend fun join(room: RoomSummary, displayName: String?, asGuest: Boolean): Membership {
-        val serverUrl = preferences.currentServerUrl()
-        val saved = preferences.joinedRoom.first()
-            ?.takeIf { it.roomId == room.id && it.serverUrl == serverUrl }
-        val membership = api.join(room.id, JoinRoomRequest(displayName, asGuest), saved?.participantToken)
+    suspend fun join(room: RoomSummary, displayName: String?, asGuest: Boolean, hostAddress: String? = null): Membership {
+        val serverUrl = hostAddress ?: preferences.currentServerUrl()
+        val saved = preferences.joinedRoom.first()?.takeIf { it.roomId == room.id && it.serverUrl == serverUrl }
+        val membership = api.join(room.id, JoinRoomRequest(displayName, asGuest), saved?.participantToken, hostAddress)
         preferences.setJoinedRoom(
             SavedMembership(
                 serverUrl = serverUrl,
@@ -59,19 +94,26 @@ class RoomRepository(
 
     suspend fun leaveJoinedRoom() = preferences.setJoinedRoom(null)
 
-    /** The saved credential for [roomId], or null when this device joined it with an account. */
-    suspend fun participantToken(roomId: RoomId): String? =
-        preferences.joinedRoom.first()?.takeIf { it.roomId == roomId }?.participantToken
+    /** The server and credential to use for [roomId]. A null server means the configured one. */
+    private suspend fun access(roomId: RoomId): Pair<String?, String?> {
+        preferences.hostTokens.first()[roomId.value]?.let { return localHost.selfUrl to it }
+        val joined = preferences.joinedRoom.first()?.takeIf { it.roomId == roomId } ?: return null to null
+        val server = joined.serverUrl.takeUnless { it == preferences.currentServerUrl() }
+        return server to joined.participantToken
+    }
 
-    suspend fun state(roomId: RoomId, participantToken: String?): RoomState = api.roomState(roomId, participantToken)
+    suspend fun state(roomId: RoomId): RoomState =
+        access(roomId).let { (server, token) -> api.roomState(roomId, token, server) }
 
-    fun events(roomId: RoomId, participantToken: String?): Flow<RoomEvent> = api.roomEvents(roomId, participantToken)
+    suspend fun events(roomId: RoomId): Flow<RoomEvent> =
+        access(roomId).let { (server, token) -> api.roomEvents(roomId, token, server) }
 
-    suspend fun command(roomId: RoomId, command: HostCommand, participantToken: String?): RoomState =
-        api.command(roomId, command, participantToken)
+    suspend fun command(roomId: RoomId, command: HostCommand): RoomState =
+        access(roomId).let { (server, token) -> api.command(roomId, command, token, server) }
 
-    suspend fun submitAnswer(roomId: RoomId, request: SubmitAnswerRequest, participantToken: String?): AnswerReceipt =
-        api.submitAnswer(roomId, request, participantToken)
+    suspend fun submitAnswer(roomId: RoomId, request: SubmitAnswerRequest): AnswerReceipt =
+        access(roomId).let { (server, token) -> api.submitAnswer(roomId, request, token, server) }
 
-    suspend fun results(roomId: RoomId, participantToken: String?): RoomResults = api.results(roomId, participantToken)
+    suspend fun results(roomId: RoomId): RoomResults =
+        access(roomId).let { (server, token) -> api.results(roomId, token, server) }
 }

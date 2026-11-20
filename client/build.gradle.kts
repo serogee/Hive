@@ -36,7 +36,12 @@ android {
 
     packaging {
         resources {
-            excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/INDEX.LIST", "/META-INF/io.netty.versions.properties")
+            excludes += setOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/INDEX.LIST",
+                "/META-INF/io.netty.versions.properties",
+                "/META-INF/DEPENDENCIES",
+            )
         }
     }
 }
@@ -46,7 +51,8 @@ room {
 }
 
 dependencies {
-    implementation(project(":shared:core"))
+    implementation(project(":shared:host"))
+    implementation(libs.ktor.server.cio)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -71,4 +77,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(kotlin("test-junit"))
+    testImplementation(libs.kotlinx.coroutines.test)
 }

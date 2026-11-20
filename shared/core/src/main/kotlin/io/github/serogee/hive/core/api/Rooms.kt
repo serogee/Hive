@@ -36,6 +36,8 @@ data class RoomSummary(
     val questionCount: Int,
     val deadlineAt: Long? = null,
     val revealPolicy: RevealPolicy = RevealPolicy.AT_END,
+    /** False when the room server cannot verify accounts, such as a room hosted on a phone. */
+    val acceptsAccounts: Boolean = true,
 )
 
 @Serializable

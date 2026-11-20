@@ -54,6 +54,8 @@ data class SessionEntryUiState(
 
 class SessionEntryViewModel(
     private val code: String,
+    /** The Host phone's address, or null for the configured server. */
+    private val hostAddress: String?,
     private val rooms: RoomRepository,
     auth: AuthRepository,
 ) : ViewModel() {
@@ -70,7 +72,7 @@ class SessionEntryViewModel(
     fun load() = viewModelScope.launch {
         _state.update { it.copy(loading = true, error = null) }
         try {
-            val room = rooms.lookup(code)
+            val room = rooms.lookup(code, hostAddress)
             _state.update { it.copy(room = room, loading = false) }
         } catch (e: Exception) {
             _state.update { it.copy(loading = false, error = e.userMessage()) }
@@ -82,7 +84,7 @@ class SessionEntryViewModel(
         viewModelScope.launch {
             _state.update { it.copy(joining = true, error = null) }
             try {
-                val membership = rooms.join(room, displayName, asGuest)
+                val membership = rooms.join(room, displayName, asGuest, hostAddress)
                 _state.update { it.copy(joining = false, joined = membership) }
             } catch (e: Exception) {
                 _state.update { it.copy(joining = false, error = e.userMessage()) }
@@ -92,9 +94,11 @@ class SessionEntryViewModel(
 }
 
 @Composable
-fun SessionEntryScreen(code: String, onJoined: (Membership) -> Unit, onSignIn: () -> Unit) {
+fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership) -> Unit, onSignIn: () -> Unit) {
     val container = LocalAppContainer.current
-    val viewModel = viewModel(key = code) { SessionEntryViewModel(code, container.rooms, container.auth) }
+    val viewModel = viewModel(key = "$code@$hostAddress") {
+        SessionEntryViewModel(code, hostAddress, container.rooms, container.auth)
+    }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
     val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
@@ -118,7 +122,8 @@ fun SessionEntryScreen(code: String, onJoined: (Membership) -> Unit, onSignIn: (
                 }
 
                 val guestsAllowed = room.admission != AdmissionPolicy.SIGNED_IN_ONLY
-                val accountsAllowed = room.admission != AdmissionPolicy.GUESTS_ONLY
+                val accountsAllowed = room.admission != AdmissionPolicy.GUESTS_ONLY && room.acceptsAccounts
+                if (!room.acceptsAccounts) Text("This room is hosted on a phone, so everyone joins as a guest.")
                 if (guestsAllowed) {
                     OutlinedTextField(
                         value = name ?: preferredName.orEmpty(),

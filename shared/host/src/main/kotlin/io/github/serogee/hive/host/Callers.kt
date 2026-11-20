@@ -9,9 +9,11 @@ import io.ktor.server.application.ApplicationCall
 /**
  * Returns the signed-in account, or null when the request has no bearer token.
  *
- * An unknown or expired token fails, so that the client can sign the user out.
+ * An unknown or expired token fails, so that the client can sign the user out. A null [verifier]
+ * means that this server has no accounts, so it ignores bearer tokens.
  */
-suspend fun ApplicationCall.account(verifier: AccountVerifier): Account? {
+suspend fun ApplicationCall.account(verifier: AccountVerifier?): Account? {
+    if (verifier == null) return null
     val header = request.headers[HttpHeaders.Authorization] ?: return null
     val token = header.removePrefix("Bearer ").trim().takeIf { header.startsWith("Bearer ") && it.isNotEmpty() }
         ?: throw HiveException(ErrorCode.SESSION_EXPIRED, "Sign in again.")

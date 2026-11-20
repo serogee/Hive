@@ -147,6 +147,31 @@ class RoomRoutesTest {
     }
 
     @Test
+    fun aServerWithoutAccountsIgnoresBearerTokensAndAdmitsGuests() = testApplication {
+        val service = RoomService(InMemoryRoomStore(), requireAccountToHost = false, accountsSupported = false)
+        application {
+            installHiveApi()
+            routing { route("/v1") { roomRoutes(service, accounts = null) } }
+        }
+        val client = createClient { install(ContentNegotiation) { json(HiveJson) } }
+
+        val host: Membership = client.post(ApiPaths.ROOMS) {
+            bearerAuth("token-from-another-server")
+            contentType(ContentType.Application.Json)
+            setBody(CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.DISCUSSION, hostDisplayName = "Ms. Reyes"))
+        }.body()
+        val guest = client.post(ApiPaths.participants(host.room.id.value)) {
+            bearerAuth("token-from-another-server")
+            contentType(ContentType.Application.Json)
+            setBody(JoinRoomRequest("Jamie", asGuest = true))
+        }
+
+        assertEquals(false, host.room.acceptsAccounts)
+        assertEquals("Ms. Reyes", host.participant.displayName)
+        assertEquals(HttpStatusCode.OK, guest.status)
+    }
+
+    @Test
     fun hostReceivesJoinEvents() = testApplication {
         val client = hiveClient()
         val host: Membership = client.post(ApiPaths.ROOMS) {

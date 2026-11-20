@@ -22,8 +22,11 @@ import io.ktor.websocket.close
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 
-/** Room endpoints. Mount inside `route("/v1")`. */
-fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier) {
+/**
+ * Room endpoints. Mount inside `route("/v1")`. Pass null [accounts] on a server without accounts,
+ * such as the embedded host on a phone.
+ */
+fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier?) {
     route("/rooms") {
         post {
             val caller = call.account(accounts)
