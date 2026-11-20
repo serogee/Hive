@@ -30,6 +30,7 @@ import io.github.serogee.hive.ui.rooms.HostSetupScreen
 import io.github.serogee.hive.ui.rooms.LobbyScreen
 import io.github.serogee.hive.ui.rooms.QuizRoomScreen
 import io.github.serogee.hive.ui.rooms.SessionEntryScreen
+import io.github.serogee.hive.ui.stacks.ImportScreen
 import io.github.serogee.hive.ui.stacks.MyStacksScreen
 import io.github.serogee.hive.ui.stacks.StackDetailsScreen
 import io.github.serogee.hive.ui.stacks.StackEditorScreen
@@ -64,6 +65,10 @@ object HostPickerRoute
 
 @Serializable
 data class StackDetailsRoute(val stackId: String)
+
+/** [hostAfter] continues to Host Setup when the import started from the host picker. */
+@Serializable
+data class ImportRoute(val hostAfter: Boolean = false)
 
 /** [hostAfter] continues to Host Setup when the stack was created from the host picker. */
 @Serializable
@@ -122,6 +127,7 @@ fun HiveApp() {
                     purpose = StackListPurpose.BROWSE,
                     onOpen = { navController.navigate(StackDetailsRoute(it.value)) },
                     onCreated = { navController.navigate(StackEditorRoute(it.value)) },
+                    onImport = { navController.navigate(ImportRoute()) },
                     onHost = { navController.navigate(HostSetupRoute(it.value)) },
                 )
             }
@@ -134,7 +140,17 @@ fun HiveApp() {
                             popUpTo<HostPickerRoute> { inclusive = true }
                         }
                     },
+                    onImport = {
+                        navController.navigate(ImportRoute(hostAfter = true)) { popUpTo<HostPickerRoute> { inclusive = true } }
+                    },
                 )
+            }
+            composable<ImportRoute> { entry ->
+                val route = entry.toRoute<ImportRoute>()
+                ImportScreen(onSaved = { stackId ->
+                    val next: Any = if (route.hostAfter) HostSetupRoute(stackId.value) else StackDetailsRoute(stackId.value)
+                    navController.navigate(next) { popUpTo<ImportRoute> { inclusive = true } }
+                })
             }
             composable<StackDetailsRoute> { entry ->
                 val stackId = StackId(entry.toRoute<StackDetailsRoute>().stackId)
