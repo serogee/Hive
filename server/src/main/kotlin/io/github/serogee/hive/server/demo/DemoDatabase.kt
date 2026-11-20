@@ -71,7 +71,7 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
             }
         }
 
-        const val SCHEMA_VERSION = 2
+        const val SCHEMA_VERSION = 3
 
         private val SCHEMA = listOf(
             """
@@ -105,7 +105,10 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
                 revision INTEGER NOT NULL,
                 reveal_policy TEXT NOT NULL,
                 question_index INTEGER,
-                question_open INTEGER NOT NULL
+                question_open INTEGER NOT NULL,
+                question_opened_at INTEGER,
+                speed_scoring INTEGER NOT NULL,
+                time_tiebreak INTEGER NOT NULL
             )
             """,
             """
@@ -131,6 +134,8 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
                 points INTEGER NOT NULL,
                 idempotency_key TEXT NOT NULL,
                 accepted_at INTEGER NOT NULL,
+                response_millis INTEGER,
+                speed_bonus_tenths INTEGER NOT NULL,
                 UNIQUE (participant_id, question_id),
                 UNIQUE (participant_id, idempotency_key)
             )

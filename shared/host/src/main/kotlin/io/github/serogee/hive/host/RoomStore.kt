@@ -4,6 +4,7 @@ import io.github.serogee.hive.core.api.AnswerReceipt
 import io.github.serogee.hive.core.api.ParticipantView
 import io.github.serogee.hive.core.api.RoomSummary
 import io.github.serogee.hive.core.engine.Progress
+import io.github.serogee.hive.core.engine.Timing
 import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.Answer
@@ -34,13 +35,18 @@ data class RoomRecord(
     /** Index of the current question, or null before the first one. */
     val questionIndex: Int? = null,
     val questionOpen: Boolean = false,
+    /** When the room server opened the current question. */
+    val questionOpenedAt: Long? = null,
+    val speedScoring: Boolean = false,
+    val timeTiebreak: Boolean = false,
 ) {
-    val progress: Progress get() = Progress(status, questionIndex, questionOpen)
+    val progress: Progress get() = Progress(status, questionIndex, questionOpen, questionOpenedAt)
 
     fun with(progress: Progress, revision: Long) = copy(
         status = progress.status,
         questionIndex = progress.questionIndex,
         questionOpen = progress.questionOpen,
+        questionOpenedAt = progress.openedAt,
         revision = revision,
     )
 
@@ -55,7 +61,15 @@ data class RoomRecord(
         questionCount = stack.questions.size,
         deadlineAt = deadlineAt,
         revealPolicy = revealPolicy,
+        speedScoring = speedScoring,
+        timeTiebreak = timeTiebreak,
     )
+
+    /** When answers to the current question stop, from its time limit and the quiz deadline. */
+    fun cutoff(): Long? = Timing.cutoff(questionOpenedAt, questionIndex?.let { stack.questions[it].durationSeconds }, deadlineAt)
+
+    /** Whether the current question accepts answers at [now]. An expired timer closes it. */
+    fun acceptsAnswers(now: Long): Boolean = status == RoomStatus.LIVE && questionOpen && Timing.isBefore(now, cutoff())
 }
 
 data class ParticipantRecord(
@@ -83,6 +97,9 @@ data class SubmissionRecord(
     val points: Int,
     val idempotencyKey: String,
     val acceptedAt: Long,
+    /** Time from the question opening to the answer arriving, when the opening time is known. */
+    val responseMillis: Long? = null,
+    val speedBonusTenths: Int = 0,
 ) {
     fun receipt() = AnswerReceipt(id, questionId, answer, acceptedAt)
 }

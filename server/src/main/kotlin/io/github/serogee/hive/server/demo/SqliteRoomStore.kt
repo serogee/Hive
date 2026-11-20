@@ -43,13 +43,14 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
 
     override suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long) = db.write { connection ->
         connection.prepareStatement(
-            "UPDATE rooms SET status = ?, question_index = ?, question_open = ?, revision = ? WHERE id = ?",
+            "UPDATE rooms SET status = ?, question_index = ?, question_open = ?, question_opened_at = ?, revision = ? WHERE id = ?",
         ).use {
             it.setString(1, progress.status.name)
             if (progress.questionIndex != null) it.setInt(2, progress.questionIndex!!) else it.setNull(2, Types.INTEGER)
             it.setInt(3, if (progress.questionOpen) 1 else 0)
-            it.setLong(4, revision)
-            it.setString(5, roomId.value)
+            if (progress.openedAt != null) it.setLong(4, progress.openedAt!!) else it.setNull(4, Types.INTEGER)
+            it.setLong(5, revision)
+            it.setString(6, roomId.value)
             it.executeUpdate()
         }
         Unit
@@ -126,8 +127,9 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
             connection.prepareStatement(
                 """
                 INSERT INTO rooms (id, code, title, host_name, host_account_id, mode, admission, status,
-                    stack_json, created_at, deadline_at, revision, reveal_policy, question_index, question_open)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    stack_json, created_at, deadline_at, revision, reveal_policy, question_index, question_open,
+                    question_opened_at, speed_scoring, time_tiebreak)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
             ).use {
                 it.setString(1, room.id.value)
@@ -145,6 +147,9 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
                 it.setString(13, room.revealPolicy.name)
                 if (room.questionIndex != null) it.setInt(14, room.questionIndex!!) else it.setNull(14, Types.INTEGER)
                 it.setInt(15, if (room.questionOpen) 1 else 0)
+                if (room.questionOpenedAt != null) it.setLong(16, room.questionOpenedAt!!) else it.setNull(16, Types.INTEGER)
+                it.setInt(17, if (room.speedScoring) 1 else 0)
+                it.setInt(18, if (room.timeTiebreak) 1 else 0)
                 it.executeUpdate()
             }
         }
@@ -171,8 +176,8 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
             connection.prepareStatement(
                 """
                 INSERT INTO submissions (id, room_id, participant_id, question_id, answer_json, correct, points,
-                    idempotency_key, accepted_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    idempotency_key, accepted_at, response_millis, speed_bonus_tenths)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
             ).use {
                 it.setString(1, submission.id.value)
@@ -184,6 +189,8 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
                 it.setInt(7, submission.points)
                 it.setString(8, submission.idempotencyKey)
                 it.setLong(9, submission.acceptedAt)
+                if (submission.responseMillis != null) it.setLong(10, submission.responseMillis!!) else it.setNull(10, Types.INTEGER)
+                it.setInt(11, submission.speedBonusTenths)
                 it.executeUpdate()
             }
         }
@@ -208,6 +215,8 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
             points = getInt("points"),
             idempotencyKey = getString("idempotency_key"),
             acceptedAt = getLong("accepted_at"),
+            responseMillis = getLong("response_millis").takeUnless { wasNull() },
+            speedBonusTenths = getInt("speed_bonus_tenths"),
         )
 
         private fun Connection.queryRooms(sql: String, vararg args: String) = query(sql, args) { it.toRoom() }
@@ -238,6 +247,9 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
             revealPolicy = RevealPolicy.valueOf(getString("reveal_policy")),
             questionIndex = getInt("question_index").takeUnless { wasNull() },
             questionOpen = getInt("question_open") == 1,
+            questionOpenedAt = getLong("question_opened_at").takeUnless { wasNull() },
+            speedScoring = getInt("speed_scoring") == 1,
+            timeTiebreak = getInt("time_tiebreak") == 1,
         )
 
         private fun ResultSet.toParticipant() = ParticipantRecord(
