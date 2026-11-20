@@ -86,8 +86,10 @@ data class ParticipantRecord(
     /** SHA-256 of the reconnect credential. The credential itself is never stored. */
     val tokenHash: String,
     val joinedAt: Long,
+    /** When the Player left the room, or null while they are in it. */
+    val leftAt: Long? = null,
 ) {
-    fun view() = ParticipantView(id, displayName, role, isGuest = accountId == null)
+    fun view() = ParticipantView(id, displayName, role, isGuest = accountId == null, left = leftAt != null)
 }
 
 /** One accepted answer. A participant has at most one per question. */
@@ -164,6 +166,12 @@ interface RoomStore {
 
     /** Returns accepted answers in the order they arrived. */
     suspend fun submissions(roomId: RoomId): List<SubmissionRecord>
+
+    /** The account's Player memberships that it has not left, in any room on this server. */
+    suspend fun activeMembershipsOf(accountId: AccountId): List<ParticipantRecord>
+
+    /** Marks a participant as left, or back in the room when [leftAt] is null, and stores [revision]. */
+    suspend fun setLeft(participant: ParticipantRecord, leftAt: Long?, revision: Long)
 
     suspend fun findAttempt(roomId: RoomId, participantId: ParticipantId): AttemptRecord?
 

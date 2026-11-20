@@ -158,6 +158,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
             Text(participant.displayName + you)
             Text(
                 when {
+                    participant.left -> "Left"
                     participant.role == RoomRole.HOST -> "Host"
                     participant.isGuest -> "Guest"
                     else -> "Account"

@@ -70,6 +70,12 @@ fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier?) {
                 call.respond(service.submitAnswer(roomId, call.account(accounts), call.participantToken(), request))
             }
 
+            post("/leave") {
+                val roomId = RoomId(call.parameters["id"].orEmpty())
+                service.leave(roomId, call.account(accounts), call.participantToken())
+                call.respond(HttpStatusCode.NoContent)
+            }
+
             post("/attempt") {
                 val roomId = RoomId(call.parameters["id"].orEmpty())
                 val command = call.receive<PlayerCommand>()

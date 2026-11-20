@@ -53,5 +53,6 @@ fun ErrorCode.httpStatus(): HttpStatusCode = when (this) {
     ErrorCode.QUESTION_NOT_OPEN,
     ErrorCode.ANSWER_ALREADY_RECORDED,
     ErrorCode.RESULTS_NOT_READY,
+    ErrorCode.ALREADY_IN_ROOM,
     -> HttpStatusCode.Conflict
 }

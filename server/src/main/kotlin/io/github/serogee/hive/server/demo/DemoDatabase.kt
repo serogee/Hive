@@ -71,7 +71,7 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
             }
         }
 
-        const val SCHEMA_VERSION = 4
+        const val SCHEMA_VERSION = 5
 
         private val SCHEMA = listOf(
             """
@@ -119,7 +119,8 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
                 role TEXT NOT NULL,
                 account_id TEXT REFERENCES accounts(id),
                 token_hash TEXT NOT NULL,
-                joined_at INTEGER NOT NULL
+                joined_at INTEGER NOT NULL,
+                left_at INTEGER
             )
             """,
             "CREATE INDEX IF NOT EXISTS participants_by_room ON participants(room_id)",

@@ -95,10 +95,23 @@ class RoomRepository(
      * Joins as a Player and remembers the membership. Joining the same room again sends the saved
      * credential, so a retry never creates a second participant.
      */
-    suspend fun join(room: RoomSummary, displayName: String?, asGuest: Boolean, hostAddress: String? = null): Membership {
+    /**
+     * The room this device already joined, when it is a different room. A Player is in one room at a
+     * time, so joining [roomId] needs an explicit decision to leave it.
+     */
+    suspend fun otherJoinedRoom(roomId: RoomId): SavedMembership? = preferences.joinedRoom.first()?.takeIf { it.roomId != roomId }
+
+    suspend fun join(
+        room: RoomSummary,
+        displayName: String?,
+        asGuest: Boolean,
+        hostAddress: String? = null,
+        leaveOtherRoom: Boolean = false,
+    ): Membership {
         val serverUrl = hostAddress ?: preferences.currentServerUrl()
+        if (leaveOtherRoom) otherJoinedRoom(room.id)?.let { leaveQuietly(it) }
         val saved = preferences.joinedRoom.first()?.takeIf { it.roomId == room.id && it.serverUrl == serverUrl }
-        val membership = api.join(room.id, JoinRoomRequest(displayName, asGuest), saved?.participantToken, hostAddress)
+        val membership = api.join(room.id, JoinRoomRequest(displayName, asGuest, leaveOtherRoom), saved?.participantToken, hostAddress)
         preferences.setJoinedRoom(
             SavedMembership(
                 serverUrl = serverUrl,
@@ -112,7 +125,16 @@ class RoomRepository(
         return membership
     }
 
-    suspend fun leaveJoinedRoom() = preferences.setJoinedRoom(null)
+    /** Leaves the joined room on its server when it is reachable, and forgets it on this device. */
+    suspend fun leaveJoinedRoom() {
+        preferences.joinedRoom.first()?.let { leaveQuietly(it) }
+        preferences.setJoinedRoom(null)
+    }
+
+    private suspend fun leaveQuietly(membership: SavedMembership) {
+        val server = membership.serverUrl.takeUnless { it == preferences.currentServerUrl() }
+        runCatching { api.leave(membership.roomId, membership.participantToken, server) }
+    }
 
     /** The server and credential to use for [roomId]. A null server means the configured one. */
     private suspend fun access(roomId: RoomId): Pair<String?, String?> {

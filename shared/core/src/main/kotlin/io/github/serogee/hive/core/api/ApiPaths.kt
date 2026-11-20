@@ -26,6 +26,8 @@ object ApiPaths {
 
     fun attempt(roomId: String) = "$ROOMS/$roomId/attempt"
 
+    fun leave(roomId: String) = "$ROOMS/$roomId/leave"
+
     fun results(roomId: String) = "$ROOMS/$roomId/results"
 
     /** Carries the reconnect credential that a join or room creation returned. */
