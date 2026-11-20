@@ -1,6 +1,7 @@
 package io.github.serogee.hive.data.local
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -91,9 +92,47 @@ interface StackDao {
     }
 }
 
-@Database(entities = [StackEntity::class, QuestionEntity::class], version = 1)
+/** One self-review attempt. [attemptJson] holds a ReviewAttempt with its own copy of the questions. */
+@Entity(tableName = "review_attempts", indices = [Index("stackId")])
+data class ReviewAttemptEntity(
+    @PrimaryKey val id: String,
+    val stackId: String,
+    val attemptJson: String,
+    val finished: Boolean,
+    val updatedAt: Long,
+)
+
+@Dao
+interface ReviewDao {
+    @Query("SELECT * FROM review_attempts WHERE id = :id")
+    fun observe(id: String): Flow<ReviewAttemptEntity?>
+
+    @Query("SELECT * FROM review_attempts WHERE id = :id")
+    suspend fun attempt(id: String): ReviewAttemptEntity?
+
+    /** The most recent unfinished attempt, for Continue review. */
+    @Query("SELECT * FROM review_attempts WHERE finished = 0 ORDER BY updatedAt DESC LIMIT 1")
+    fun observeLatestUnfinished(): Flow<ReviewAttemptEntity?>
+
+    @Query("SELECT * FROM review_attempts WHERE stackId = :stackId AND finished = 0 ORDER BY updatedAt DESC LIMIT 1")
+    fun observeUnfinishedFor(stackId: String): Flow<ReviewAttemptEntity?>
+
+    @Upsert
+    suspend fun upsert(attempt: ReviewAttemptEntity)
+
+    @Query("DELETE FROM review_attempts WHERE stackId = :stackId")
+    suspend fun deleteForStack(stackId: String)
+}
+
+@Database(
+    entities = [StackEntity::class, QuestionEntity::class, ReviewAttemptEntity::class],
+    version = 2,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+)
 abstract class HiveDatabase : RoomDatabase() {
     abstract fun stacks(): StackDao
+
+    abstract fun reviews(): ReviewDao
 
     companion object {
         fun create(context: Context): HiveDatabase =

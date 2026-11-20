@@ -7,6 +7,7 @@ import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.auth.DemoAuthProvider
 import io.github.serogee.hive.data.local.HiveDatabase
 import io.github.serogee.hive.data.remote.HiveApi
+import io.github.serogee.hive.data.review.ReviewRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.data.stacks.StackRepository
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +34,7 @@ class AppContainer(application: Application) {
     val rooms = RoomRepository(api, preferences)
     val database = HiveDatabase.create(application)
     val stacks = StackRepository(database.stacks())
+    val reviews = ReviewRepository(database.reviews())
 }
 
 class HiveApplication : Application() {
