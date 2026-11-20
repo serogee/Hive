@@ -5,6 +5,7 @@ import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.ParticipantId
 import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.core.model.RoomId
+import io.github.serogee.hive.core.model.RoomRole
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -81,6 +82,17 @@ class InMemoryRoomStore : RoomStore {
 
     override suspend fun submissions(roomId: RoomId) = mutex.withLock {
         submissions.filter { it.roomId == roomId }
+    }
+
+    override suspend fun activeMembershipsOf(accountId: AccountId) = mutex.withLock {
+        participants.filter { it.accountId == accountId && it.role == RoomRole.PLAYER && it.leftAt == null }
+    }
+
+    override suspend fun setLeft(participant: ParticipantRecord, leftAt: Long?, revision: Long) = mutex.withLock {
+        val index = participants.indexOfFirst { it.id == participant.id }
+        if (index >= 0) participants[index] = participants[index].copy(leftAt = leftAt)
+        rooms.computeIfPresent(participant.roomId) { _, room -> room.copy(revision = revision) }
+        Unit
     }
 
     override suspend fun findAttempt(roomId: RoomId, participantId: ParticipantId) = mutex.withLock {

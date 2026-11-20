@@ -34,6 +34,7 @@ import io.github.serogee.hive.core.engine.RoomProgression
 import io.github.serogee.hive.core.engine.SpeedBonus
 import io.github.serogee.hive.core.engine.Timing
 import io.github.serogee.hive.core.engine.Transition
+import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.Question
 import io.github.serogee.hive.core.engine.RoomCodes
@@ -158,7 +159,10 @@ class RoomService(
         val room = requireRoom(roomId)
         if (existingToken != null) {
             val existing = store.findParticipantByToken(roomId, Tokens.hash(existingToken))
-            if (existing != null) return Membership(room.publicSummary(), existing.view(), existingToken)
+            if (existing != null) {
+                val back = if (existing.leftAt != null) rejoin(existing, room) else existing
+                return Membership(room.publicSummary(), back.view(), existingToken)
+            }
         }
         if (room.status == RoomStatus.ENDED) {
             throw HiveException(ErrorCode.ROOM_CLOSED, "This room has ended.")
@@ -182,10 +186,12 @@ class RoomService(
 
         val token = Tokens.newToken()
         if (accountId != null) {
+            leaveOtherRooms(accountId, roomId, request.leaveOtherRoom)
             val existing = store.findParticipantByAccount(roomId, accountId)
             if (existing != null) {
                 store.replaceParticipantToken(existing.id, Tokens.hash(token))
-                return Membership(room.publicSummary(), existing.view(), token)
+                val back = if (existing.leftAt != null) rejoin(existing, room) else existing
+                return Membership(room.publicSummary(), back.view(), token)
             }
         }
 
@@ -204,6 +210,46 @@ class RoomService(
         Membership(room.copy(revision = revision).publicSummary(), participant.view(), token)
     }
 
+    /**
+     * Keeps an account in one active room as a Player. Joining another room fails unless the
+     * Player chose to leave the current one.
+     */
+    private suspend fun leaveOtherRooms(accountId: AccountId, joining: RoomId, leave: Boolean) {
+        val now = clock.nowMillis()
+        val others = store.activeMembershipsOf(accountId).filter { membership ->
+            membership.roomId != joining && store.findRoom(membership.roomId)?.effectiveStatus(now)?.let { it != RoomStatus.ENDED } == true
+        }
+        if (others.isEmpty()) return
+        if (!leave) {
+            val title = store.findRoom(others.first().roomId)?.title ?: "another room"
+            throw HiveException(ErrorCode.ALREADY_IN_ROOM, "You are in $title. Leave it to join this room.")
+        }
+        others.forEach { markLeft(it) }
+    }
+
+    /**
+     * Marks a Player as left. It takes no room lock, because a join already holds the lock of the room
+     * being joined, and locking a second room could deadlock two crossing joins.
+     */
+    private suspend fun markLeft(participant: ParticipantRecord) {
+        val room = store.findRoom(participant.roomId) ?: return
+        val revision = room.revision + 1
+        store.setLeft(participant, clock.nowMillis(), revision)
+        hub.publish(RoomEvent.ParticipantLeft(room.id, revision, participant.id))
+    }
+
+    private suspend fun rejoin(participant: ParticipantRecord, room: RoomRecord): ParticipantRecord {
+        store.setLeft(participant, null, room.revision + 1)
+        hub.publish(RoomEvent.ParticipantJoined(room.id, room.revision + 1, participant.copy(leftAt = null).view()))
+        return participant.copy(leftAt = null)
+    }
+
+    /** A Player leaves the room. Their answers still count, and they can rejoin with the code. */
+    suspend fun leave(roomId: RoomId, caller: Account?, participantToken: String?) = lockFor(roomId).withLock {
+        val participant = authorize(roomId, caller, participantToken)
+        if (participant.role != RoomRole.PLAYER) throw HiveException(ErrorCode.FORBIDDEN, "The Host ends the room instead.")
+        if (participant.leftAt == null) markLeft(participant)
+    }
     suspend fun state(roomId: RoomId, caller: Account?, participantToken: String?): RoomState {
         val room = requireRoom(roomId)
         val you = authorize(roomId, caller, participantToken)
@@ -293,6 +339,7 @@ class RoomService(
         val player = authorize(roomId, caller, participantToken)
         val now = clock.nowMillis()
         if (player.role != RoomRole.PLAYER) throw HiveException(ErrorCode.FORBIDDEN, "Only Players take attempts.")
+        if (player.leftAt != null) throw HiveException(ErrorCode.FORBIDDEN, "You left this room. Join it again to continue.")
         if (room.mode != RoomMode.ASYNCHRONOUS) {
             throw HiveException(ErrorCode.INVALID_COMMAND, "The Host moves this room from question to question.")
         }
@@ -352,6 +399,7 @@ class RoomService(
         val room = requireRoom(roomId)
         val player = authorize(roomId, caller, participantToken)
         if (player.role != RoomRole.PLAYER) throw HiveException(ErrorCode.FORBIDDEN, "The Host does not answer questions.")
+        if (player.leftAt != null) throw HiveException(ErrorCode.FORBIDDEN, "You left this room. Join it again to answer.")
         if (request.idempotencyKey.isBlank() || request.idempotencyKey.length > 100) {
             throw HiveException(ErrorCode.INVALID_REQUEST, "The answer needs an idempotency key of up to 100 characters.")
         }

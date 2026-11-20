@@ -68,6 +68,7 @@ data class LocalParticipantEntity(
     val joinedAt: Long,
     /** Keeps join order. */
     val sequence: Long,
+    val leftAt: Long? = null,
 )
 
 @Entity(
@@ -139,6 +140,15 @@ interface LocalRoomDao {
             "questionOpenedAt = :openedAt, revision = :revision WHERE id = :id",
     )
     suspend fun setProgress(id: String, status: String, questionIndex: Int?, questionOpen: Boolean, openedAt: Long?, revision: Long)
+
+    @Query("UPDATE local_participants SET leftAt = :leftAt WHERE id = :id")
+    suspend fun setLeftAt(id: String, leftAt: Long?)
+
+    @Transaction
+    suspend fun setLeft(id: String, roomId: String, leftAt: Long?, revision: Long) {
+        setLeftAt(id, leftAt)
+        setRevision(roomId, revision)
+    }
 
     @Query("UPDATE local_participants SET tokenHash = :tokenHash WHERE id = :id")
     suspend fun setToken(id: String, tokenHash: String)
@@ -238,6 +248,12 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
 
     override suspend fun submissions(roomId: RoomId) = dao.submissions(roomId.value).map { it.toRecord() }
 
+    /** Rooms on a phone have no accounts, so no account holds a membership here. */
+    override suspend fun activeMembershipsOf(accountId: AccountId): List<ParticipantRecord> = emptyList()
+
+    override suspend fun setLeft(participant: ParticipantRecord, leftAt: Long?, revision: Long) =
+        dao.setLeft(participant.id.value, participant.roomId.value, leftAt, revision)
+
     override suspend fun findAttempt(roomId: RoomId, participantId: ParticipantId) =
         dao.attempt(roomId.value, participantId.value)?.toRecord()
 
@@ -300,6 +316,7 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
         tokenHash = tokenHash,
         joinedAt = joinedAt,
         sequence = sequence,
+        leftAt = leftAt,
     )
 
     private fun LocalParticipantEntity.toRecord() = ParticipantRecord(
@@ -310,6 +327,7 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
         accountId = null,
         tokenHash = tokenHash,
         joinedAt = joinedAt,
+        leftAt = leftAt,
     )
 
     private fun SubmissionRecord.toEntity(sequence: Long) = LocalSubmissionEntity(

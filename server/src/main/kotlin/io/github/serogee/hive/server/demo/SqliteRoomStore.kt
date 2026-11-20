@@ -86,6 +86,22 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
         connection.querySubmissions("SELECT * FROM submissions WHERE room_id = ? ORDER BY rowid", roomId.value)
     }
 
+    override suspend fun activeMembershipsOf(accountId: AccountId) = db.read { connection ->
+        connection.queryParticipants(
+            "SELECT * FROM participants WHERE account_id = ? AND role = 'PLAYER' AND left_at IS NULL ORDER BY rowid",
+            accountId.value,
+        )
+    }
+
+    override suspend fun setLeft(participant: ParticipantRecord, leftAt: Long?, revision: Long) = db.write { connection ->
+        connection.prepareStatement("UPDATE participants SET left_at = ? WHERE id = ?").use {
+            if (leftAt != null) it.setLong(1, leftAt) else it.setNull(1, Types.INTEGER)
+            it.setString(2, participant.id.value)
+            it.executeUpdate()
+        }
+        setRevision(connection, participant.roomId, revision)
+    }
+
     override suspend fun findAttempt(roomId: RoomId, participantId: ParticipantId) = db.read { connection ->
         connection.query(
             "SELECT * FROM attempts WHERE room_id = ? AND participant_id = ?",
@@ -183,8 +199,8 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
         fun insertParticipant(connection: Connection, participant: ParticipantRecord) {
             connection.prepareStatement(
                 """
-                INSERT INTO participants (id, room_id, display_name, role, account_id, token_hash, joined_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO participants (id, room_id, display_name, role, account_id, token_hash, joined_at, left_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
             ).use {
                 it.setString(1, participant.id.value)
@@ -194,6 +210,7 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
                 it.setString(5, participant.accountId?.value)
                 it.setString(6, participant.tokenHash)
                 it.setLong(7, participant.joinedAt)
+                if (participant.leftAt != null) it.setLong(8, participant.leftAt!!) else it.setNull(8, Types.INTEGER)
                 it.executeUpdate()
             }
         }
@@ -294,6 +311,7 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
             accountId = getString("account_id")?.let(::AccountId),
             tokenHash = getString("token_hash"),
             joinedAt = getLong("joined_at"),
+            leftAt = getLong("left_at").takeUnless { wasNull() },
         )
     }
 }
