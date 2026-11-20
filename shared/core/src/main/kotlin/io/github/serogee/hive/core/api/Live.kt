@@ -130,6 +130,10 @@ data class LiveQuestion(
     val answeredCount: Int,
     val playerCount: Int,
     val yourAnswer: AnswerReceipt? = null,
+    /** Epoch milliseconds when answers stop, from the room server's clock. Null for no limit. */
+    val closesAt: Long? = null,
+    /** The room server's clock when it sent this state, so clients can correct their countdown. */
+    val serverTime: Long = 0,
     /** Sent to the Host, and to Players when the reveal policy allows it. */
     val correctAnswer: Answer? = null,
     val explanation: String? = null,
@@ -141,9 +145,15 @@ data class LeaderboardEntry(
     val displayName: String,
     val isGuest: Boolean,
     val score: Int,
-    /** Players with equal scores share a rank. */
+    /** Players with equal scores share a rank unless the answer-time tiebreak orders them. */
     val rank: Int,
     val correctCount: Int,
+    /** Speed bonus in tenths of a point. */
+    val speedBonusTenths: Int = 0,
+    /** Base points plus speed bonus, in tenths of a point. */
+    val totalTenths: Int = score * 10,
+    /** Total answer time on correct answers, used to order equal scores. Null when unknown. */
+    val answerTimeMillis: Long? = null,
 )
 
 @Serializable
@@ -165,6 +175,7 @@ data class AnswerResult(
     val answerText: String?,
     val correct: Boolean,
     val points: Int,
+    val speedBonusTenths: Int = 0,
 )
 
 @Serializable
