@@ -25,17 +25,22 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.engine.RoomCodes
+import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.stacks.StackCard
 
 @Composable
 fun HomeScreen(
     onJoinCode: (String) -> Unit,
     onOpenStacks: () -> Unit,
+    onOpenStack: (StackId) -> Unit,
     onReturnToRoom: (SavedMembership) -> Unit,
 ) {
-    val joined by LocalAppContainer.current.rooms.joinedRoom.collectAsStateWithLifecycle(null)
+    val container = LocalAppContainer.current
+    val joined by container.rooms.joinedRoom.collectAsStateWithLifecycle(null)
+    val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
 
     Page("Hive") {
         joined?.let { membership ->
@@ -56,6 +61,11 @@ fun HomeScreen(
                 Text("Build questions once, then host them or review them.")
                 OutlinedButton(onClick = onOpenStacks) { Text("Go to My Stacks") }
             }
+        }
+
+        if (stacks.isNotEmpty()) {
+            Text("Recent stacks", style = MaterialTheme.typography.titleMedium)
+            stacks.take(3).forEach { stack -> StackCard(stack, onClick = { onOpenStack(stack.id) }) }
         }
     }
 }

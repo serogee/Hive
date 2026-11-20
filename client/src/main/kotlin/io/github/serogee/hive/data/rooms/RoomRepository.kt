@@ -13,7 +13,7 @@ import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
-import io.github.serogee.hive.core.sample.SampleStacks
+import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.AppPreferences
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.remote.HiveApi
@@ -31,9 +31,9 @@ class RoomRepository(
 
     suspend fun hostedRooms(): List<RoomSummary> = api.hostedRooms()
 
-    /** Until local stacks exist, online rooms use the bundled sample stack. */
-    suspend fun createRoom(mode: RoomMode, admission: AdmissionPolicy): Membership =
-        api.createRoom(CreateRoomRequest(SampleStacks.networkingFundamentals, mode, admission))
+    /** Creates an online room from a snapshot, so later edits to the stack leave the room unchanged. */
+    suspend fun createRoom(stack: StackSnapshot, mode: RoomMode, admission: AdmissionPolicy): Membership =
+        api.createRoom(CreateRoomRequest(stack, mode, admission))
 
     /**
      * Joins as a Player and remembers the membership. Joining the same room again sends the saved

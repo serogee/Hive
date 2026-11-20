@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -23,7 +24,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.Membership
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomMode
-import io.github.serogee.hive.core.sample.SampleStacks
+import io.github.serogee.hive.core.editor.StackValidation
+import io.github.serogee.hive.core.model.StackId
+import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
@@ -43,13 +46,14 @@ data class HostSetupUiState(
 )
 
 class HostSetupViewModel(private val rooms: RoomRepository) : ViewModel() {
+    // Snapshot taken when the room is created. Later edits to the stack leave the room unchanged.
     private val _state = MutableStateFlow(HostSetupUiState())
     val state: StateFlow<HostSetupUiState> = _state.asStateFlow()
 
-    fun create(mode: RoomMode, admission: AdmissionPolicy) = viewModelScope.launch {
+    fun create(stack: StackSnapshot, mode: RoomMode, admission: AdmissionPolicy) = viewModelScope.launch {
         _state.update { it.copy(creating = true, error = null) }
         try {
-            val membership = rooms.createRoom(mode, admission)
+            val membership = rooms.createRoom(stack, mode, admission)
             _state.update { it.copy(creating = false, created = membership) }
         } catch (e: Exception) {
             _state.update { it.copy(creating = false, error = e.userMessage()) }
@@ -58,19 +62,28 @@ class HostSetupViewModel(private val rooms: RoomRepository) : ViewModel() {
 }
 
 @Composable
-fun HostSetupScreen(onCreated: (Membership) -> Unit) {
+fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onCreated: (Membership) -> Unit) {
     val container = LocalAppContainer.current
     val viewModel = viewModel { HostSetupViewModel(container.rooms) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     var mode by rememberSaveable { mutableStateOf(RoomMode.DISCUSSION) }
     var admission by rememberSaveable { mutableStateOf(AdmissionPolicy.EVERYONE) }
 
+    val draft by remember(stackId) { container.stacks.observeDraft(stackId) }.collectAsStateWithLifecycle(null)
+
     LaunchedEffect(state.created) { state.created?.let(onCreated) }
 
     Page("Host Setup") {
-        val stack = SampleStacks.networkingFundamentals
+        val current = draft ?: return@Page
+        val stack = StackValidation.toSnapshot(current)
         Text("Stack", style = MaterialTheme.typography.titleMedium)
-        Text("${stack.title} (sample) · ${stack.questions.size} questions")
+        Text("${current.title.ifBlank { "Untitled stack" }} · ${current.questions.size} questions")
+        if (stack == null) {
+            Text("Fix these before hosting:", style = MaterialTheme.typography.titleSmall)
+            StackValidation.validate(current).forEach { ErrorText(it.message) }
+            Button(onClick = onEdit) { Text("Edit stack") }
+            return@Page
+        }
         Text("Hosting: Online, on the configured server")
 
         Text("Pace", style = MaterialTheme.typography.titleMedium)
@@ -83,7 +96,7 @@ fun HostSetupScreen(onCreated: (Membership) -> Unit) {
             Choice(option.label(), selected = admission == option) { admission = option }
         }
 
-        Button(onClick = { viewModel.create(mode, admission) }, enabled = !state.creating) { Text("Create room") }
+        Button(onClick = { viewModel.create(stack, mode, admission) }, enabled = !state.creating) { Text("Create room") }
         if (state.creating) CircularProgressIndicator()
         ErrorText(state.error)
     }
