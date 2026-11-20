@@ -77,6 +77,7 @@ object DemoSeed {
                 createdAt = createdAt,
                 deadlineAt = deadlineAt,
                 revision = 1,
+                timeTiebreak = mode == RoomMode.DISCUSSION,
             )
 
         fun participant(id: String, room: RoomRecord, name: String, role: RoomRole, account: DemoUser?, joinedAt: Long) =

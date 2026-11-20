@@ -4,15 +4,18 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -34,6 +38,7 @@ import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.core.model.StackSnapshot
+import io.github.serogee.hive.data.rooms.RoomOptions
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.ui.common.ErrorText
@@ -58,14 +63,14 @@ class HostSetupViewModel(private val rooms: RoomRepository) : ViewModel() {
     private val _state = MutableStateFlow(HostSetupUiState())
     val state: StateFlow<HostSetupUiState> = _state.asStateFlow()
 
-    fun create(stack: StackSnapshot, mode: RoomMode, admission: AdmissionPolicy, onPhone: Boolean, hostName: String) =
+    fun create(stack: StackSnapshot, options: RoomOptions, onPhone: Boolean, hostName: String) =
         viewModelScope.launch {
             _state.update { it.copy(creating = true, error = null) }
             try {
                 val membership = if (onPhone) {
-                    rooms.createLocalRoom(stack, mode, admission, hostName)
+                    rooms.createLocalRoom(stack, options, hostName)
                 } else {
-                    rooms.createRoom(stack, mode, admission)
+                    rooms.createRoom(stack, options)
                 }
                 _state.update { it.copy(creating = false, created = membership) }
             } catch (e: Exception) {
@@ -86,6 +91,9 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
     var admission by rememberSaveable { mutableStateOf(AdmissionPolicy.EVERYONE) }
     var onPhone by rememberSaveable { mutableStateOf(true) }
     var hostName by rememberSaveable { mutableStateOf<String?>(null) }
+    var speedScoring by rememberSaveable { mutableStateOf(false) }
+    var timeTiebreak by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var deadlineMinutes by rememberSaveable { mutableStateOf("") }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     val draft by remember(stackId) { container.stacks.observeDraft(stackId) }.collectAsStateWithLifecycle(null)
@@ -146,13 +154,40 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             )
         }
 
+        Text("Scoring", style = MaterialTheme.typography.titleMedium)
+        Toggle("Speed bonus for timed questions", speedScoring) { speedScoring = it }
+        if (speedScoring) {
+            Text(
+                "A correct answer earns up to 50% extra points, shrinking to zero as its timer runs out. Scores show one decimal.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        val tiebreak = timeTiebreak ?: (mode == RoomMode.DISCUSSION)
+        Toggle("Order equal scores by answer time", tiebreak) { timeTiebreak = it }
+
+        Text("Quiz deadline", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = deadlineMinutes,
+            onValueChange = { deadlineMinutes = it.filter(Char::isDigit).take(4) },
+            label = { Text("Close after this many minutes") },
+            placeholder = { Text("No deadline") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            "Question time limits still apply. When both apply, the earlier one ends answering.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
         val effectiveAdmission = if (onPhone && admission == AdmissionPolicy.SIGNED_IN_ONLY) AdmissionPolicy.EVERYONE else admission
         Button(
             onClick = {
                 if (onPhone && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                viewModel.create(stack, mode, effectiveAdmission, onPhone, name.trim())
+                val deadline = deadlineMinutes.toLongOrNull()?.takeIf { it > 0 }?.let { System.currentTimeMillis() + it * 60_000 }
+                viewModel.create(stack, RoomOptions(mode, effectiveAdmission, speedScoring, tiebreak, deadline), onPhone, name.trim())
             },
             enabled = !state.creating && (if (onPhone) name.isNotBlank() else session != null),
         ) { Text("Create room") }
@@ -160,6 +195,14 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         ErrorText(state.error)
     }
 }
+@Composable
+private fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
 @Composable
 private fun Choice(label: String, selected: Boolean, enabled: Boolean = true, onSelect: () -> Unit) {
     Row(

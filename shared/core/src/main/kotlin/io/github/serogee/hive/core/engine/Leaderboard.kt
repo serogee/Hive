@@ -13,29 +13,45 @@ data class GradedAnswer(
     val participantId: ParticipantId,
     val correct: Boolean,
     val points: Int,
+    val speedBonusTenths: Int = 0,
+    /** Time from the question opening for this Player to the answer arriving, when known. */
+    val responseMillis: Long? = null,
 )
 
 object Leaderboard {
     /**
-     * Orders Players by points. Players with equal points share a rank, and the next rank skips
-     * accordingly (1, 1, 3). Ties keep join order.
+     * Orders Players by score: base points plus any speed bonus. With [timeTiebreak], Players with
+     * equal scores are ordered by their total answer time on correct answers. Players who are still
+     * tied, or whose times are unknown, share a rank, and the next rank skips accordingly (1, 1, 3).
      */
-    fun build(players: List<RankedPlayer>, answers: List<GradedAnswer>): List<LeaderboardEntry> {
+    fun build(players: List<RankedPlayer>, answers: List<GradedAnswer>, timeTiebreak: Boolean = false): List<LeaderboardEntry> {
         val byPlayer = answers.groupBy { it.participantId }
-        val scored = players.map { player ->
+        val entries = players.map { player ->
             val own = byPlayer[player.participantId].orEmpty()
+            val correct = own.filter { it.correct }
+            val points = own.sumOf { it.points }
+            val bonus = own.sumOf { it.speedBonusTenths }
             LeaderboardEntry(
                 participantId = player.participantId,
                 displayName = player.displayName,
                 isGuest = player.isGuest,
-                score = own.sumOf { it.points },
+                score = points,
                 rank = 0,
-                correctCount = own.count { it.correct },
+                correctCount = correct.size,
+                speedBonusTenths = bonus,
+                totalTenths = points * 10 + bonus,
+                answerTimeMillis = if (correct.all { it.responseMillis != null }) correct.sumOf { it.responseMillis ?: 0 } else null,
             )
-        }.sortedByDescending { it.score }
-
-        return scored.map { entry ->
-            entry.copy(rank = scored.indexOfFirst { it.score == entry.score } + 1)
         }
+
+        fun ahead(a: LeaderboardEntry, b: LeaderboardEntry): Boolean = when {
+            a.totalTenths != b.totalTenths -> a.totalTenths > b.totalTenths
+            !timeTiebreak || a.answerTimeMillis == null || b.answerTimeMillis == null -> false
+            else -> a.answerTimeMillis < b.answerTimeMillis
+        }
+
+        return entries
+            .map { entry -> entry.copy(rank = 1 + entries.count { ahead(it, entry) }) }
+            .sortedBy { it.rank }
     }
 }

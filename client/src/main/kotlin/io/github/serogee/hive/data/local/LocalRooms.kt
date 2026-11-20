@@ -1,5 +1,6 @@
 package io.github.serogee.hive.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -46,6 +47,9 @@ data class LocalRoomEntity(
     val revealPolicy: String,
     val questionIndex: Int?,
     val questionOpen: Boolean,
+    val questionOpenedAt: Long? = null,
+    @ColumnInfo(defaultValue = "0") val speedScoring: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val timeTiebreak: Boolean = false,
 )
 
 @Entity(
@@ -84,6 +88,8 @@ data class LocalSubmissionEntity(
     val idempotencyKey: String,
     val acceptedAt: Long,
     val sequence: Long,
+    val responseMillis: Long? = null,
+    @ColumnInfo(defaultValue = "0") val speedBonusTenths: Int = 0,
 )
 
 @Dao
@@ -114,9 +120,9 @@ interface LocalRoomDao {
 
     @Query(
         "UPDATE local_rooms SET status = :status, questionIndex = :questionIndex, questionOpen = :questionOpen, " +
-            "revision = :revision WHERE id = :id",
+            "questionOpenedAt = :openedAt, revision = :revision WHERE id = :id",
     )
-    suspend fun setProgress(id: String, status: String, questionIndex: Int?, questionOpen: Boolean, revision: Long)
+    suspend fun setProgress(id: String, status: String, questionIndex: Int?, questionOpen: Boolean, openedAt: Long?, revision: Long)
 
     @Query("UPDATE local_participants SET tokenHash = :tokenHash WHERE id = :id")
     suspend fun setToken(id: String, tokenHash: String)
@@ -175,7 +181,7 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
     override suspend fun roomsHostedBy(accountId: AccountId): List<RoomRecord> = emptyList()
 
     override suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long) =
-        dao.setProgress(roomId.value, progress.status.name, progress.questionIndex, progress.questionOpen, revision)
+        dao.setProgress(roomId.value, progress.status.name, progress.questionIndex, progress.questionOpen, progress.openedAt, revision)
 
     override suspend fun insertParticipant(participant: ParticipantRecord, revision: Long) =
         dao.addParticipant(participant.toEntity(dao.lastParticipantSequence() + 1), revision)
@@ -216,6 +222,9 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
         revealPolicy = revealPolicy.name,
         questionIndex = questionIndex,
         questionOpen = questionOpen,
+        questionOpenedAt = questionOpenedAt,
+        speedScoring = speedScoring,
+        timeTiebreak = timeTiebreak,
     )
 
     private fun LocalRoomEntity.toRecord() = RoomRecord(
@@ -234,6 +243,9 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
         revealPolicy = RevealPolicy.valueOf(revealPolicy),
         questionIndex = questionIndex,
         questionOpen = questionOpen,
+        questionOpenedAt = questionOpenedAt,
+        speedScoring = speedScoring,
+        timeTiebreak = timeTiebreak,
     )
 
     private fun ParticipantRecord.toEntity(sequence: Long) = LocalParticipantEntity(
@@ -267,6 +279,8 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
         idempotencyKey = idempotencyKey,
         acceptedAt = acceptedAt,
         sequence = sequence,
+        responseMillis = responseMillis,
+        speedBonusTenths = speedBonusTenths,
     )
 
     private fun LocalSubmissionEntity.toRecord() = SubmissionRecord(
@@ -279,5 +293,7 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
         points = points,
         idempotencyKey = idempotencyKey,
         acceptedAt = acceptedAt,
+        responseMillis = responseMillis,
+        speedBonusTenths = speedBonusTenths,
     )
 }

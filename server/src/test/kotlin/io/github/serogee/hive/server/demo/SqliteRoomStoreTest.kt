@@ -31,6 +31,7 @@ class SqliteRoomStoreTest {
 
     @Test
     fun roomsAndParticipantsSurviveReopening() = runTest {
+        var openedAt = 0L
         val roomId = DemoDatabase.open(dbPath).use { db ->
             db.write { connection ->
                 connection.createStatement().use {
@@ -41,7 +42,7 @@ class SqliteRoomStoreTest {
             val room = service.createRoom(host, CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.DISCUSSION)).room
             val guest = service.join(room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
             service.join(room.id, null, JoinRoomRequest("Jamie", asGuest = true), guest.participantToken)
-            service.command(room.id, host, null, HostCommand.Start)
+            openedAt = service.command(room.id, host, null, HostCommand.Start).live!!.closesAt!! - 30_000
             service.submitAnswer(
                 room.id,
                 null,
@@ -59,6 +60,8 @@ class SqliteRoomStoreTest {
             assertEquals(RoomStatus.LIVE, state.room.status)
             assertEquals(1, state.live?.answeredCount)
             assertEquals(true, state.live?.isOpen)
+            // The timer keeps its original end after a restart.
+            assertEquals(openedAt + 30_000, state.live?.closesAt)
             assertEquals(SampleStacks.networkingFundamentals.questions.size, state.room.questionCount)
         }
     }

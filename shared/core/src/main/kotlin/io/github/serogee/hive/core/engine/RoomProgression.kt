@@ -3,11 +3,15 @@ package io.github.serogee.hive.core.engine
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.model.RoomStatus
 
-/** Where a Discussion room is in its stack. [questionIndex] is null before the first question. */
+/**
+ * Where a Discussion room is in its stack. [questionIndex] is null before the first question.
+ * [openedAt] is when the room server opened the current question.
+ */
 data class Progress(
     val status: RoomStatus,
     val questionIndex: Int?,
     val questionOpen: Boolean,
+    val openedAt: Long? = null,
 ) {
     companion object {
         val Lobby = Progress(RoomStatus.LOBBY, questionIndex = null, questionOpen = false)

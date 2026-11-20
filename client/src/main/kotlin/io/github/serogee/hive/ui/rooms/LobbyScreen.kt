@@ -70,13 +70,14 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                 if (live == null) {
                     Text("This room is open. Self-paced rooms arrive in a later update.")
                 } else if (isHost) {
-                    HostLiveContent(live, state.busy, onCommand = viewModel::command)
+                    HostLiveContent(live, state.busy, onCommand = viewModel::command, onTimeUp = { viewModel.refreshNow() })
                 } else {
                     PlayerLiveContent(
                         live = live,
                         pending = state.pending,
                         onSubmit = { viewModel.submit(live.question.id, it) },
                         onRetry = viewModel::retrySubmit,
+                        onTimeUp = { viewModel.refreshNow() },
                     )
                 }
             }

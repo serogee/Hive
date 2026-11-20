@@ -21,6 +21,10 @@ data class CreateRoomRequest(
     /** Epoch milliseconds after which the room accepts no answers. */
     val deadlineAt: Long? = null,
     val revealPolicy: RevealPolicy = RevealPolicy.AT_END,
+    /** Adds a bonus for fast correct answers to timed questions. */
+    val speedScoring: Boolean = false,
+    /** Orders equal scores by answer time. Null uses the mode's default: on for Discussion, off for Asynchronous. */
+    val timeTiebreak: Boolean? = null,
 )
 
 /** What anyone with the room code may see before joining. It contains no answers. */
@@ -36,6 +40,8 @@ data class RoomSummary(
     val questionCount: Int,
     val deadlineAt: Long? = null,
     val revealPolicy: RevealPolicy = RevealPolicy.AT_END,
+    val speedScoring: Boolean = false,
+    val timeTiebreak: Boolean = false,
     /** False when the room server cannot verify accounts, such as a room hosted on a phone. */
     val acceptsAccounts: Boolean = true,
 )
