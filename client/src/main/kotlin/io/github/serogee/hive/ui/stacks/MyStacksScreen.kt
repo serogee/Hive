@@ -35,6 +35,7 @@ fun MyStacksScreen(
     purpose: StackListPurpose,
     onOpen: (StackId) -> Unit,
     onCreated: (StackId) -> Unit,
+    onImport: () -> Unit,
     onHost: (StackId) -> Unit = onOpen,
 ) {
     val container = LocalAppContainer.current
@@ -44,6 +45,7 @@ fun MyStacksScreen(
     Page(purpose.title) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { scope.launch { onCreated(container.stacks.create()) } }) { Text("Create Stack") }
+            OutlinedButton(onClick = onImport) { Text("Import from File") }
         }
 
         val list = stacks ?: return@Page
