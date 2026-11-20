@@ -18,8 +18,11 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,16 +33,43 @@ import io.github.serogee.hive.core.api.LiveQuestion
 import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.describe
 import io.github.serogee.hive.core.model.Answer
+import kotlinx.coroutines.delay
 
 @Composable
-private fun QuestionHeader(live: LiveQuestion) {
+private fun QuestionHeader(live: LiveQuestion, onTimeUp: () -> Unit) {
     val question = live.question
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Question ${question.number} of ${live.questionCount}", style = MaterialTheme.typography.labelLarge)
         AssistChip(onClick = {}, label = { Text(question.typeLabel()) })
         Text(if (question.points == 1) "1 point" else "${question.points} points", style = MaterialTheme.typography.labelLarge)
     }
+    Countdown(live, onTimeUp)
     Text(question.prompt, style = MaterialTheme.typography.titleLarge)
+}
+
+/**
+ * Shows the time left. The room server's clock is the authority, so the countdown corrects for the
+ * difference between this phone's clock and the server's.
+ */
+@Composable
+private fun Countdown(live: LiveQuestion, onTimeUp: () -> Unit) {
+    val closesAt = live.closesAt ?: return
+    if (!live.isOpen) return
+    val offset = remember(live.serverTime) { live.serverTime - System.currentTimeMillis() }
+    val left by produceState(initialValue = closesAt - live.serverTime, closesAt, offset) {
+        while (true) {
+            value = closesAt - (System.currentTimeMillis() + offset)
+            if (value <= 0) break
+            delay(250)
+        }
+    }
+    LaunchedEffect(left <= 0) { if (left <= 0) onTimeUp() }
+    val seconds = ((left + 999) / 1000).coerceAtLeast(0)
+    Text(
+        if (seconds > 0) "Time left: $seconds s" else "Time is up",
+        style = MaterialTheme.typography.titleMedium,
+        color = if (seconds <= 5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+    )
 }
 
 @Composable
@@ -54,12 +84,12 @@ private fun RevealedAnswer(live: LiveQuestion) {
 }
 
 @Composable
-fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) -> Unit) {
+fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) -> Unit, onTimeUp: () -> Unit) {
     var confirm by rememberSaveable { mutableStateOf<String?>(null) }
     val isLast = live.question.number == live.questionCount
     val waiting = live.playerCount - live.answeredCount
 
-    QuestionHeader(live)
+    QuestionHeader(live, onTimeUp)
     (live.question as? PlayerQuestion.MultipleChoice)?.choices?.forEach { Text("• ${it.text}") }
     Text(
         "${live.answeredCount} of ${live.playerCount} Players answered",
@@ -123,6 +153,7 @@ fun PlayerLiveContent(
     pending: PendingAnswer?,
     onSubmit: (Answer) -> Unit,
     onRetry: () -> Unit,
+    onTimeUp: () -> Unit,
 ) {
     val question = live.question
     val received = live.yourAnswer
@@ -132,7 +163,7 @@ fun PlayerLiveContent(
     val sendingThis = pending?.takeIf { it.questionId == question.id }
     val locked = received != null || sendingThis != null || !live.isOpen
 
-    QuestionHeader(live)
+    QuestionHeader(live, onTimeUp)
 
     when (question) {
         is PlayerQuestion.MultipleChoice -> question.choices.forEach { option ->

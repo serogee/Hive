@@ -13,17 +13,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.serogee.hive.core.api.RoomResults
+import io.github.serogee.hive.core.engine.SpeedBonus
 
 /** Host Results or Player Result, depending on [isHost]. */
 @Composable
 fun ResultsContent(results: RoomResults, isHost: Boolean) {
     if (!isHost) {
-        val score = results.yourAnswers.sumOf { it.points }
+        val points = results.yourAnswers.sumOf { it.points }
+        val bonus = results.yourAnswers.sumOf { it.speedBonusTenths }
         val total = results.questions.size
         val correct = results.yourAnswers.count { it.correct }
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Your score: $score", style = MaterialTheme.typography.headlineSmall)
+                Text("Your score: ${SpeedBonus.format(points * 10 + bonus)}", style = MaterialTheme.typography.headlineSmall)
+                if (bonus > 0) Text("$points + ${SpeedBonus.format(bonus)} speed")
                 Text("$correct of $total correct")
             }
         }
@@ -34,7 +37,13 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
     results.leaderboard.forEach { entry ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("${entry.rank}. ${entry.displayName}" + if (entry.isGuest) " (guest)" else "")
-            Text("${entry.score} pts")
+            Text(
+                if (entry.speedBonusTenths > 0) {
+                    "${SpeedBonus.format(entry.totalTenths)} pts (${entry.score} + ${SpeedBonus.format(entry.speedBonusTenths)} speed)"
+                } else {
+                    "${SpeedBonus.format(entry.totalTenths)} pts"
+                },
+            )
         }
         HorizontalDivider()
     }
@@ -50,6 +59,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
             } else {
                 val verdict = when {
                     own?.answer == null -> "Not answered"
+                    own.correct && own.speedBonusTenths > 0 -> "Correct, +${own.points} +${SpeedBonus.format(own.speedBonusTenths)} speed"
                     own.correct -> "Correct, +${own.points}"
                     else -> "Incorrect"
                 }

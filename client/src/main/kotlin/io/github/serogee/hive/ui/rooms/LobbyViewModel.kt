@@ -97,6 +97,9 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
         }
     }
 
+    /** Gets a new snapshot, for example when a countdown reaches zero. */
+    fun refreshNow() = viewModelScope.launch { runCatching { refresh() } }
+
     fun retrySubmit() {
         val pending = _state.value.pending ?: return
         submit(pending.questionId, pending.answer)

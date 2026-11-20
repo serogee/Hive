@@ -23,6 +23,26 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
+/** Host Setup choices that apply to online and phone-hosted rooms alike. */
+data class RoomOptions(
+    val mode: RoomMode,
+    val admission: AdmissionPolicy,
+    val speedScoring: Boolean,
+    val timeTiebreak: Boolean,
+    /** Epoch milliseconds when the quiz stops accepting answers, or null for no deadline. */
+    val deadlineAt: Long?,
+) {
+    fun request(stack: StackSnapshot, hostDisplayName: String? = null) = CreateRoomRequest(
+        stack = stack,
+        mode = mode,
+        admission = admission,
+        hostDisplayName = hostDisplayName,
+        deadlineAt = deadlineAt,
+        speedScoring = speedScoring,
+        timeTiebreak = timeTiebreak,
+    )
+}
+
 /**
  * Rooms on any server: the configured online server, a room hosted on this phone, or a room on
  * another Host's phone. Screens pass room IDs and never choose a server themselves.
@@ -48,13 +68,12 @@ class RoomRepository(
     suspend fun hostedRooms(): List<RoomSummary> = api.hostedRooms()
 
     /** Creates an online room from a snapshot, so later edits to the stack leave the room unchanged. */
-    suspend fun createRoom(stack: StackSnapshot, mode: RoomMode, admission: AdmissionPolicy): Membership =
-        api.createRoom(CreateRoomRequest(stack, mode, admission))
+    suspend fun createRoom(stack: StackSnapshot, options: RoomOptions): Membership = api.createRoom(options.request(stack))
 
     /** Hosts a room on this phone. It works without an account, internet, or remote backend. */
-    suspend fun createLocalRoom(stack: StackSnapshot, mode: RoomMode, admission: AdmissionPolicy, hostName: String): Membership {
+    suspend fun createLocalRoom(stack: StackSnapshot, options: RoomOptions, hostName: String): Membership {
         localHost.start()
-        val membership = api.createRoom(CreateRoomRequest(stack, mode, admission, hostDisplayName = hostName), localHost.selfUrl)
+        val membership = api.createRoom(options.request(stack, hostDisplayName = hostName), localHost.selfUrl)
         preferences.addHostToken(membership.room.id, membership.participantToken)
         preferences.setPreferredName(hostName)
         return membership
