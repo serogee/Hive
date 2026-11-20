@@ -58,6 +58,14 @@ sealed interface RoomEvent {
         val questionNumber: Int,
     ) : RoomEvent
 
+    @Serializable
+    @SerialName("participant_left")
+    data class ParticipantLeft(
+        override val roomId: RoomId,
+        override val revision: Long,
+        val participantId: ParticipantId,
+    ) : RoomEvent
+
     /** A Player started, advanced, or finished an attempt in an Asynchronous room. */
     @Serializable
     @SerialName("attempt_updated")

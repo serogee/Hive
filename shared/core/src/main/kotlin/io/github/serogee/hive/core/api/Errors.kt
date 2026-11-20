@@ -46,6 +46,9 @@ enum class ErrorCode {
 
     @SerialName("results_not_ready")
     RESULTS_NOT_READY,
+
+    @SerialName("already_in_room")
+    ALREADY_IN_ROOM,
 }
 
 /** The body of every unsuccessful response. */

@@ -52,6 +52,8 @@ data class ParticipantView(
     val displayName: String,
     val role: RoomRole,
     val isGuest: Boolean,
+    /** True after the Player left the room. Their answers still count. */
+    val left: Boolean = false,
 )
 
 @Serializable
@@ -59,6 +61,8 @@ data class JoinRoomRequest(
     /** Required to join as a guest. A signed-in Player defaults to the account name. */
     val displayName: String? = null,
     val asGuest: Boolean,
+    /** Leave the account's current room first. Without it, joining a second room fails. */
+    val leaveOtherRoom: Boolean = false,
 )
 
 /** Returned when a room is created or joined. Keep [participantToken] to reconnect. */
