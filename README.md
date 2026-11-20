@@ -42,7 +42,7 @@ Build and install the debug app on a connected phone:
 .\gradlew.bat :client:installDebug
 ```
 
-## Two-phone demo
+## Two-phone demo with the demo server
 
 The demo server stores its data in `server/data/hive-demo.db`. It has two fictional accounts, `alex` and `sam`, both with the password `hive-demo`. The seeded rooms use the codes `NETDSC` (Discussion lobby hosted by Alex), `NETASY` (Asynchronous room hosted by Sam), and `NETEND` (ended room whose results include a tie). When a server update changes the database layout, the next start replaces the demo data.
 
@@ -55,3 +55,14 @@ The demo server stores its data in `server/data/hive-demo.db`. It has two fictio
 7. On the Host phone, tap Start quiz. The Player phone shows the first question.
 8. On the Player phone, choose an answer and tap Submit answer. It shows Answer received after the server saves it, and the Host phone counts the answer.
 9. On the Host phone, close the question, then tap Next question or end the quiz. After the quiz ends, both phones show the results.
+
+## Offline demo without a server
+
+This checks that a fresh phone can create, review, and host a stack with no internet and no demo server.
+
+1. Turn off mobile data on both phones. On the Host phone, turn on the hotspot. Connect the Player phone to that hotspot.
+2. On the Host phone, open My Stacks, tap Create Stack, and write a few questions. Tap Done.
+3. Tap Practice on the stack, choose Quiz Review or Flashcard Review, and answer the questions.
+4. Tap Host on the stack. Keep On this phone selected, enter your name, and tap Create room. The lobby shows the room code and the address for Players, such as `192.168.43.1:8090`.
+5. On the Player phone, open Quiz Room, enter the code, select The room is hosted on a nearby phone, enter the address, and join as a guest.
+6. Run the quiz as in the demo above. To stop serving rooms, tap Stop hosting on this phone in Quiz Room.
