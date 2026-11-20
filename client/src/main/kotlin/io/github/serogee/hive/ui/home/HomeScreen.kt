@@ -36,11 +36,13 @@ fun HomeScreen(
     onJoinCode: (String) -> Unit,
     onOpenStacks: () -> Unit,
     onOpenStack: (StackId) -> Unit,
+    onContinueReview: (attemptId: String) -> Unit,
     onReturnToRoom: (SavedMembership) -> Unit,
 ) {
     val container = LocalAppContainer.current
     val joined by container.rooms.joinedRoom.collectAsStateWithLifecycle(null)
     val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
+    val review by container.reviews.latestUnfinished.collectAsStateWithLifecycle(null)
 
     Page("Hive") {
         joined?.let { membership ->
@@ -49,6 +51,16 @@ fun HomeScreen(
                     Text("Return to joined room", style = MaterialTheme.typography.titleMedium)
                     Text("${membership.roomTitle} as ${membership.displayName}")
                     Button(onClick = { onReturnToRoom(membership) }) { Text("Return to room") }
+                }
+            }
+        }
+
+        review?.let { attempt ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Continue review", style = MaterialTheme.typography.titleMedium)
+                    Text("${attempt.stack.title} · ${attempt.position} of ${attempt.order.size} reviewed")
+                    Button(onClick = { onContinueReview(attempt.id) }) { Text("Continue") }
                 }
             }
         }
