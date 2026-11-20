@@ -30,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.model.RoomId
+import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.ui.common.ErrorText
@@ -67,12 +68,21 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
             RoomStatus.LOBBY -> LobbyContent(room, isHost, busy = state.busy, onStart = { viewModel.command(HostCommand.Start) })
             RoomStatus.LIVE -> {
                 val live = room.live
-                if (live == null) {
-                    Text("This room is open. Self-paced rooms arrive in a later update.")
-                } else if (isHost) {
-                    HostLiveContent(live, state.busy, onCommand = viewModel::command, onTimeUp = { viewModel.refreshNow() })
-                } else {
-                    PlayerLiveContent(
+                when {
+                    room.room.mode == RoomMode.ASYNCHRONOUS && isHost ->
+                        HostAsyncContent(room, state.busy, onCommand = viewModel::command)
+                    room.room.mode == RoomMode.ASYNCHRONOUS -> PlayerAsyncContent(
+                        room = room,
+                        pending = state.pending,
+                        busy = state.busy,
+                        onAttempt = viewModel::attempt,
+                        onSubmit = { answer -> live?.let { viewModel.submit(it.question.id, answer) } },
+                        onRetry = viewModel::retrySubmit,
+                        onTimeUp = { viewModel.refreshNow() },
+                    )
+                    live == null -> Text("Waiting for the first question.")
+                    isHost -> HostLiveContent(live, state.busy, onCommand = viewModel::command, onTimeUp = { viewModel.refreshNow() })
+                    else -> PlayerLiveContent(
                         live = live,
                         pending = state.pending,
                         onSubmit = { viewModel.submit(live.question.id, it) },
@@ -136,7 +146,8 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
     if (isHost) {
         val players = room.participants.count { it.role == RoomRole.PLAYER }
         Button(onClick = onStart, enabled = !busy && players > 0, modifier = Modifier.fillMaxWidth()) {
-            Text(if (players > 0) "Start quiz" else "Waiting for Players")
+            val start = if (room.room.mode == RoomMode.ASYNCHRONOUS) "Open room" else "Start quiz"
+            Text(if (players > 0) start else "Waiting for Players")
         }
     }
 

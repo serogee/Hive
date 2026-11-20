@@ -5,6 +5,7 @@ import io.github.serogee.hive.core.api.CreateRoomRequest
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.Membership
+import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
@@ -129,6 +130,9 @@ class RoomRepository(
 
     suspend fun command(roomId: RoomId, command: HostCommand): RoomState =
         access(roomId).let { (server, token) -> api.command(roomId, command, token, server) }
+
+    suspend fun attempt(roomId: RoomId, command: PlayerCommand): RoomState =
+        access(roomId).let { (server, token) -> api.attempt(roomId, command, token, server) }
 
     suspend fun submitAnswer(roomId: RoomId, request: SubmitAnswerRequest): AnswerReceipt =
         access(roomId).let { (server, token) -> api.submitAnswer(roomId, request, token, server) }

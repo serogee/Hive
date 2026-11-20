@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HostCommand
+import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
@@ -94,6 +95,17 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
             } catch (e: Exception) {
                 _state.update { it.copy(pending = pending.copy(failed = true), error = e.userMessage()) }
             }
+        }
+    }
+
+    /** Starts or advances this Player's own attempt in an Asynchronous room. */
+    fun attempt(command: PlayerCommand) = viewModelScope.launch {
+        _state.update { it.copy(busy = true, error = null) }
+        try {
+            show(rooms.attempt(roomId, command))
+            _state.update { it.copy(busy = false) }
+        } catch (e: Exception) {
+            _state.update { it.copy(busy = false, error = e.userMessage()) }
         }
     }
 
