@@ -29,6 +29,7 @@ import io.github.serogee.hive.ui.home.HomeScreen
 import io.github.serogee.hive.ui.rooms.HostSetupScreen
 import io.github.serogee.hive.ui.rooms.LobbyScreen
 import io.github.serogee.hive.ui.rooms.QuizRoomScreen
+import io.github.serogee.hive.ui.review.ReviewScreen
 import io.github.serogee.hive.ui.rooms.SessionEntryScreen
 import io.github.serogee.hive.ui.stacks.ImportScreen
 import io.github.serogee.hive.ui.stacks.MyStacksScreen
@@ -65,6 +66,9 @@ object HostPickerRoute
 
 @Serializable
 data class StackDetailsRoute(val stackId: String)
+
+@Serializable
+data class ReviewRoute(val attemptId: String)
 
 /** [hostAfter] continues to Host Setup when the import started from the host picker. */
 @Serializable
@@ -119,6 +123,7 @@ fun HiveApp() {
                     onJoinCode = { navController.navigate(SessionEntryRoute(it)) },
                     onOpenStacks = { navController.openTab(MyStacksRoute) },
                     onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
+                    onContinueReview = { navController.navigate(ReviewRoute(it)) },
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
                 )
             }
@@ -129,6 +134,7 @@ fun HiveApp() {
                     onCreated = { navController.navigate(StackEditorRoute(it.value)) },
                     onImport = { navController.navigate(ImportRoute()) },
                     onHost = { navController.navigate(HostSetupRoute(it.value)) },
+                    onReview = { navController.navigate(ReviewRoute(it)) },
                 )
             }
             composable<HostPickerRoute> {
@@ -145,6 +151,13 @@ fun HiveApp() {
                     },
                 )
             }
+            composable<ReviewRoute> { entry ->
+                ReviewScreen(
+                    attemptId = entry.toRoute<ReviewRoute>().attemptId,
+                    onOpenAttempt = { navController.navigate(ReviewRoute(it)) { popUpTo<ReviewRoute> { inclusive = true } } },
+                    onExit = { navController.popBackStack() },
+                )
+            }
             composable<ImportRoute> { entry ->
                 val route = entry.toRoute<ImportRoute>()
                 ImportScreen(onSaved = { stackId ->
@@ -157,6 +170,7 @@ fun HiveApp() {
                 StackDetailsScreen(
                     stackId = stackId,
                     onHost = { navController.navigate(HostSetupRoute(stackId.value)) },
+                    onReview = { navController.navigate(ReviewRoute(it)) },
                     onEdit = { navController.navigate(StackEditorRoute(stackId.value)) },
                     onDeleted = { navController.popBackStack() },
                 )

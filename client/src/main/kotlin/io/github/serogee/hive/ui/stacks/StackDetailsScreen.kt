@@ -25,12 +25,14 @@ import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.review.ReviewSetupSheet
 import kotlinx.coroutines.launch
 
 @Composable
 fun StackDetailsScreen(
     stackId: StackId,
     onHost: () -> Unit,
+    onReview: (attemptId: String) -> Unit,
     onEdit: () -> Unit,
     onDeleted: () -> Unit,
 ) {
@@ -38,6 +40,7 @@ fun StackDetailsScreen(
     val draft by remember(stackId) { container.stacks.observeDraft(stackId) }.collectAsStateWithLifecycle(null)
     val scope = rememberCoroutineScope()
     var confirmDelete by remember { mutableStateOf(false) }
+    var reviewSetup by remember { mutableStateOf(false) }
 
     val stack = draft
     Page(stack?.title?.ifBlank { "Untitled stack" } ?: "Stack") {
@@ -48,6 +51,7 @@ fun StackDetailsScreen(
         val issues = StackValidation.validate(stack)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onHost, enabled = issues.isEmpty()) { Text("Host Quiz") }
+            Button(onClick = { reviewSetup = true }, enabled = issues.isEmpty()) { Text("Review") }
             OutlinedButton(onClick = onEdit) { Text("Edit") }
             OutlinedButton(onClick = { confirmDelete = true }) { Text("Delete") }
         }
@@ -63,6 +67,13 @@ fun StackDetailsScreen(
             }
             HorizontalDivider()
         }
+    }
+
+    if (reviewSetup) {
+        ReviewSetupSheet(stackId, onDismiss = { reviewSetup = false }, onStart = { attemptId ->
+            reviewSetup = false
+            onReview(attemptId)
+        })
     }
 
     if (confirmDelete && stack != null) {
