@@ -76,6 +76,10 @@ data class RoomState(
     val you: ParticipantView,
     val participants: List<ParticipantView>,
     val revision: Long,
-    /** The current question while the room is live. */
+    /** The current question while the room is live. In an Asynchronous room, it is the caller's own. */
     val live: LiveQuestion? = null,
+    /** The caller's attempt in an Asynchronous room. */
+    val attempt: AttemptView? = null,
+    /** Every Player's progress, for the Host of an Asynchronous room. */
+    val progress: List<PlayerProgressView> = emptyList(),
 )

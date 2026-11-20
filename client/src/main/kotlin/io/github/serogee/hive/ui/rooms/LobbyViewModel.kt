@@ -120,7 +120,9 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
                         }
                         is RoomEvent.ParticipantJoined -> applyJoin(event)
                         is RoomEvent.AnswerRecorded -> applyAnswerCount(event)
-                        is RoomEvent.QuestionOpened, is RoomEvent.QuestionClosed, is RoomEvent.RoomEnded -> refresh()
+                        is RoomEvent.QuestionOpened, is RoomEvent.QuestionClosed, is RoomEvent.RoomEnded,
+                        is RoomEvent.AttemptUpdated,
+                        -> refresh()
                     }
                 }
             } catch (e: CancellationException) {

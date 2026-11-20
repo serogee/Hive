@@ -1,5 +1,6 @@
 package io.github.serogee.hive.core.api
 
+import io.github.serogee.hive.core.model.ParticipantId
 import io.github.serogee.hive.core.model.RoomId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -55,6 +56,15 @@ sealed interface RoomEvent {
         override val roomId: RoomId,
         override val revision: Long,
         val questionNumber: Int,
+    ) : RoomEvent
+
+    /** A Player started, advanced, or finished an attempt in an Asynchronous room. */
+    @Serializable
+    @SerialName("attempt_updated")
+    data class AttemptUpdated(
+        override val roomId: RoomId,
+        override val revision: Long,
+        val participantId: ParticipantId,
     ) : RoomEvent
 
     @Serializable
