@@ -81,57 +81,68 @@ class HiveApi(
 
     suspend fun me(token: String): Account = http.get(url(ApiPaths.ME)) { bearerAuth(token) }.unwrap()
 
-    suspend fun lookupRoom(code: String): RoomSummary = http.get(url(ApiPaths.roomByCode(code))).unwrap()
+    /*
+     * Room calls take a [server]. Null means the configured server, which also receives the account's
+     * bearer token. Any other address, such as a Host phone, never receives it.
+     */
 
-    suspend fun createRoom(request: CreateRoomRequest): Membership =
-        http.post(url(ApiPaths.ROOMS)) {
-            signedIn()
+    suspend fun lookupRoom(code: String, server: String? = null): RoomSummary =
+        http.get(url(ApiPaths.roomByCode(code), server)).unwrap()
+
+    suspend fun createRoom(request: CreateRoomRequest, server: String? = null): Membership =
+        http.post(url(ApiPaths.ROOMS, server)) {
+            signedIn(server)
             contentType(ContentType.Application.Json)
             setBody(request)
         }.unwrap()
 
-    suspend fun hostedRooms(): List<RoomSummary> = http.get(url(ApiPaths.HOSTED_ROOMS)) { signedIn() }.unwrap()
+    suspend fun hostedRooms(): List<RoomSummary> = http.get(url(ApiPaths.HOSTED_ROOMS)) { signedIn(null) }.unwrap()
 
-    suspend fun join(roomId: RoomId, request: JoinRoomRequest, existingToken: String?): Membership =
-        http.post(url(ApiPaths.participants(roomId.value))) {
-            signedIn()
+    suspend fun join(roomId: RoomId, request: JoinRoomRequest, existingToken: String?, server: String? = null): Membership =
+        http.post(url(ApiPaths.participants(roomId.value), server)) {
+            signedIn(server)
             participant(existingToken)
             contentType(ContentType.Application.Json)
             setBody(request)
         }.unwrap()
 
-    suspend fun roomState(roomId: RoomId, participantToken: String?): RoomState =
-        http.get(url(ApiPaths.state(roomId.value))) {
-            signedIn()
+    suspend fun roomState(roomId: RoomId, participantToken: String?, server: String? = null): RoomState =
+        http.get(url(ApiPaths.state(roomId.value), server)) {
+            signedIn(server)
             participant(participantToken)
         }.unwrap()
 
-    suspend fun command(roomId: RoomId, command: HostCommand, participantToken: String?): RoomState =
-        http.post(url(ApiPaths.commands(roomId.value))) {
-            signedIn()
+    suspend fun command(roomId: RoomId, command: HostCommand, participantToken: String?, server: String? = null): RoomState =
+        http.post(url(ApiPaths.commands(roomId.value), server)) {
+            signedIn(server)
             participant(participantToken)
             contentType(ContentType.Application.Json)
             setBody(command)
         }.unwrap()
 
-    suspend fun submitAnswer(roomId: RoomId, request: SubmitAnswerRequest, participantToken: String?): AnswerReceipt =
-        http.post(url(ApiPaths.answers(roomId.value))) {
-            signedIn()
+    suspend fun submitAnswer(
+        roomId: RoomId,
+        request: SubmitAnswerRequest,
+        participantToken: String?,
+        server: String? = null,
+    ): AnswerReceipt =
+        http.post(url(ApiPaths.answers(roomId.value), server)) {
+            signedIn(server)
             participant(participantToken)
             contentType(ContentType.Application.Json)
             setBody(request)
         }.unwrap()
 
-    suspend fun results(roomId: RoomId, participantToken: String?): RoomResults =
-        http.get(url(ApiPaths.results(roomId.value))) {
-            signedIn()
+    suspend fun results(roomId: RoomId, participantToken: String?, server: String? = null): RoomResults =
+        http.get(url(ApiPaths.results(roomId.value), server)) {
+            signedIn(server)
             participant(participantToken)
         }.unwrap()
 
     /** Live room events. The flow ends when the connection closes. */
-    fun roomEvents(roomId: RoomId, participantToken: String?): Flow<RoomEvent> = channelFlow {
-        val wsUrl = url(ApiPaths.events(roomId.value)).replaceFirst("http", "ws")
-        val token = accessToken()
+    fun roomEvents(roomId: RoomId, participantToken: String?, server: String? = null): Flow<RoomEvent> = channelFlow {
+        val wsUrl = url(ApiPaths.events(roomId.value), server).replaceFirst("http", "ws")
+        val token = if (server == null) accessToken() else null
         http.webSocket(wsUrl, request = {
             token?.let { bearerAuth(it) }
             participant(participantToken)
@@ -142,16 +153,15 @@ class HiveApi(
         }
     }
 
-    private suspend fun url(path: String) = serverUrl().trimEnd('/') + path
+    private suspend fun url(path: String, server: String? = null) = (server ?: serverUrl()).trimEnd('/') + path
 
-    private suspend fun HttpRequestBuilder.signedIn() {
-        accessToken()?.let { bearerAuth(it) }
+    private suspend fun HttpRequestBuilder.signedIn(server: String?) {
+        if (server == null) accessToken()?.let { bearerAuth(it) }
     }
 
     private fun HttpRequestBuilder.participant(token: String?) {
         if (token != null) header(ApiPaths.PARTICIPANT_TOKEN_HEADER, token)
     }
-
     private suspend inline fun <reified T> HttpResponse.unwrap(): T {
         if (status.isSuccess()) return body()
         val error = runCatching { body<ApiError>() }.getOrElse {

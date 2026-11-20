@@ -54,19 +54,14 @@ data class LobbyUiState(
 class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomRepository) : ViewModel() {
     private val _state = MutableStateFlow(LobbyUiState())
     val state: StateFlow<LobbyUiState> = _state.asStateFlow()
-    private var token: String? = null
-
     init {
-        viewModelScope.launch {
-            token = rooms.participantToken(roomId)
-            follow()
-        }
+        viewModelScope.launch { follow() }
     }
 
     fun command(command: HostCommand) = viewModelScope.launch {
         _state.update { it.copy(busy = true, error = null) }
         try {
-            val room = rooms.command(roomId, command, token)
+            val room = rooms.command(roomId, command)
             show(room)
             _state.update { it.copy(busy = false) }
         } catch (e: Exception) {
@@ -88,7 +83,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
         _state.update { it.copy(pending = pending, error = null) }
         viewModelScope.launch {
             try {
-                rooms.submitAnswer(roomId, SubmitAnswerRequest(questionId, answer, pending.idempotencyKey), token)
+                rooms.submitAnswer(roomId, SubmitAnswerRequest(questionId, answer, pending.idempotencyKey))
                 _state.update { it.copy(pending = null) }
                 refresh()
             } catch (e: ApiException) {
@@ -113,7 +108,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
             try {
                 // Fails fast with an ApiException when the room is gone or the credential is unknown.
                 refresh()
-                rooms.events(roomId, token).collect { event ->
+                rooms.events(roomId).collect { event ->
                     when (event) {
                         is RoomEvent.Subscribed -> {
                             refresh()
@@ -142,7 +137,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
     }
 
     private suspend fun refresh() {
-        show(rooms.state(roomId, token))
+        show(rooms.state(roomId))
     }
 
     private suspend fun show(room: RoomState) {
@@ -152,7 +147,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
         }
         if (room.room.status == RoomStatus.ENDED && _state.value.results == null) {
             try {
-                val results = rooms.results(roomId, token)
+                val results = rooms.results(roomId)
                 _state.update { it.copy(results = results) }
             } catch (e: ApiException) {
                 _state.update { it.copy(error = e.error.message) }

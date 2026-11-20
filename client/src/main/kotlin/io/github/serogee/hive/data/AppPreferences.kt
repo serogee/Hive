@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.Serializable
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "hive")
@@ -42,11 +44,24 @@ class AppPreferences(context: Context) {
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
 
+    /** Host credentials for rooms this phone hosts, by room ID. They never leave this phone. */
+    val hostTokens: Flow<Map<String, String>> = store.data.map { prefs ->
+        prefs.decode(HOST_TOKENS, MapSerializer(String.serializer(), String.serializer())).orEmpty()
+    }
+
     suspend fun currentServerUrl(): String = serverUrl.first()
 
     suspend fun currentSession(): AuthSession? = session.first()
 
     suspend fun setServerUrl(url: String) = store.edit { it[SERVER_URL] = url }
+
+    suspend fun setPreferredName(name: String) = store.edit { it[PREFERRED_NAME] = name }
+
+    suspend fun addHostToken(roomId: RoomId, token: String) = store.edit { prefs ->
+        val serializer = MapSerializer(String.serializer(), String.serializer())
+        val tokens = prefs.decode(HOST_TOKENS, serializer).orEmpty() + (roomId.value to token)
+        prefs[HOST_TOKENS] = HiveJson.encodeToString(serializer, tokens)
+    }
 
     suspend fun setTheme(theme: ThemePreference) = store.edit { it[THEME] = theme.name }
 
@@ -72,5 +87,6 @@ class AppPreferences(context: Context) {
         val SESSION = stringPreferencesKey("session")
         val JOINED_ROOM = stringPreferencesKey("joined_room")
         val PREFERRED_NAME = stringPreferencesKey("preferred_name")
+        val HOST_TOKENS = stringPreferencesKey("host_tokens")
     }
 }

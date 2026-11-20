@@ -125,14 +125,23 @@ interface ReviewDao {
 }
 
 @Database(
-    entities = [StackEntity::class, QuestionEntity::class, ReviewAttemptEntity::class],
-    version = 2,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    entities = [
+        StackEntity::class,
+        QuestionEntity::class,
+        ReviewAttemptEntity::class,
+        LocalRoomEntity::class,
+        LocalParticipantEntity::class,
+        LocalSubmissionEntity::class,
+    ],
+    version = 3,
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class HiveDatabase : RoomDatabase() {
     abstract fun stacks(): StackDao
 
     abstract fun reviews(): ReviewDao
+
+    abstract fun localRooms(): LocalRoomDao
 
     companion object {
         fun create(context: Context): HiveDatabase =
