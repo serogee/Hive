@@ -1,0 +1,98 @@
+package io.github.serogee.hive.core.review
+
+import io.github.serogee.hive.core.engine.Grading
+import io.github.serogee.hive.core.model.Answer
+import io.github.serogee.hive.core.model.Question
+import io.github.serogee.hive.core.model.QuestionId
+import io.github.serogee.hive.core.model.StackSnapshot
+import kotlin.random.Random
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class ReviewMode {
+    @SerialName("quiz")
+    QUIZ,
+
+    @SerialName("flashcard")
+    FLASHCARD,
+}
+
+@Serializable
+data class ReviewSettings(
+    val mode: ReviewMode = ReviewMode.QUIZ,
+    /** Answer every question by typing. The original choices stay available with Show choices. */
+    val preferTyping: Boolean = false,
+    val shuffled: Boolean = false,
+)
+
+/** How one card went. Quiz Review scores answers; Flashcard Review records the learner's own mark. */
+@Serializable
+enum class Outcome {
+    @SerialName("correct")
+    CORRECT,
+
+    @SerialName("incorrect")
+    INCORRECT,
+
+    @SerialName("got_it")
+    GOT_IT,
+
+    @SerialName("review_again")
+    REVIEW_AGAIN,
+}
+
+/**
+ * One pass through a stack. It keeps its own copy of the questions and the order actually used,
+ * so resuming returns to the same item even after the stack changes.
+ */
+@Serializable
+data class ReviewAttempt(
+    val id: String,
+    val stack: StackSnapshot,
+    val settings: ReviewSettings,
+    val order: List<QuestionId>,
+    /** Index into [order] of the current card. Equal to the size of [order] when finished. */
+    val position: Int = 0,
+    val outcomes: Map<String, Outcome> = emptyMap(),
+) {
+    val isFinished: Boolean get() = position >= order.size
+
+    val current: Question? get() = order.getOrNull(position)?.let { id -> stack.questions.firstOrNull { it.id == id } }
+
+    fun outcomeOf(id: QuestionId): Outcome? = outcomes[id.value]
+
+    val correctCount: Int get() = outcomes.values.count { it == Outcome.CORRECT || it == Outcome.GOT_IT }
+
+    /** Missed questions in Quiz Review, or cards marked Review again in Flashcard Review. */
+    val toRetry: List<QuestionId>
+        get() = order.filter { outcomes[it.value] == Outcome.INCORRECT || outcomes[it.value] == Outcome.REVIEW_AGAIN }
+}
+
+object Review {
+    fun start(id: String, stack: StackSnapshot, settings: ReviewSettings, random: Random): ReviewAttempt {
+        val ids = stack.questions.map { it.id }
+        return ReviewAttempt(id, stack, settings, if (settings.shuffled) ids.shuffled(random) else ids)
+    }
+
+    /** Checks a Quiz Review answer and records the result. The card stays current until [next]. */
+    fun answer(attempt: ReviewAttempt, answer: Answer): Pair<ReviewAttempt, Boolean> {
+        val question = checkNotNull(attempt.current) { "The review has finished." }
+        val correct = Grading.isCorrect(question, answer)
+        val outcome = if (correct) Outcome.CORRECT else Outcome.INCORRECT
+        return attempt.copy(outcomes = attempt.outcomes + (question.id.value to outcome)) to correct
+    }
+
+    /** Records a Flashcard Review mark and moves to the next card. */
+    fun mark(attempt: ReviewAttempt, gotIt: Boolean): ReviewAttempt {
+        val question = checkNotNull(attempt.current) { "The review has finished." }
+        val outcome = if (gotIt) Outcome.GOT_IT else Outcome.REVIEW_AGAIN
+        return next(attempt.copy(outcomes = attempt.outcomes + (question.id.value to outcome)))
+    }
+
+    fun next(attempt: ReviewAttempt): ReviewAttempt = attempt.copy(position = (attempt.position + 1).coerceAtMost(attempt.order.size))
+
+    /** A new attempt with only the missed or marked cards, in the same order. */
+    fun retry(id: String, attempt: ReviewAttempt): ReviewAttempt =
+        ReviewAttempt(id, attempt.stack, attempt.settings, attempt.toRetry)
+}
