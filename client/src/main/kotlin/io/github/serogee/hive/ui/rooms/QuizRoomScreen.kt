@@ -14,7 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,6 +26,7 @@ import io.github.serogee.hive.core.api.RoomSummary
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
+import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
@@ -67,16 +70,20 @@ class QuizRoomViewModel(private val rooms: RoomRepository, auth: AuthRepository)
 
 @Composable
 fun QuizRoomScreen(
-    onJoinCode: (String) -> Unit,
+    onJoinCode: (code: String, hostAddress: String?) -> Unit,
     onOpenRoom: (roomId: String) -> Unit,
     onCreateRoom: () -> Unit,
     onSignIn: () -> Unit,
 ) {
     val container = LocalAppContainer.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val viewModel = viewModel { QuizRoomViewModel(container.rooms, container.auth) }
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     val joined by viewModel.joined.collectAsStateWithLifecycle()
     val hosted by viewModel.hosted.collectAsStateWithLifecycle()
+    val localRooms by container.rooms.localHostedRooms.collectAsStateWithLifecycle(emptyList())
+    val hostingHere by container.rooms.localHostRunning.collectAsStateWithLifecycle()
 
     LaunchedEffect(signedIn) { if (signedIn) viewModel.refreshHosted() }
 
@@ -95,21 +102,40 @@ fun QuizRoomScreen(
         }
 
         Text("Rooms you host", style = MaterialTheme.typography.titleMedium)
+        Button(onClick = onCreateRoom) { Text("Create room") }
+
+        if (localRooms.isNotEmpty()) {
+            Text("On this phone", style = MaterialTheme.typography.titleSmall)
+            localRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
+            if (hostingHere) {
+                OutlinedButton(onClick = {
+                    scope.launch {
+                        container.rooms.stopLocalHosting()
+                        HostingService.stop(context)
+                    }
+                }) { Text("Stop hosting on this phone") }
+            }
+        }
+
+        Text("Online", style = MaterialTheme.typography.titleSmall)
         if (!signedIn) {
-            Text("Sign in to host online rooms. Hosting on your own phone without an account comes with local stacks.")
+            Text("Sign in to see and create online rooms. Rooms on this phone need no account.")
             OutlinedButton(onClick = onSignIn) { Text("Sign in") }
             return@Page
         }
-        Button(onClick = onCreateRoom) { Text("Create room") }
         if (hosted.loading) CircularProgressIndicator()
         ErrorText(hosted.error)
-        hosted.rooms.forEach { room ->
-            Card(modifier = Modifier.fillMaxWidth().clickable { onOpenRoom(room.id.value) }) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(room.title, style = MaterialTheme.typography.titleSmall)
-                    Text("Code ${room.code} · ${room.mode.label()} · ${room.status.label()}")
-                }
-            }
+        if (!hosted.loading && hosted.rooms.isEmpty() && hosted.error == null) Text("No online rooms yet.")
+        hosted.rooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
+    }
+}
+
+@Composable
+private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(room.title, style = MaterialTheme.typography.titleSmall)
+            Text("Code ${room.code} · ${room.mode.label()} · ${room.status.label()}")
         }
     }
 }

@@ -54,8 +54,9 @@ object AccountsRoute
 @Serializable
 object SignInRoute
 
+/** [hostAddress] is the Host phone's address for a room hosted on a phone. */
 @Serializable
-data class SessionEntryRoute(val code: String)
+data class SessionEntryRoute(val code: String, val hostAddress: String? = null)
 
 @Serializable
 data class HostSetupRoute(val stackId: String)
@@ -120,7 +121,7 @@ fun HiveApp() {
         ) {
             composable<HomeRoute> {
                 HomeScreen(
-                    onJoinCode = { navController.navigate(SessionEntryRoute(it)) },
+                    onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },
                     onOpenStacks = { navController.openTab(MyStacksRoute) },
                     onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
                     onContinueReview = { navController.navigate(ReviewRoute(it)) },
@@ -187,7 +188,7 @@ fun HiveApp() {
             }
             composable<QuizRoomRoute> {
                 QuizRoomScreen(
-                    onJoinCode = { navController.navigate(SessionEntryRoute(it)) },
+                    onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },
                     onOpenRoom = { navController.navigate(LobbyRoute(it)) },
                     onCreateRoom = { navController.navigate(HostPickerRoute) },
                     onSignIn = { navController.navigate(SignInRoute) },
@@ -196,8 +197,10 @@ fun HiveApp() {
             composable<AccountsRoute> { AccountsScreen() }
             composable<SignInRoute> { AccountsScreen(onSignedIn = { navController.popBackStack() }) }
             composable<SessionEntryRoute> { entry ->
+                val route = entry.toRoute<SessionEntryRoute>()
                 SessionEntryScreen(
-                    code = entry.toRoute<SessionEntryRoute>().code,
+                    code = route.code,
+                    hostAddress = route.hostAddress,
                     onJoined = { membership ->
                         navController.navigate(LobbyRoute(membership.room.id.value)) {
                             popUpTo<SessionEntryRoute> { inclusive = true }
@@ -211,6 +214,7 @@ fun HiveApp() {
                 HostSetupScreen(
                     stackId = StackId(stackId),
                     onEdit = { navController.navigate(StackEditorRoute(stackId, hostAfter = true)) },
+                    onSignIn = { navController.navigate(SignInRoute) },
                     onCreated = { membership ->
                         navController.navigate(LobbyRoute(membership.room.id.value)) {
                             popUpTo<HostSetupRoute> { inclusive = true }
