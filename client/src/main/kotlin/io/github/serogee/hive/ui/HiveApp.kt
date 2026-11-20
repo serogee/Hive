@@ -24,12 +24,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import io.github.serogee.hive.ui.accounts.AccountsScreen
-import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.ui.home.HomeScreen
 import io.github.serogee.hive.ui.rooms.HostSetupScreen
 import io.github.serogee.hive.ui.rooms.LobbyScreen
 import io.github.serogee.hive.ui.rooms.QuizRoomScreen
 import io.github.serogee.hive.ui.rooms.SessionEntryScreen
+import io.github.serogee.hive.ui.stacks.MyStacksScreen
+import io.github.serogee.hive.ui.stacks.StackDetailsScreen
+import io.github.serogee.hive.ui.stacks.StackEditorScreen
+import io.github.serogee.hive.ui.stacks.StackListPurpose
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -52,7 +56,18 @@ object SignInRoute
 data class SessionEntryRoute(val code: String)
 
 @Serializable
-object HostSetupRoute
+data class HostSetupRoute(val stackId: String)
+
+/** Lists stacks so the user can pick one to host. */
+@Serializable
+object HostPickerRoute
+
+@Serializable
+data class StackDetailsRoute(val stackId: String)
+
+/** [hostAfter] continues to Host Setup when the stack was created from the host picker. */
+@Serializable
+data class StackEditorRoute(val stackId: String, val hostAfter: Boolean = false)
 
 @Serializable
 data class LobbyRoute(val roomId: String)
@@ -98,19 +113,53 @@ fun HiveApp() {
                 HomeScreen(
                     onJoinCode = { navController.navigate(SessionEntryRoute(it)) },
                     onOpenStacks = { navController.openTab(MyStacksRoute) },
+                    onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
                 )
             }
             composable<MyStacksRoute> {
-                Page("My Stacks") {
-                    Text("Creating, importing, and reviewing stacks comes next. Online rooms use the Networking Fundamentals sample stack for now.")
-                }
+                MyStacksScreen(
+                    purpose = StackListPurpose.BROWSE,
+                    onOpen = { navController.navigate(StackDetailsRoute(it.value)) },
+                    onCreated = { navController.navigate(StackEditorRoute(it.value)) },
+                    onHost = { navController.navigate(HostSetupRoute(it.value)) },
+                )
+            }
+            composable<HostPickerRoute> {
+                MyStacksScreen(
+                    purpose = StackListPurpose.HOST,
+                    onOpen = { navController.navigate(HostSetupRoute(it.value)) { popUpTo<HostPickerRoute> { inclusive = true } } },
+                    onCreated = {
+                        navController.navigate(StackEditorRoute(it.value, hostAfter = true)) {
+                            popUpTo<HostPickerRoute> { inclusive = true }
+                        }
+                    },
+                )
+            }
+            composable<StackDetailsRoute> { entry ->
+                val stackId = StackId(entry.toRoute<StackDetailsRoute>().stackId)
+                StackDetailsScreen(
+                    stackId = stackId,
+                    onHost = { navController.navigate(HostSetupRoute(stackId.value)) },
+                    onEdit = { navController.navigate(StackEditorRoute(stackId.value)) },
+                    onDeleted = { navController.popBackStack() },
+                )
+            }
+            composable<StackEditorRoute> { entry ->
+                val route = entry.toRoute<StackEditorRoute>()
+                StackEditorScreen(StackId(route.stackId), onDone = {
+                    if (route.hostAfter) {
+                        navController.navigate(HostSetupRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
+                    } else {
+                        navController.navigate(StackDetailsRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
+                    }
+                })
             }
             composable<QuizRoomRoute> {
                 QuizRoomScreen(
                     onJoinCode = { navController.navigate(SessionEntryRoute(it)) },
                     onOpenRoom = { navController.navigate(LobbyRoute(it)) },
-                    onCreateRoom = { navController.navigate(HostSetupRoute) },
+                    onCreateRoom = { navController.navigate(HostPickerRoute) },
                     onSignIn = { navController.navigate(SignInRoute) },
                 )
             }
@@ -127,12 +176,17 @@ fun HiveApp() {
                     onSignIn = { navController.navigate(SignInRoute) },
                 )
             }
-            composable<HostSetupRoute> {
-                HostSetupScreen(onCreated = { membership ->
-                    navController.navigate(LobbyRoute(membership.room.id.value)) {
-                        popUpTo<HostSetupRoute> { inclusive = true }
-                    }
-                })
+            composable<HostSetupRoute> { entry ->
+                val stackId = entry.toRoute<HostSetupRoute>().stackId
+                HostSetupScreen(
+                    stackId = StackId(stackId),
+                    onEdit = { navController.navigate(StackEditorRoute(stackId, hostAfter = true)) },
+                    onCreated = { membership ->
+                        navController.navigate(LobbyRoute(membership.room.id.value)) {
+                            popUpTo<HostSetupRoute> { inclusive = true }
+                        }
+                    },
+                )
             }
             composable<LobbyRoute> { entry ->
                 LobbyScreen(
