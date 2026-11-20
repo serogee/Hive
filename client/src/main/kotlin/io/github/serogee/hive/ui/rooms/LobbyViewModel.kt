@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HostCommand
+import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
@@ -97,6 +98,17 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
         }
     }
 
+    /** Starts or advances this Player's own attempt in an Asynchronous room. */
+    fun attempt(command: PlayerCommand) = viewModelScope.launch {
+        _state.update { it.copy(busy = true, error = null) }
+        try {
+            show(rooms.attempt(roomId, command))
+            _state.update { it.copy(busy = false) }
+        } catch (e: Exception) {
+            _state.update { it.copy(busy = false, error = e.userMessage()) }
+        }
+    }
+
     /** Gets a new snapshot, for example when a countdown reaches zero. */
     fun refreshNow() = viewModelScope.launch { runCatching { refresh() } }
 
@@ -120,7 +132,9 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
                         }
                         is RoomEvent.ParticipantJoined -> applyJoin(event)
                         is RoomEvent.AnswerRecorded -> applyAnswerCount(event)
-                        is RoomEvent.QuestionOpened, is RoomEvent.QuestionClosed, is RoomEvent.RoomEnded -> refresh()
+                        is RoomEvent.QuestionOpened, is RoomEvent.QuestionClosed, is RoomEvent.RoomEnded,
+                        is RoomEvent.AttemptUpdated,
+                        -> refresh()
                     }
                 }
             } catch (e: CancellationException) {

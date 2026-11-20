@@ -104,6 +104,39 @@ sealed interface HostCommand {
     data object EndRoom : HostCommand
 }
 
+/** Actions a Player takes in an Asynchronous room, at their own pace. */
+@Serializable
+sealed interface PlayerCommand {
+    /** Opens the first question for this Player. */
+    @Serializable
+    @SerialName("start_attempt")
+    data object StartAttempt : PlayerCommand
+
+    /** Opens this Player's next question, or finishes the attempt after the last one. */
+    @Serializable
+    @SerialName("next_question")
+    data object NextQuestion : PlayerCommand
+}
+
+/** A Player's own progress through an Asynchronous room. */
+@Serializable
+data class AttemptView(
+    val started: Boolean,
+    val finished: Boolean,
+    val answeredCount: Int,
+)
+
+/** One Player's progress, as the Host sees it in an Asynchronous room. */
+@Serializable
+data class PlayerProgressView(
+    val participantId: ParticipantId,
+    val displayName: String,
+    /** The number of the question the Player has open, or null before starting. */
+    val currentQuestion: Int?,
+    val answeredCount: Int,
+    val finished: Boolean,
+)
+
 @Serializable
 data class SubmitAnswerRequest(
     val questionId: QuestionId,

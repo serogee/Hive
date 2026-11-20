@@ -154,6 +154,8 @@ fun PlayerLiveContent(
     onSubmit: (Answer) -> Unit,
     onRetry: () -> Unit,
     onTimeUp: () -> Unit,
+    /** False in an Asynchronous room, where the Player moves on without the Host. */
+    hostPaced: Boolean = true,
 ) {
     val question = live.question
     val received = live.yourAnswer
@@ -225,7 +227,7 @@ fun PlayerLiveContent(
     }
 
     if (!live.isOpen) {
-        Text("Wait for the Host to continue.")
+        if (hostPaced) Text("Wait for the Host to continue.")
         RevealedAnswer(live)
     }
 }

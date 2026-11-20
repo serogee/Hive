@@ -13,6 +13,7 @@ import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.Membership
+import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
@@ -114,6 +115,14 @@ class HiveApi(
 
     suspend fun command(roomId: RoomId, command: HostCommand, participantToken: String?, server: String? = null): RoomState =
         http.post(url(ApiPaths.commands(roomId.value), server)) {
+            signedIn(server)
+            participant(participantToken)
+            contentType(ContentType.Application.Json)
+            setBody(command)
+        }.unwrap()
+
+    suspend fun attempt(roomId: RoomId, command: PlayerCommand, participantToken: String?, server: String? = null): RoomState =
+        http.post(url(ApiPaths.attempt(roomId.value), server)) {
             signedIn(server)
             participant(participantToken)
             contentType(ContentType.Application.Json)

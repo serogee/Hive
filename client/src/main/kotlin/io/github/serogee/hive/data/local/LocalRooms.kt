@@ -9,6 +9,7 @@ import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Upsert
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.engine.Progress
 import io.github.serogee.hive.core.model.AccountId
@@ -23,6 +24,7 @@ import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.core.model.SubmissionId
+import io.github.serogee.hive.host.AttemptRecord
 import io.github.serogee.hive.host.ParticipantRecord
 import io.github.serogee.hive.host.RoomRecord
 import io.github.serogee.hive.host.RoomStore
@@ -92,6 +94,20 @@ data class LocalSubmissionEntity(
     @ColumnInfo(defaultValue = "0") val speedBonusTenths: Int = 0,
 )
 
+/** A Player's attempt in an Asynchronous room hosted on this phone. */
+@Entity(
+    tableName = "local_attempts",
+    primaryKeys = ["roomId", "participantId"],
+    foreignKeys = [ForeignKey(LocalRoomEntity::class, ["id"], ["roomId"], onDelete = ForeignKey.CASCADE)],
+)
+data class LocalAttemptEntity(
+    val roomId: String,
+    val participantId: String,
+    val questionIndex: Int,
+    val openedAt: Long,
+    val finished: Boolean,
+)
+
 @Dao
 interface LocalRoomDao {
     @Insert
@@ -141,6 +157,21 @@ interface LocalRoomDao {
 
     @Query("SELECT COALESCE(MAX(sequence), 0) FROM local_submissions")
     suspend fun lastSubmissionSequence(): Long
+
+    @Query("SELECT * FROM local_attempts WHERE roomId = :roomId AND participantId = :participantId")
+    suspend fun attempt(roomId: String, participantId: String): LocalAttemptEntity?
+
+    @Query("SELECT * FROM local_attempts WHERE roomId = :roomId")
+    suspend fun attempts(roomId: String): List<LocalAttemptEntity>
+
+    @Upsert
+    suspend fun upsertAttempt(attempt: LocalAttemptEntity)
+
+    @Transaction
+    suspend fun saveAttempt(attempt: LocalAttemptEntity, revision: Long) {
+        upsertAttempt(attempt)
+        setRevision(attempt.roomId, revision)
+    }
 
     @Transaction
     suspend fun createRoom(room: LocalRoomEntity, host: LocalParticipantEntity) {
@@ -206,6 +237,19 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
         submissions(roomId).firstOrNull { it.participantId == participantId && it.questionId == questionId }
 
     override suspend fun submissions(roomId: RoomId) = dao.submissions(roomId.value).map { it.toRecord() }
+
+    override suspend fun findAttempt(roomId: RoomId, participantId: ParticipantId) =
+        dao.attempt(roomId.value, participantId.value)?.toRecord()
+
+    override suspend fun attempts(roomId: RoomId) = dao.attempts(roomId.value).map { it.toRecord() }
+
+    override suspend fun saveAttempt(attempt: AttemptRecord, revision: Long) = dao.saveAttempt(
+        LocalAttemptEntity(attempt.roomId.value, attempt.participantId.value, attempt.questionIndex, attempt.openedAt, attempt.finished),
+        revision,
+    )
+
+    private fun LocalAttemptEntity.toRecord() =
+        AttemptRecord(RoomId(roomId), ParticipantId(participantId), questionIndex, openedAt, finished)
 
     private fun RoomRecord.toEntity() = LocalRoomEntity(
         id = id.value,

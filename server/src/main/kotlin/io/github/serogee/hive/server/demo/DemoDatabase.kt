@@ -43,7 +43,7 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
     }
 
     fun dropAll() = connection.createStatement().use { statement ->
-        listOf("submissions", "participants", "rooms", "sessions", "accounts").forEach {
+        listOf("attempts", "submissions", "participants", "rooms", "sessions", "accounts").forEach {
             statement.executeUpdate("DROP TABLE IF EXISTS $it")
         }
     }
@@ -71,7 +71,7 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
             }
         }
 
-        const val SCHEMA_VERSION = 3
+        const val SCHEMA_VERSION = 4
 
         private val SCHEMA = listOf(
             """
@@ -141,6 +141,16 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
             )
             """,
             "CREATE INDEX IF NOT EXISTS submissions_by_room ON submissions(room_id)",
+            """
+            CREATE TABLE IF NOT EXISTS attempts (
+                room_id TEXT NOT NULL REFERENCES rooms(id),
+                participant_id TEXT NOT NULL REFERENCES participants(id),
+                question_index INTEGER NOT NULL,
+                opened_at INTEGER NOT NULL,
+                finished INTEGER NOT NULL,
+                PRIMARY KEY (room_id, participant_id)
+            )
+            """,
         ).map { it.trimIndent() }
     }
 }
