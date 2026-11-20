@@ -68,6 +68,10 @@ data class RoomRecord(
     /** When answers to the current question stop, from its time limit and the quiz deadline. */
     fun cutoff(): Long? = Timing.cutoff(questionOpenedAt, questionIndex?.let { stack.questions[it].durationSeconds }, deadlineAt)
 
+    /** An Asynchronous room is over once its deadline passes, even before the Host ends it. */
+    fun effectiveStatus(now: Long): RoomStatus =
+        if (status == RoomStatus.LIVE && mode == RoomMode.ASYNCHRONOUS && !Timing.isBefore(now, deadlineAt)) RoomStatus.ENDED else status
+
     /** Whether the current question accepts answers at [now]. An expired timer closes it. */
     fun acceptsAnswers(now: Long): Boolean = status == RoomStatus.LIVE && questionOpen && Timing.isBefore(now, cutoff())
 }
@@ -102,6 +106,21 @@ data class SubmissionRecord(
     val speedBonusTenths: Int = 0,
 ) {
     fun receipt() = AnswerReceipt(id, questionId, answer, acceptedAt)
+}
+
+/**
+ * One Player's attempt in an Asynchronous room. [openedAt] is when the room server opened the
+ * Player's current question, so the Player's timer survives reconnects and restarts.
+ */
+data class AttemptRecord(
+    val roomId: RoomId,
+    val participantId: ParticipantId,
+    val questionIndex: Int,
+    val openedAt: Long,
+    val finished: Boolean,
+) {
+    fun cutoff(room: RoomRecord): Long? =
+        Timing.cutoff(openedAt, room.stack.questions.getOrNull(questionIndex)?.durationSeconds, room.deadlineAt)
 }
 
 /**
@@ -145,4 +164,11 @@ interface RoomStore {
 
     /** Returns accepted answers in the order they arrived. */
     suspend fun submissions(roomId: RoomId): List<SubmissionRecord>
+
+    suspend fun findAttempt(roomId: RoomId, participantId: ParticipantId): AttemptRecord?
+
+    suspend fun attempts(roomId: RoomId): List<AttemptRecord>
+
+    /** Adds or replaces a Player's attempt and stores [revision] as the room's new revision. */
+    suspend fun saveAttempt(attempt: AttemptRecord, revision: Long)
 }

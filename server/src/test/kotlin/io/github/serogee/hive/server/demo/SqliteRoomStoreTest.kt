@@ -4,6 +4,7 @@ import io.github.serogee.hive.core.api.Account
 import io.github.serogee.hive.core.api.CreateRoomRequest
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
+import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.Answer
@@ -27,6 +28,30 @@ class SqliteRoomStoreTest {
     @AfterTest
     fun cleanUp() {
         directory.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun asynchronousAttemptsKeepTheirTimerAfterRestart() = runTest {
+        val (roomId, token, closesAt) = DemoDatabase.open(dbPath).use { db ->
+            db.write { connection ->
+                connection.createStatement().use {
+                    it.executeUpdate("INSERT INTO accounts VALUES ('account-host', 'host', 'x', 'Host')")
+                }
+            }
+            val service = RoomService(SqliteRoomStore(db), requireAccountToHost = true)
+            val room = service.createRoom(host, CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.ASYNCHRONOUS)).room
+            service.command(room.id, host, null, HostCommand.Start)
+            val guest = service.join(room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
+            val started = service.attempt(room.id, null, guest.participantToken, PlayerCommand.StartAttempt)
+            Triple(room.id, guest.participantToken, started.live?.closesAt)
+        }
+
+        DemoDatabase.open(dbPath).use { db ->
+            val state = RoomService(SqliteRoomStore(db), requireAccountToHost = true).state(roomId, null, token)
+
+            assertEquals(closesAt, state.live?.closesAt)
+            assertEquals(true, state.attempt?.started)
+        }
     }
 
     @Test

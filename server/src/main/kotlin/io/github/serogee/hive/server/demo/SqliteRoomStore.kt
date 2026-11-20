@@ -14,6 +14,7 @@ import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.core.model.SubmissionId
+import io.github.serogee.hive.host.AttemptRecord
 import io.github.serogee.hive.host.ParticipantRecord
 import io.github.serogee.hive.host.RoomRecord
 import io.github.serogee.hive.host.RoomStore
@@ -83,6 +84,31 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
 
     override suspend fun submissions(roomId: RoomId) = db.read { connection ->
         connection.querySubmissions("SELECT * FROM submissions WHERE room_id = ? ORDER BY rowid", roomId.value)
+    }
+
+    override suspend fun findAttempt(roomId: RoomId, participantId: ParticipantId) = db.read { connection ->
+        connection.query(
+            "SELECT * FROM attempts WHERE room_id = ? AND participant_id = ?",
+            arrayOf(roomId.value, participantId.value),
+        ) { it.toAttempt() }.firstOrNull()
+    }
+
+    override suspend fun attempts(roomId: RoomId) = db.read { connection ->
+        connection.query("SELECT * FROM attempts WHERE room_id = ? ORDER BY rowid", arrayOf(roomId.value)) { it.toAttempt() }
+    }
+
+    override suspend fun saveAttempt(attempt: AttemptRecord, revision: Long) = db.write { connection ->
+        connection.prepareStatement(
+            "INSERT OR REPLACE INTO attempts (room_id, participant_id, question_index, opened_at, finished) VALUES (?, ?, ?, ?, ?)",
+        ).use {
+            it.setString(1, attempt.roomId.value)
+            it.setString(2, attempt.participantId.value)
+            it.setInt(3, attempt.questionIndex)
+            it.setLong(4, attempt.openedAt)
+            it.setInt(5, if (attempt.finished) 1 else 0)
+            it.executeUpdate()
+        }
+        setRevision(connection, attempt.roomId, revision)
     }
 
     override suspend fun insertParticipant(participant: ParticipantRecord, revision: Long) = db.write { connection ->
@@ -202,6 +228,14 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
                 it.executeUpdate()
             }
         }
+
+        private fun ResultSet.toAttempt() = AttemptRecord(
+            roomId = RoomId(getString("room_id")),
+            participantId = ParticipantId(getString("participant_id")),
+            questionIndex = getInt("question_index"),
+            openedAt = getLong("opened_at"),
+            finished = getInt("finished") == 1,
+        )
 
         private fun Connection.querySubmissions(sql: String, vararg args: String) = query(sql, args) { it.toSubmission() }
 

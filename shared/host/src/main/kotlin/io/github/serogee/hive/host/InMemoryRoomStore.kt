@@ -14,6 +14,7 @@ class InMemoryRoomStore : RoomStore {
     private val rooms = linkedMapOf<RoomId, RoomRecord>()
     private val participants = mutableListOf<ParticipantRecord>()
     private val submissions = mutableListOf<SubmissionRecord>()
+    private val attempts = linkedMapOf<Pair<RoomId, ParticipantId>, AttemptRecord>()
 
     override suspend fun insertRoom(room: RoomRecord, host: ParticipantRecord) = mutex.withLock {
         rooms[room.id] = room
@@ -80,5 +81,19 @@ class InMemoryRoomStore : RoomStore {
 
     override suspend fun submissions(roomId: RoomId) = mutex.withLock {
         submissions.filter { it.roomId == roomId }
+    }
+
+    override suspend fun findAttempt(roomId: RoomId, participantId: ParticipantId) = mutex.withLock {
+        attempts[roomId to participantId]
+    }
+
+    override suspend fun attempts(roomId: RoomId) = mutex.withLock {
+        attempts.values.filter { it.roomId == roomId }
+    }
+
+    override suspend fun saveAttempt(attempt: AttemptRecord, revision: Long) = mutex.withLock {
+        attempts[attempt.roomId to attempt.participantId] = attempt
+        rooms.computeIfPresent(attempt.roomId) { _, room -> room.copy(revision = revision) }
+        Unit
     }
 }

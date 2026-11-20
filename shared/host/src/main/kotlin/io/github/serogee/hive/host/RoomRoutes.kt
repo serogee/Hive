@@ -5,6 +5,7 @@ import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
+import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.RoomId
@@ -67,6 +68,12 @@ fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier?) {
                 val roomId = RoomId(call.parameters["id"].orEmpty())
                 val request = call.receive<SubmitAnswerRequest>()
                 call.respond(service.submitAnswer(roomId, call.account(accounts), call.participantToken(), request))
+            }
+
+            post("/attempt") {
+                val roomId = RoomId(call.parameters["id"].orEmpty())
+                val command = call.receive<PlayerCommand>()
+                call.respond(service.attempt(roomId, call.account(accounts), call.participantToken(), command))
             }
 
             get("/results") {

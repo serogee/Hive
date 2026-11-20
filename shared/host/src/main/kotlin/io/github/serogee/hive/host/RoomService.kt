@@ -1,6 +1,9 @@
 package io.github.serogee.hive.host
 
 import io.github.serogee.hive.core.api.Account
+import io.github.serogee.hive.core.api.AttemptView
+import io.github.serogee.hive.core.api.PlayerCommand
+import io.github.serogee.hive.core.api.PlayerProgressView
 import io.github.serogee.hive.core.api.AnswerReceipt
 import io.github.serogee.hive.core.api.AnswerResult
 import io.github.serogee.hive.core.api.HostCommand
@@ -25,9 +28,11 @@ import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.core.engine.GradedAnswer
 import io.github.serogee.hive.core.engine.Grading
 import io.github.serogee.hive.core.engine.Leaderboard
+import io.github.serogee.hive.core.engine.Progress
 import io.github.serogee.hive.core.engine.RankedPlayer
 import io.github.serogee.hive.core.engine.RoomProgression
 import io.github.serogee.hive.core.engine.SpeedBonus
+import io.github.serogee.hive.core.engine.Timing
 import io.github.serogee.hive.core.engine.Transition
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.Question
@@ -217,6 +222,7 @@ class RoomService(
         if (host.role != RoomRole.HOST) throw HiveException(ErrorCode.FORBIDDEN, "Only the Host can do this.")
 
         val now = clock.nowMillis()
+        if (room.mode == RoomMode.ASYNCHRONOUS) return asyncCommand(room, host, command, now)
         // A question whose time ran out counts as closed, so the Host can move on.
         val current = room.progress.let { if (it.questionOpen && !room.acceptsAnswers(now)) it.copy(questionOpen = false) else it }
         val progress = when (val transition = RoomProgression.apply(current, command, room.stack.questions.size)) {
@@ -238,6 +244,81 @@ class RoomService(
         stateFor(updated, host)
     }
 
+    /** In an Asynchronous room, the Host only opens and ends the room. Players set their own pace. */
+    private suspend fun asyncCommand(room: RoomRecord, host: ParticipantRecord, command: HostCommand, now: Long): RoomState {
+        val progress = when {
+            command == HostCommand.Start && room.status == RoomStatus.LOBBY -> Progress(RoomStatus.LIVE, null, false)
+            command == HostCommand.EndRoom && room.effectiveStatus(now) != RoomStatus.ENDED ->
+                Progress(RoomStatus.ENDED, null, false)
+            command == HostCommand.Start || command == HostCommand.EndRoom ->
+                throw HiveException(ErrorCode.INVALID_COMMAND, "The room is already ${if (command == HostCommand.Start) "open" else "closed"}.")
+            else -> throw HiveException(ErrorCode.INVALID_COMMAND, "Players move through this room at their own pace.")
+        }
+        val revision = room.revision + 1
+        store.updateProgress(room.id, progress, revision)
+        val updated = room.with(progress, revision)
+        hub.publish(
+            if (progress.status == RoomStatus.ENDED) RoomEvent.RoomEnded(room.id, revision) else RoomEvent.QuestionOpened(room.id, revision, 1),
+        )
+        if (progress.status == RoomStatus.LIVE) scheduleDeadline(updated)
+        return stateFor(updated, host)
+    }
+
+    /** Ends an Asynchronous room for everyone when its deadline passes. */
+    private fun scheduleDeadline(room: RoomRecord) {
+        val deadline = room.deadlineAt ?: return
+        timers.launch {
+            delay((deadline - clock.nowMillis()).coerceAtLeast(0))
+            lockFor(room.id).withLock {
+                val current = store.findRoom(room.id) ?: return@withLock
+                if (current.status != RoomStatus.LIVE) return@withLock
+                val revision = current.revision + 1
+                store.updateProgress(room.id, Progress(RoomStatus.ENDED, null, false), revision)
+                hub.publish(RoomEvent.RoomEnded(room.id, revision))
+            }
+        }
+    }
+
+    /**
+     * Starts or advances a Player's own attempt in an Asynchronous room. The room server records
+     * when it opens each question for the Player, and that time sets the Player's timer.
+     */
+    suspend fun attempt(
+        roomId: RoomId,
+        caller: Account?,
+        participantToken: String?,
+        command: PlayerCommand,
+    ): RoomState = lockFor(roomId).withLock {
+        val room = requireRoom(roomId)
+        val player = authorize(roomId, caller, participantToken)
+        val now = clock.nowMillis()
+        if (player.role != RoomRole.PLAYER) throw HiveException(ErrorCode.FORBIDDEN, "Only Players take attempts.")
+        if (room.mode != RoomMode.ASYNCHRONOUS) {
+            throw HiveException(ErrorCode.INVALID_COMMAND, "The Host moves this room from question to question.")
+        }
+        if (room.effectiveStatus(now) != RoomStatus.LIVE) {
+            throw HiveException(ErrorCode.ROOM_CLOSED, if (room.status == RoomStatus.LOBBY) "The Host has not opened this room yet." else "This room has closed.")
+        }
+
+        val current = store.findAttempt(roomId, player.id)
+        val next = when (command) {
+            PlayerCommand.StartAttempt -> current ?: AttemptRecord(roomId, player.id, 0, now, finished = false)
+            PlayerCommand.NextQuestion -> when {
+                current == null -> throw HiveException(ErrorCode.INVALID_COMMAND, "Start the attempt first.")
+                current.finished -> current
+                current.questionIndex + 1 < room.stack.questions.size ->
+                    current.copy(questionIndex = current.questionIndex + 1, openedAt = now)
+                else -> current.copy(finished = true)
+            }
+        }
+        if (next != current) {
+            val revision = room.revision + 1
+            store.saveAttempt(next, revision)
+            hub.publish(RoomEvent.AttemptUpdated(roomId, revision, player.id))
+            return stateFor(room.copy(revision = revision), player)
+        }
+        stateFor(room, player)
+    }
     /** Closes the current question when its time runs out, and tells everyone in the room. */
     private fun scheduleClose(room: RoomRecord) {
         val cutoff = room.cutoff() ?: return
@@ -278,8 +359,14 @@ class RoomService(
         store.findSubmissionByKey(roomId, player.id, request.idempotencyKey)?.let { return it.receipt() }
 
         val now = clock.nowMillis()
-        val index = room.questionIndex
-        if (!room.acceptsAnswers(now) || index == null || room.stack.questions[index].id != request.questionId) {
+        val attempt = if (room.mode == RoomMode.ASYNCHRONOUS) store.findAttempt(roomId, player.id) else null
+        val index = if (room.mode == RoomMode.ASYNCHRONOUS) attempt?.questionIndex else room.questionIndex
+        val open = if (room.mode == RoomMode.ASYNCHRONOUS) {
+            attempt != null && !attempt.finished && room.effectiveStatus(now) == RoomStatus.LIVE && Timing.isBefore(now, attempt.cutoff(room))
+        } else {
+            room.acceptsAnswers(now)
+        }
+        if (!open || index == null || room.stack.questions[index].id != request.questionId) {
             throw HiveException(ErrorCode.QUESTION_NOT_OPEN, "This question is no longer accepting answers.")
         }
         val question = room.stack.questions[index]
@@ -289,7 +376,9 @@ class RoomService(
         validate(question, request.answer)
 
         val correct = Grading.isCorrect(question, request.answer)
-        val responseMillis = room.questionOpenedAt?.let { (now - it).coerceAtLeast(0) }
+        // Time between a Player's questions never counts, because each question has its own opening time.
+        val openedAt = if (room.mode == RoomMode.ASYNCHRONOUS) attempt?.openedAt else room.questionOpenedAt
+        val responseMillis = openedAt?.let { (now - it).coerceAtLeast(0) }
         val submission = SubmissionRecord(
             id = SubmissionId(UUID.randomUUID().toString()),
             roomId = roomId,
@@ -318,8 +407,8 @@ class RoomService(
     suspend fun results(roomId: RoomId, caller: Account?, participantToken: String?): RoomResults {
         val room = requireRoom(roomId)
         val you = authorize(roomId, caller, participantToken)
-        if (you.role == RoomRole.PLAYER && room.status != RoomStatus.ENDED) {
-            throw HiveException(ErrorCode.RESULTS_NOT_READY, "Results appear when the Host ends the quiz.")
+        if (you.role == RoomRole.PLAYER && room.effectiveStatus(clock.nowMillis()) != RoomStatus.ENDED) {
+            throw HiveException(ErrorCode.RESULTS_NOT_READY, "Results appear when the quiz ends.")
         }
 
         val players = store.participants(roomId).filter { it.role == RoomRole.PLAYER }
@@ -361,6 +450,7 @@ class RoomService(
     }
 
     private suspend fun stateFor(room: RoomRecord, you: ParticipantRecord): RoomState {
+        if (room.mode == RoomMode.ASYNCHRONOUS) return asyncStateFor(room, you)
         val participants = store.participants(room.id)
         val index = room.questionIndex
         val now = clock.nowMillis()
@@ -390,6 +480,68 @@ class RoomService(
             participants = participants.map { it.view() },
             revision = room.revision,
             live = live,
+        )
+    }
+    private suspend fun asyncStateFor(room: RoomRecord, you: ParticipantRecord): RoomState {
+        val now = clock.nowMillis()
+        val status = room.effectiveStatus(now)
+        val participants = store.participants(room.id)
+        val submissions = store.submissions(room.id)
+        val players = participants.filter { it.role == RoomRole.PLAYER }
+        val attempts = store.attempts(room.id).associateBy { it.participantId }
+
+        val own = attempts[you.id]
+        val live = if (status == RoomStatus.LIVE && own != null && !own.finished) {
+            val question = room.stack.questions[own.questionIndex]
+            val cutoff = own.cutoff(room)
+            val open = Timing.isBefore(now, cutoff)
+            val reveal = room.revealPolicy == RevealPolicy.AFTER_EACH_QUESTION && !open
+            LiveQuestion(
+                question = question.toPlayerQuestion(own.questionIndex + 1),
+                isOpen = open,
+                questionCount = room.stack.questions.size,
+                answeredCount = submissions.count { it.questionId == question.id },
+                playerCount = players.size,
+                yourAnswer = submissions.firstOrNull { it.participantId == you.id && it.questionId == question.id }?.receipt(),
+                closesAt = cutoff,
+                serverTime = now,
+                correctAnswer = if (reveal) question.correctAnswer() else null,
+                explanation = if (reveal) question.explanation else null,
+            )
+        } else {
+            null
+        }
+        val attempt = if (you.role == RoomRole.PLAYER) {
+            AttemptView(
+                started = own != null,
+                finished = own?.finished == true,
+                answeredCount = submissions.count { it.participantId == you.id },
+            )
+        } else {
+            null
+        }
+        val progress = if (you.role == RoomRole.HOST) {
+            players.map { player ->
+                val attemptOf = attempts[player.id]
+                PlayerProgressView(
+                    participantId = player.id,
+                    displayName = player.displayName,
+                    currentQuestion = attemptOf?.takeIf { !it.finished }?.let { it.questionIndex + 1 },
+                    answeredCount = submissions.count { it.participantId == player.id },
+                    finished = attemptOf?.finished == true,
+                )
+            }
+        } else {
+            emptyList()
+        }
+        return RoomState(
+            room = room.publicSummary().copy(status = status),
+            you = you.view(),
+            participants = participants.map { it.view() },
+            revision = room.revision,
+            live = live,
+            attempt = attempt,
+            progress = progress,
         )
     }
     private fun validate(question: Question, answer: Answer) {
