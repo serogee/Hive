@@ -121,6 +121,13 @@ class HiveApi(
             setBody(command)
         }.unwrap()
 
+    suspend fun leave(roomId: RoomId, participantToken: String?, server: String? = null) {
+        http.post(url(ApiPaths.leave(roomId.value), server)) {
+            signedIn(server)
+            participant(participantToken)
+        }.also { if (!it.status.isSuccess()) it.unwrap<Unit>() }
+    }
+
     suspend fun attempt(roomId: RoomId, command: PlayerCommand, participantToken: String?, server: String? = null): RoomState =
         http.post(url(ApiPaths.attempt(roomId.value), server)) {
             signedIn(server)

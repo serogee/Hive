@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -11,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,11 +26,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.Account
+import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.Membership
 import io.github.serogee.hive.core.api.RoomSummary
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.data.auth.AuthRepository
+import io.github.serogee.hive.data.remote.ApiException
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
@@ -50,6 +54,8 @@ data class SessionEntryUiState(
     val joining: Boolean = false,
     val error: String? = null,
     val joined: Membership? = null,
+    /** Asks whether to leave the current room. Holds the question to show. */
+    val confirmLeave: String? = null,
 )
 
 class SessionEntryViewModel(
@@ -79,18 +85,45 @@ class SessionEntryViewModel(
         }
     }
 
-    fun join(displayName: String?, asGuest: Boolean) {
+    private var pendingJoin: Pair<String?, Boolean>? = null
+
+    /**
+     * Joins the room. A Player is in one room at a time, so when this device or account is already in
+     * another room, the Player first confirms leaving it.
+     */
+    fun join(displayName: String?, asGuest: Boolean, leaveOtherRoom: Boolean = false) {
         val room = _state.value.room ?: return
         viewModelScope.launch {
-            _state.update { it.copy(joining = true, error = null) }
+            _state.update { it.copy(joining = true, error = null, confirmLeave = null) }
+            if (!leaveOtherRoom) {
+                rooms.otherJoinedRoom(room.id)?.let { other ->
+                    pendingJoin = displayName to asGuest
+                    _state.update { it.copy(joining = false, confirmLeave = "You are in ${other.roomTitle}. Leave it to join ${room.title}?") }
+                    return@launch
+                }
+            }
             try {
-                val membership = rooms.join(room, displayName, asGuest, hostAddress)
+                val membership = rooms.join(room, displayName, asGuest, hostAddress, leaveOtherRoom)
                 _state.update { it.copy(joining = false, joined = membership) }
+            } catch (e: ApiException) {
+                if (e.error.code == ErrorCode.ALREADY_IN_ROOM) {
+                    pendingJoin = displayName to asGuest
+                    _state.update { it.copy(joining = false, confirmLeave = e.error.message) }
+                } else {
+                    _state.update { it.copy(joining = false, error = e.error.message) }
+                }
             } catch (e: Exception) {
                 _state.update { it.copy(joining = false, error = e.userMessage()) }
             }
         }
     }
+
+    fun confirmLeave() {
+        val (name, asGuest) = pendingJoin ?: return
+        join(name, asGuest, leaveOtherRoom = true)
+    }
+
+    fun cancelLeave() = _state.update { it.copy(confirmLeave = null) }
 }
 
 @Composable
@@ -105,6 +138,16 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
     var name by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(state.joined) { state.joined?.let(onJoined) }
+
+    state.confirmLeave?.let { question ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelLeave,
+            title = { Text("Leave your current room?") },
+            text = { Text(question) },
+            confirmButton = { TextButton(onClick = viewModel::confirmLeave) { Text("Leave and join") } },
+            dismissButton = { TextButton(onClick = viewModel::cancelLeave) { Text("Stay") } },
+        )
+    }
 
     Page("Join room $code") {
         val room = state.room
