@@ -59,6 +59,8 @@ class RoomService(
     private val random: Random = SecureRandom().asKotlinRandom(),
     /** True on the online server. A local host lets anyone host. */
     private val requireAccountToHost: Boolean,
+    /** False on a server that cannot verify accounts. Players then join as guests. */
+    private val accountsSupported: Boolean = true,
 ) {
     private val createLock = Mutex()
     private val roomLocks = ConcurrentHashMap<RoomId, Mutex>()
@@ -109,18 +111,18 @@ class RoomService(
                 joinedAt = now,
             )
             store.insertRoom(room, host)
-            Membership(room.summary(), host.view(), token)
+            Membership(room.publicSummary(), host.view(), token)
         }
     }
 
     suspend fun lookup(rawCode: String): RoomSummary {
         val room = store.findRoomByCode(RoomCodes.normalize(rawCode))
             ?: throw HiveException(ErrorCode.ROOM_NOT_FOUND, "No room uses that code.")
-        return room.summary()
+        return room.publicSummary()
     }
 
     suspend fun hostedRooms(caller: Account): List<RoomSummary> =
-        store.roomsHostedBy(caller.id).sortedByDescending { it.createdAt }.map { it.summary() }
+        store.roomsHostedBy(caller.id).sortedByDescending { it.createdAt }.map { it.publicSummary() }
 
     /**
      * Admits a participant, or returns the existing membership.
@@ -137,7 +139,7 @@ class RoomService(
         val room = requireRoom(roomId)
         if (existingToken != null) {
             val existing = store.findParticipantByToken(roomId, Tokens.hash(existingToken))
-            if (existing != null) return Membership(room.summary(), existing.view(), existingToken)
+            if (existing != null) return Membership(room.publicSummary(), existing.view(), existingToken)
         }
         if (room.status == RoomStatus.ENDED) {
             throw HiveException(ErrorCode.ROOM_CLOSED, "This room has ended.")
@@ -164,7 +166,7 @@ class RoomService(
             val existing = store.findParticipantByAccount(roomId, accountId)
             if (existing != null) {
                 store.replaceParticipantToken(existing.id, Tokens.hash(token))
-                return Membership(room.summary(), existing.view(), token)
+                return Membership(room.publicSummary(), existing.view(), token)
             }
         }
 
@@ -180,7 +182,7 @@ class RoomService(
         val revision = room.revision + 1
         store.insertParticipant(participant, revision)
         hub.publish(RoomEvent.ParticipantJoined(roomId, revision, participant.view()))
-        Membership(room.copy(revision = revision).summary(), participant.view(), token)
+        Membership(room.copy(revision = revision).publicSummary(), participant.view(), token)
     }
 
     suspend fun state(roomId: RoomId, caller: Account?, participantToken: String?): RoomState {
@@ -310,7 +312,7 @@ class RoomService(
         } else {
             emptyList()
         }
-        return RoomResults(room.summary(), leaderboard, questions, yourAnswers)
+        return RoomResults(room.publicSummary(), leaderboard, questions, yourAnswers)
     }
 
     private suspend fun stateFor(room: RoomRecord, you: ParticipantRecord): RoomState {
@@ -335,7 +337,7 @@ class RoomService(
             null
         }
         return RoomState(
-            room = room.summary(),
+            room = room.publicSummary(),
             you = you.view(),
             participants = participants.map { it.view() },
             revision = room.revision,
@@ -360,6 +362,8 @@ class RoomService(
             ?: caller?.let { store.findParticipantByAccount(roomId, it.id) }
         return participant ?: throw HiveException(ErrorCode.NOT_A_PARTICIPANT, "Join this room first.")
     }
+
+    private fun RoomRecord.publicSummary() = summary().copy(acceptsAccounts = accountsSupported)
 
     private suspend fun requireRoom(roomId: RoomId) =
         store.findRoom(roomId) ?: throw HiveException(ErrorCode.ROOM_NOT_FOUND, "This room no longer exists.")
