@@ -172,6 +172,8 @@ fun HiveApp() {
                     onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
                     onContinueReview = { navController.navigate(ReviewRoute(it)) },
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
+                    onHostQuiz = { navController.navigate(HostPickerRoute) },
+                    onCreateStack = { navController.openTab(MyStacksRoute) },
                 )
             }
             composable<MyStacksRoute> {
@@ -240,8 +242,17 @@ fun HiveApp() {
                     onSignIn = { navController.navigate(SignInRoute) },
                 )
             }
-            composable<AccountsRoute> { AccountsScreen() }
-            composable<SignInRoute> { AccountsScreen(onSignedIn = { navController.popBackStack() }) }
+            composable<AccountsRoute> {
+                AccountsScreen(
+                    onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
+                )
+            }
+            composable<SignInRoute> {
+                AccountsScreen(
+                    onSignedIn = { navController.popBackStack() },
+                    onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
+                )
+            }
             composable<SessionEntryRoute> { entry ->
                 val route = entry.toRoute<SessionEntryRoute>()
                 SessionEntryScreen(
