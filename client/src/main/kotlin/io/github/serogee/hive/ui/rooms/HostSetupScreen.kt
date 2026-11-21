@@ -4,18 +4,29 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,8 +37,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -41,11 +56,19 @@ import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.rooms.RoomOptions
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.localhost.HostingService
+import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.ErrorText
+import io.github.serogee.hive.ui.common.HeroNavyCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.common.SectionHeader
+import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.MidnightNavy
+import io.github.serogee.hive.ui.theme.MutedSlate
+import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,7 +82,6 @@ data class HostSetupUiState(
 )
 
 class HostSetupViewModel(private val rooms: RoomRepository) : ViewModel() {
-    // Snapshot taken when the room is created. Later edits to the stack leave the room unchanged.
     private val _state = MutableStateFlow(HostSetupUiState())
     val state: StateFlow<HostSetupUiState> = _state.asStateFlow()
 
@@ -104,83 +126,118 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         onCreated(created)
     }
 
-    Page("Host Setup") {
+    Page(
+        title = "Host Setup",
+        subtitle = "Configure rules, pace and lobby settings",
+    ) {
         val current = draft ?: return@Page
         val stack = StackValidation.toSnapshot(current)
-        Text("Stack", style = MaterialTheme.typography.titleMedium)
-        Text("${current.title.ifBlank { "Untitled stack" }} · ${current.questions.size} questions")
+
+        HeroNavyCard(
+            badgeText = "STACK SELECTED",
+            title = current.title.ifBlank { "Untitled stack" },
+            subtitle = "${current.questions.size} questions included in this room",
+        )
+
         if (stack == null) {
-            Text("Fix these before hosting:", style = MaterialTheme.typography.titleSmall)
-            StackValidation.validate(current).forEach { ErrorText(it.message) }
-            Button(onClick = onEdit) { Text("Edit stack") }
+            SleekCard {
+                Text("Fix these before hosting:", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
+                StackValidation.validate(current).forEach { ErrorText(it.message) }
+                Button(
+                    onClick = onEdit,
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+                ) { Text("Edit stack", fontWeight = FontWeight.Bold) }
+            }
             return@Page
         }
 
-        Text("Where to host", style = MaterialTheme.typography.titleMedium)
-        Choice("On this phone. Players join over Wi-Fi or this phone's hotspot, with no internet.", selected = onPhone) {
-            onPhone = true
-        }
-        Choice("Online, on the Hive server", selected = !onPhone) { onPhone = false }
+        SectionHeader(title = "Where to host")
+        SleekCard {
+            Choice(
+                label = "On this phone (Wi-Fi or hotspot, no internet needed)",
+                selected = onPhone,
+            ) { onPhone = true }
+            Choice(
+                label = "Online (on the Hive server over the internet)",
+                selected = !onPhone,
+            ) { onPhone = false }
 
-        val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
-        if (onPhone) {
+            val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
+            if (onPhone) {
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { hostName = it.take(30) },
+                    label = { Text("Your name as Host") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ElectricBlue,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else if (session == null) {
+                Spacer(Modifier.height(4.dp))
+                Text("Sign in to host online.", color = MutedSlate, style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(
+                    onClick = onSignIn,
+                    shape = RoundedCornerShape(50),
+                    border = BorderStroke(1.5.dp, ElectricBlue),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ElectricBlue),
+                ) { Text("Sign in", fontWeight = FontWeight.Bold) }
+            }
+        }
+
+        SectionHeader(title = "Pace")
+        SleekCard {
+            RoomMode.entries.forEach { option ->
+                Choice(option.label(), selected = mode == option) { mode = option }
+            }
+        }
+
+        SectionHeader(title = "Who can join")
+        SleekCard {
+            AdmissionPolicy.entries.forEach { option ->
+                val unavailable = onPhone && option == AdmissionPolicy.SIGNED_IN_ONLY
+                Choice(option.label(), selected = admission == option && !unavailable, enabled = !unavailable) { admission = option }
+            }
+            if (onPhone) {
+                Text(
+                    "Rooms on this phone admit Players as guests with no accounts required.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate,
+                )
+            }
+        }
+
+        val tiebreak = timeTiebreak ?: (mode == RoomMode.DISCUSSION)
+        SectionHeader(title = "Scoring & Rules")
+        SleekCard {
+            Toggle("Speed bonus for timed questions", speedScoring) { speedScoring = it }
+            Toggle("Order equal scores by answer time", tiebreak) { timeTiebreak = it }
+
+            Spacer(Modifier.height(4.dp))
             OutlinedTextField(
-                value = name,
-                onValueChange = { hostName = it.take(30) },
-                label = { Text("Your name as Host") },
+                value = deadlineMinutes,
+                onValueChange = { deadlineMinutes = it.filter(Char::isDigit).take(4) },
+                label = { Text("Close room after (minutes)") },
+                placeholder = { Text("No deadline", color = MutedSlate) },
                 singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = ElectricBlue,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
                 modifier = Modifier.fillMaxWidth(),
             )
-        } else if (session == null) {
-            Text("Sign in to host online.")
-            OutlinedButton(onClick = onSignIn) { Text("Sign in") }
         }
 
-        Text("Pace", style = MaterialTheme.typography.titleMedium)
-        RoomMode.entries.forEach { option ->
-            Choice(option.label(), selected = mode == option) { mode = option }
-        }
-
-        Text("Who can join", style = MaterialTheme.typography.titleMedium)
-        AdmissionPolicy.entries.forEach { option ->
-            val unavailable = onPhone && option == AdmissionPolicy.SIGNED_IN_ONLY
-            Choice(option.label(), selected = admission == option && !unavailable, enabled = !unavailable) { admission = option }
-        }
-        if (onPhone) {
-            Text(
-                "Rooms on this phone admit Players as guests. Signed-in Players only needs a way to check accounts " +
-                    "without internet, which Hive does not have yet.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-
-        Text("Scoring", style = MaterialTheme.typography.titleMedium)
-        Toggle("Speed bonus for timed questions", speedScoring) { speedScoring = it }
-        if (speedScoring) {
-            Text(
-                "A correct answer earns up to 50% extra points, shrinking to zero as its timer runs out. Scores show one decimal.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        val tiebreak = timeTiebreak ?: (mode == RoomMode.DISCUSSION)
-        Toggle("Order equal scores by answer time", tiebreak) { timeTiebreak = it }
-
-        Text("Quiz deadline", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
-            value = deadlineMinutes,
-            onValueChange = { deadlineMinutes = it.filter(Char::isDigit).take(4) },
-            label = { Text("Close after this many minutes") },
-            placeholder = { Text("No deadline") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            "Question time limits still apply. When both apply, the earlier one ends answering.",
-            style = MaterialTheme.typography.bodySmall,
-        )
-
+        val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
         val effectiveAdmission = if (onPhone && admission == AdmissionPolicy.SIGNED_IN_ONLY) AdmissionPolicy.EVERYONE else admission
+
         Button(
             onClick = {
                 if (onPhone && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -190,16 +247,42 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 viewModel.create(stack, RoomOptions(mode, effectiveAdmission, speedScoring, tiebreak, deadline), onPhone, name.trim())
             },
             enabled = !state.creating && (if (onPhone) name.isNotBlank() else session != null),
-        ) { Text("Create room") }
-        if (state.creating) CircularProgressIndicator()
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ElectricBlue,
+                contentColor = Color.White,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+        ) {
+            Text("Create Room", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        }
+        if (state.creating) CircularProgressIndicator(color = ElectricBlue)
         ErrorText(state.error)
     }
 }
+
 @Composable
 private fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = ElectricBlue,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = Color(0xFFD6DFEC),
+            ),
+        )
     }
 }
 
@@ -207,9 +290,23 @@ private fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit)
 private fun Choice(label: String, selected: Boolean, enabled: Boolean = true, onSelect: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().selectable(selected = selected, enabled = enabled, onClick = onSelect),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .selectable(selected = selected, enabled = enabled, onClick = onSelect),
     ) {
-        RadioButton(selected = selected, onClick = null, enabled = enabled)
-        Text(label)
+        RadioButton(
+            selected = selected,
+            onClick = null,
+            enabled = enabled,
+            colors = RadioButtonDefaults.colors(selectedColor = ElectricBlue),
+        )
+        Spacer(Modifier.size(8.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) ElectricBlue else MaterialTheme.colorScheme.onSurface,
+        )
     }
 }

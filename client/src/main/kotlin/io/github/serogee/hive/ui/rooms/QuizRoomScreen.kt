@@ -1,12 +1,19 @@
 package io.github.serogee.hive.ui.rooms
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -15,9 +22,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -27,12 +38,20 @@ import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.localhost.HostingService
+import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.ErrorText
+import io.github.serogee.hive.ui.common.HeroNavyCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.common.SectionHeader
+import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
 import io.github.serogee.hive.ui.home.JoinCard
+import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.MidnightNavy
+import io.github.serogee.hive.ui.theme.MutedSlate
+import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -87,55 +106,121 @@ fun QuizRoomScreen(
 
     LaunchedEffect(signedIn) { if (signedIn) viewModel.refreshHosted() }
 
-    Page("Quiz Room") {
+    Page(
+        title = "Quiz Room",
+        subtitle = "Multiplayer quiz lobbies & live sessions",
+    ) {
         JoinCard(onJoinCode)
 
         joined?.let { membership ->
-            Text("Joined room", style = MaterialTheme.typography.titleMedium)
-            Card(modifier = Modifier.fillMaxWidth().clickable { onOpenRoom(membership.roomId.value) }) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(membership.roomTitle, style = MaterialTheme.typography.titleSmall)
-                    Text("Code ${membership.roomCode} · as ${membership.displayName}")
-                    Text("Tap to reconnect", color = MaterialTheme.colorScheme.primary)
+            SectionHeader(title = "Active Room")
+            HeroNavyCard(
+                badgeText = "JOINED ROOM",
+                title = membership.roomTitle,
+                subtitle = "Code ${membership.roomCode} · as ${membership.displayName}",
+                buttonText = "RECONNECT",
+                onButtonClick = { onOpenRoom(membership.roomId.value) },
+            )
+        }
+
+        SectionHeader(
+            title = "Host a Quiz",
+            actionText = "New Room",
+            onActionClick = onCreateRoom,
+        )
+
+        Button(
+            onClick = onCreateRoom,
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ElectricBlue,
+                contentColor = Color.White,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+        ) {
+            Text("Create Room", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        }
+
+        if (localRooms.isNotEmpty()) {
+            SectionHeader(title = "Hosted on this phone")
+            localRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
+            if (hostingHere) {
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            container.rooms.stopLocalHosting()
+                            HostingService.stop(context)
+                        }
+                    },
+                    shape = RoundedCornerShape(50),
+                    border = BorderStroke(1.5.dp, Color(0xFFE53E3E)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53E3E)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Stop hosting on this phone", fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        Text("Rooms you host", style = MaterialTheme.typography.titleMedium)
-        Button(onClick = onCreateRoom) { Text("Create room") }
-
-        if (localRooms.isNotEmpty()) {
-            Text("On this phone", style = MaterialTheme.typography.titleSmall)
-            localRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
-            if (hostingHere) {
-                OutlinedButton(onClick = {
-                    scope.launch {
-                        container.rooms.stopLocalHosting()
-                        HostingService.stop(context)
-                    }
-                }) { Text("Stop hosting on this phone") }
-            }
-        }
-
-        Text("Online", style = MaterialTheme.typography.titleSmall)
+        SectionHeader(title = "Online Rooms")
         if (!signedIn) {
-            Text("Sign in to see and create online rooms. Rooms on this phone need no account.")
-            OutlinedButton(onClick = onSignIn) { Text("Sign in") }
+            SleekCard {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Sign in to host and join online rooms over the internet. Nearby phone rooms require no account.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedSlate,
+                    )
+                    Button(
+                        onClick = onSignIn,
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SoftBlueContainer,
+                            contentColor = ElectricBlue,
+                        ),
+                    ) {
+                        Text("Sign in", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
             return@Page
         }
-        if (hosted.loading) CircularProgressIndicator()
+        if (hosted.loading) CircularProgressIndicator(color = ElectricBlue)
         ErrorText(hosted.error)
-        if (!hosted.loading && hosted.rooms.isEmpty() && hosted.error == null) Text("No online rooms yet.")
+        if (!hosted.loading && hosted.rooms.isEmpty() && hosted.error == null) {
+            Text("No online rooms yet.", color = MutedSlate, style = MaterialTheme.typography.bodyMedium)
+        }
         hosted.rooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
     }
 }
 
 @Composable
 private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(room.title, style = MaterialTheme.typography.titleSmall)
-            Text("Code ${room.code} · ${room.mode.label()} · ${room.status.label()}")
+    SleekCard(onClick = onClick) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            BlueBadge(
+                topText = room.code.take(4),
+                bottomText = "ROOM",
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    room.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    "Code ${room.code} · ${room.mode.label()} · ${room.status.label()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate,
+                )
+            }
         }
     }
 }

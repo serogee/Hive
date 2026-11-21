@@ -23,6 +23,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.unit.dp
+import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.MutedSlate
+import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.font.FontWeight
 import io.github.serogee.hive.ui.accounts.AccountsScreen
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.ui.home.HomeScreen
@@ -101,13 +108,23 @@ fun HiveApp() {
     Scaffold(
         bottomBar = {
             if (onTab) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp,
+                ) {
                     tabs.forEach { tab ->
                         NavigationBarItem(
                             selected = destination?.hasRoute(tab.route::class) == true,
                             onClick = { navController.openTab(tab.route) },
                             icon = { Icon(tab.icon, contentDescription = null) },
-                            label = { Text(tab.label) },
+                            label = { Text(tab.label, fontWeight = FontWeight.SemiBold) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = ElectricBlue,
+                                selectedTextColor = ElectricBlue,
+                                indicatorColor = SoftBlueContainer,
+                                unselectedIconColor = MutedSlate,
+                                unselectedTextColor = MutedSlate,
+                            ),
                         )
                     }
                 }

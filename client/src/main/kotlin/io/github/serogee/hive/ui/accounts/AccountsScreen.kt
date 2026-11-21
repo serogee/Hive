@@ -1,15 +1,28 @@
 package io.github.serogee.hive.ui.accounts
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,9 +32,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -29,9 +45,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.api.AuthSession
 import io.github.serogee.hive.ui.common.ErrorText
+import io.github.serogee.hive.ui.common.HeroNavyCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.common.SectionHeader
+import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.MidnightNavy
+import io.github.serogee.hive.ui.theme.MutedSlate
+import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import io.github.serogee.hive.ui.theme.ThemePreference
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,48 +125,90 @@ fun AccountsScreen(onSignedIn: () -> Unit = {}) {
 
     LaunchedEffect(state.signedIn) { if (state.signedIn) onSignedIn() }
 
-    Page("Accounts") {
-        Text("Account", style = MaterialTheme.typography.titleMedium)
+    Page(
+        title = "Accounts",
+        subtitle = "Settings, profile & server connectivity",
+    ) {
         val current = session
         if (current != null) {
-            Text("Signed in as ${current.account.displayName}")
-            OutlinedButton(onClick = { viewModel.signOut() }) { Text("Sign out") }
-        } else {
-            SignInForm(
-                busy = state.busy,
-                showDemoHint = viewModel.showsDemoHint,
-                onSignIn = viewModel::signIn,
+            HeroNavyCard(
+                badgeText = "AUTHENTICATED",
+                title = current.account.displayName,
+                subtitle = "User ID: ${current.account.id.value}",
+                buttonText = "SIGN OUT",
+                onButtonClick = { viewModel.signOut() },
             )
-            ErrorText(state.signInError)
+        } else {
+            SectionHeader(title = "Sign In")
+            SleekCard {
+                SignInForm(
+                    busy = state.busy,
+                    showDemoHint = viewModel.showsDemoHint,
+                    onSignIn = viewModel::signIn,
+                )
+                ErrorText(state.signInError)
+            }
         }
 
-        Text("Server", style = MaterialTheme.typography.titleMedium)
-        var address by rememberSaveable(serverUrl) { mutableStateOf(serverUrl) }
-        OutlinedTextField(
-            value = address,
-            onValueChange = { address = it },
-            label = { Text("Server address") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedButton(onClick = { viewModel.saveServer(address) }) { Text("Test and save") }
-        state.serverStatus?.let { Text(it) }
-
-        Text("Appearance", style = MaterialTheme.typography.titleMedium)
-        ThemePreference.entries.forEach { option ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().selectable(selected = theme == option) { viewModel.setTheme(option) },
+        SectionHeader(title = "Server Configuration")
+        SleekCard {
+            var address by rememberSaveable(serverUrl) { mutableStateOf(serverUrl) }
+            OutlinedTextField(
+                value = address,
+                onValueChange = { address = it },
+                label = { Text("Server address") },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = ElectricBlue,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = { viewModel.saveServer(address) },
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ElectricBlue,
+                    contentColor = Color.White,
+                ),
             ) {
-                RadioButton(selected = theme == option, onClick = null)
-                Text(
-                    when (option) {
-                        ThemePreference.SYSTEM -> "System default"
-                        ThemePreference.SOFT_LIGHT -> "Soft light"
-                        ThemePreference.SOFT_DARK -> "Soft dark"
-                    },
-                )
+                Text("Test and Save", fontWeight = FontWeight.Bold)
+            }
+            state.serverStatus?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MutedSlate)
+            }
+        }
+
+        SectionHeader(title = "Appearance")
+        SleekCard {
+            ThemePreference.entries.forEach { option ->
+                val isSelected = theme == option
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .selectable(selected = isSelected) { viewModel.setTheme(option) },
+                ) {
+                    RadioButton(
+                        selected = isSelected,
+                        onClick = null,
+                        colors = RadioButtonDefaults.colors(selectedColor = ElectricBlue),
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        when (option) {
+                            ThemePreference.SYSTEM -> "System default"
+                            ThemePreference.SOFT_LIGHT -> "Clean light"
+                            ThemePreference.SOFT_DARK -> "Midnight dark"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
         }
     }
@@ -155,13 +220,18 @@ private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, 
     var password by rememberSaveable { mutableStateOf("") }
 
     if (showDemoHint) {
-        Text("Demo server accounts: alex or sam, password hive-demo", style = MaterialTheme.typography.bodySmall)
+        Text("Demo server accounts: alex or sam, password hive-demo", style = MaterialTheme.typography.bodySmall, color = MutedSlate)
     }
     OutlinedTextField(
         value = username,
         onValueChange = { username = it },
         label = { Text("Username") },
         singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = ElectricBlue,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
         modifier = Modifier.fillMaxWidth(),
     )
     OutlinedTextField(
@@ -171,11 +241,25 @@ private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, 
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = ElectricBlue,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
         modifier = Modifier.fillMaxWidth(),
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { onSignIn(username, password) }, enabled = !busy && username.isNotBlank() && password.isNotEmpty()) {
-            Text("Sign in")
-        }
+    Button(
+        onClick = { onSignIn(username, password) },
+        enabled = !busy && username.isNotBlank() && password.isNotEmpty(),
+        shape = RoundedCornerShape(50),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ElectricBlue,
+            contentColor = Color.White,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
+    ) {
+        Text("Sign in", fontWeight = FontWeight.Bold, fontSize = 15.sp)
     }
 }

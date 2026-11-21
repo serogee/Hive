@@ -1,18 +1,30 @@
 package io.github.serogee.hive.ui.review
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.AssistChip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,7 +35,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -37,8 +53,18 @@ import io.github.serogee.hive.core.review.Review
 import io.github.serogee.hive.core.review.ReviewAttempt
 import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.data.review.ReviewRepository
+import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.HeroNavyCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.common.SectionHeader
+import io.github.serogee.hive.ui.common.SleekCard
+import io.github.serogee.hive.ui.common.TagPill
+import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.MidnightNavy
+import io.github.serogee.hive.ui.theme.MutedSlate
+import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,16 +119,55 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
 
     val current = attempt ?: return
     val mode = if (current.settings.mode == ReviewMode.QUIZ) "Quiz Review" else "Flashcard Review"
-    Page(current.stack.title) {
+    val progress = if (current.order.isNotEmpty()) current.position.toFloat() / current.order.size.toFloat() else 0f
+
+    Page(
+        title = current.stack.title,
+        subtitle = mode,
+        action = {
+            TextButton(onClick = onExit) {
+                Text("Pause", color = ElectricBlue, fontWeight = FontWeight.Bold)
+            }
+        },
+    ) {
         val question = current.current
         if (current.isFinished || question == null) {
             ReviewSummary(current, onRetry = viewModel::retry, onRepeat = viewModel::repeat, onExit = onExit)
             return@Page
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("$mode · ${if (current.settings.mode == ReviewMode.QUIZ) "Question" else "Card"} ${current.position + 1} of ${current.order.size}")
-            TextButton(onClick = onExit) { Text("Pause review") }
+
+        // Progress bar and counter
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "${if (current.settings.mode == ReviewMode.QUIZ) "QUESTION" else "CARD"} ${current.position + 1} OF ${current.order.size}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ElectricBlue,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                )
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedSlate,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = ElectricBlue,
+                trackColor = SoftBlueContainer,
+            )
         }
+
         if (current.settings.mode == ReviewMode.QUIZ) {
             QuizCard(question, current.settings.preferTyping, current.outcomeOf(question.id), viewModel::check, viewModel::advance)
         } else {
@@ -113,8 +178,13 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
 
 @Composable
 private fun Prompt(question: Question) {
-    AssistChip(onClick = {}, label = { Text(question.typeLabel()) })
-    Text(question.prompt, style = MaterialTheme.typography.titleLarge)
+    TagPill(text = question.typeLabel(), selected = false)
+    Text(
+        question.prompt,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
 }
 
 @Composable
@@ -132,60 +202,128 @@ private fun QuizCard(
     var showChoices by rememberSaveable(key) { mutableStateOf(false) }
     val checked = outcome != null
 
-    Prompt(question)
-    val typing = preferTyping || question is Question.Identification
-    if (typing) {
-        if (question is Question.MultipleChoice) {
-            TextButton(onClick = { showChoices = !showChoices }) { Text(if (showChoices) "Hide choices" else "Show choices") }
-            if (showChoices) question.choices.forEach { Text("• ${it.text}") }
-        }
-        OutlinedTextField(
-            value = typed,
-            onValueChange = { typed = it.take(200) },
-            label = { Text("Type your answer") },
-            singleLine = true,
-            enabled = !checked,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    } else {
-        when (question) {
-            is Question.MultipleChoice -> question.choices.forEach { option ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().selectable(selected = choice == option.id.value, enabled = !checked) {
-                        choice = option.id.value
-                    },
-                ) {
-                    RadioButton(selected = choice == option.id.value, onClick = null, enabled = !checked)
-                    Text(option.text)
+    SleekCard {
+        Prompt(question)
+        val typing = preferTyping || question is Question.Identification
+        if (typing) {
+            if (question is Question.MultipleChoice) {
+                TextButton(onClick = { showChoices = !showChoices }) {
+                    Text(if (showChoices) "Hide choices" else "Show choices", color = ElectricBlue)
                 }
+                if (showChoices) question.choices.forEach { Text("• ${it.text}", color = MutedSlate) }
             }
-            is Question.TrueFalse -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(true, false).forEach { value ->
-                    val label = if (value) "True" else "False"
-                    if (truth == value) {
-                        Button(onClick = { truth = value }, enabled = !checked) { Text(label) }
-                    } else {
-                        OutlinedButton(onClick = { truth = value }, enabled = !checked) { Text(label) }
+            OutlinedTextField(
+                value = typed,
+                onValueChange = { typed = it.take(200) },
+                label = { Text("Type your answer") },
+                singleLine = true,
+                enabled = !checked,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = ElectricBlue,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            when (question) {
+                is Question.MultipleChoice -> question.choices.forEach { option ->
+                    val isSelected = choice == option.id.value
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(enabled = !checked) { choice = option.id.value },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) SoftBlueContainer else MaterialTheme.colorScheme.surface,
+                        ),
+                        border = BorderStroke(
+                            1.5.dp,
+                            if (isSelected) ElectricBlue else MaterialTheme.colorScheme.outline,
+                        ),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(12.dp),
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = null,
+                                enabled = !checked,
+                                colors = RadioButtonDefaults.colors(selectedColor = ElectricBlue),
+                            )
+                            Spacer(Modifier.size(8.dp))
+                            Text(
+                                option.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
                 }
+                is Question.TrueFalse -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf(true, false).forEach { value ->
+                        val isSelected = truth == value
+                        val label = if (value) "True" else "False"
+                        Button(
+                            onClick = { truth = value },
+                            enabled = !checked,
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSelected) ElectricBlue else SoftBlueContainer,
+                                contentColor = if (isSelected) Color.White else ElectricBlue,
+                            ),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(label, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                is Question.Identification -> Unit
             }
-            is Question.Identification -> Unit
         }
-    }
 
-    val answer: Answer? = when {
-        typing -> typed.trim().takeIf { it.isNotEmpty() }?.let { Answer.Text(it) }
-        question is Question.MultipleChoice -> question.choices.firstOrNull { it.id.value == choice }?.let { Answer.SelectedChoice(it.id) }
-        question is Question.TrueFalse -> truth?.let { Answer.TrueFalse(it) }
-        else -> null
-    }
+        val answer: Answer? = when {
+            typing -> typed.trim().takeIf { it.isNotEmpty() }?.let { Answer.Text(it) }
+            question is Question.MultipleChoice -> question.choices.firstOrNull { it.id.value == choice }?.let { Answer.SelectedChoice(it.id) }
+            question is Question.TrueFalse -> truth?.let { Answer.TrueFalse(it) }
+            else -> null
+        }
 
-    if (!checked) {
-        Button(onClick = { answer?.let(onCheck) }, enabled = answer != null, modifier = Modifier.fillMaxWidth()) { Text("Check answer") }
-    } else {
-        AnswerFeedback(question, correct = outcome == Outcome.CORRECT)
-        Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { Text("Next") }
+        Spacer(Modifier.height(4.dp))
+        if (!checked) {
+            Button(
+                onClick = { answer?.let(onCheck) },
+                enabled = answer != null,
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ElectricBlue,
+                    contentColor = Color.White,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+            ) {
+                Text("Check Answer", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+        } else {
+            AnswerFeedback(question, correct = outcome == Outcome.CORRECT)
+            Button(
+                onClick = onNext,
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ElectricBlue,
+                    contentColor = Color.White,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+            ) {
+                Text("Next Question", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+        }
     }
 }
 
@@ -195,45 +333,107 @@ private fun FlashCard(question: Question, preferTyping: Boolean, onMark: (Boolea
     var revealed by rememberSaveable(key) { mutableStateOf(false) }
     var guess by rememberSaveable(key) { mutableStateOf("") }
 
-    Prompt(question)
-    if (preferTyping) {
-        OutlinedTextField(
-            value = guess,
-            onValueChange = { guess = it.take(200) },
-            label = { Text("Type a guess (optional)") },
-            singleLine = true,
-            enabled = !revealed,
+    SleekCard {
+        Prompt(question)
+        if (preferTyping) {
+            OutlinedTextField(
+                value = guess,
+                onValueChange = { guess = it.take(200) },
+                label = { Text("Type a guess (optional)") },
+                singleLine = true,
+                enabled = !revealed,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = ElectricBlue,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (!revealed) {
+            Button(
+                onClick = { revealed = true },
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ElectricBlue,
+                    contentColor = Color.White,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+            ) {
+                Text("Reveal Answer", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+            return@SleekCard
+        }
+        AnswerFeedback(question, correct = null)
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
-    }
-    if (!revealed) {
-        Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Reveal answer") }
-        return
-    }
-    AnswerFeedback(question, correct = null)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { onMark(true) }) { Text("Got it") }
-        OutlinedButton(onClick = { onMark(false) }) { Text("Review again") }
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Button(
+                onClick = { onMark(true) },
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ElectricBlue,
+                    contentColor = Color.White,
+                ),
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Got It", fontWeight = FontWeight.Bold)
+            }
+            OutlinedButton(
+                onClick = { onMark(false) },
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.5.dp, Color(0xFFE53E3E)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFFE53E3E),
+                ),
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Review Again", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
-/** Shows the correct answer and explanation. [correct] is null for flashcards. */
+/** Shows the correct answer and explanation. */
 @Composable
 private fun AnswerFeedback(question: Question, correct: Boolean?) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val isCorrect = correct == true
+    val isIncorrect = correct == false
+    val bannerColor = when {
+        isCorrect -> Color(0xFF22C55E)
+        isIncorrect -> Color(0xFFE53E3E)
+        else -> ElectricBlue
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(bannerColor.copy(alpha = 0.1f))
+            .padding(14.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             correct?.let {
                 Text(
-                    if (it) "Correct" else "Not quite",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (it) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    if (it) "CORRECT" else "INCORRECT",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = bannerColor,
+                    letterSpacing = 1.sp,
                 )
             }
-            Text("Answer: ${question.describe(question.correctAnswer())}")
+            Text(
+                "Answer: ${question.describe(question.correctAnswer())}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
             (question as? Question.Identification)?.acceptedAlternatives?.takeIf { it.isNotEmpty() }?.let {
-                Text("Also accepted: ${it.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
+                Text("Also accepted: ${it.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, color = MutedSlate)
             }
-            question.explanation?.let { Text(it) }
+            question.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MutedSlate) }
         }
     }
 }
@@ -242,29 +442,118 @@ private fun AnswerFeedback(question: Question, correct: Boolean?) {
 private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat: () -> Unit, onExit: () -> Unit) {
     val quiz = attempt.settings.mode == ReviewMode.QUIZ
     val retry = attempt.toRetry.size
-    Text("Review Summary", style = MaterialTheme.typography.titleLarge)
-    if (quiz) {
-        Text("${attempt.correctCount} correct, $retry missed, out of ${attempt.order.size}")
-    } else {
-        Text("Got it: ${attempt.correctCount} · Review again: $retry")
+    val total = attempt.order.size
+    val correct = attempt.correctCount
+    val percent = if (total > 0) (correct * 100 / total) else 0
+
+    // Hero Navy card styled like the "Statistics" / "Tonnage Lifted" card in the picture
+    HeroNavyCard(
+        badgeText = "REVIEW COMPLETED",
+        title = "$percent% Mastery",
+        subtitle = if (quiz) "$correct of $total questions answered correctly" else "$correct cards mastered, $retry to review",
+        buttonText = if (retry > 0) "RETRY MISSED" else "REPEAT ALL",
+        onButtonClick = if (retry > 0) onRetry else onRepeat,
+    )
+
+    // Summary Stat Chips
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        MetricStatChip(
+            value = "$correct",
+            label = "correct\nanswers",
+            modifier = Modifier.weight(1f),
+        )
+        MetricStatChip(
+            value = "$retry",
+            label = "questions\nto review",
+            modifier = Modifier.weight(1f),
+        )
+        MetricStatChip(
+            value = "$total",
+            label = "total\ncards",
+            modifier = Modifier.weight(1f),
+        )
     }
-    if (retry > 0) {
-        Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
-            Text(if (quiz) "Retry missed questions ($retry)" else "Review marked cards ($retry)")
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Button(
+            onClick = onRepeat,
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ElectricBlue,
+                contentColor = Color.White,
+            ),
+            modifier = Modifier.weight(1f),
+        ) {
+            Text("Repeat Stack", fontWeight = FontWeight.Bold)
+        }
+        OutlinedButton(
+            onClick = onExit,
+            shape = RoundedCornerShape(50),
+            border = BorderStroke(1.5.dp, ElectricBlue),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = ElectricBlue,
+            ),
+            modifier = Modifier.weight(1f),
+        ) {
+            Text("Back to Stack", fontWeight = FontWeight.Bold)
         }
     }
-    OutlinedButton(onClick = onRepeat, modifier = Modifier.fillMaxWidth()) { Text("Repeat the whole stack") }
-    TextButton(onClick = onExit) { Text("Back to stack") }
+
+    SectionHeader(title = "Breakdown")
+
     attempt.order.forEachIndexed { index, id ->
         val question = attempt.stack.questions.firstOrNull { it.id == id } ?: return@forEachIndexed
-        val mark = when (attempt.outcomeOf(id)) {
+        val outcome = attempt.outcomeOf(id)
+        val isGood = outcome == Outcome.CORRECT || outcome == Outcome.GOT_IT
+        val mark = when (outcome) {
             Outcome.CORRECT -> "Correct"
             Outcome.INCORRECT -> "Missed"
             Outcome.GOT_IT -> "Got it"
             Outcome.REVIEW_AGAIN -> "Review again"
             null -> "Skipped"
         }
-        Text("${index + 1}. ${question.prompt} · $mark", style = MaterialTheme.typography.bodySmall)
+
+        SleekCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isGood) Color(0xFF22C55E).copy(alpha = 0.15f) else Color(0xFFE53E3E).copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "${index + 1}",
+                        color = if (isGood) Color(0xFF16A34A) else Color(0xFFDC2626),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        question.prompt,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        mark,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isGood) Color(0xFF16A34A) else Color(0xFFDC2626),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
     }
 }
 
