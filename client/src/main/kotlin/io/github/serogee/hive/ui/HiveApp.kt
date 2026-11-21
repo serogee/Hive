@@ -12,6 +12,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.padding
@@ -43,7 +44,13 @@ import io.github.serogee.hive.ui.stacks.MyStacksScreen
 import io.github.serogee.hive.ui.stacks.StackDetailsScreen
 import io.github.serogee.hive.ui.stacks.StackEditorScreen
 import io.github.serogee.hive.ui.stacks.StackListPurpose
+import io.github.serogee.hive.ui.welcome.WelcomeScreen
+import io.github.serogee.hive.ui.common.LocalAppContainer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.serialization.Serializable
+
+@Serializable
+object WelcomeRoute
 
 @Serializable
 object HomeRoute
@@ -100,14 +107,27 @@ private val tabs = listOf(
 
 @Composable
 fun HiveApp() {
+    val container = LocalAppContainer.current
+
+    // Read onboarding preference; null means not yet loaded from DataStore.
+    val onboardingCompleted by container.preferences.onboardingCompleted
+        .collectAsStateWithLifecycle(initialValue = null)
+
+    // Wait until DataStore has emitted the real value before rendering navigation.
+    val completed = onboardingCompleted ?: return
+
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val onTab = tabs.any { destination?.hasRoute(it.route::class) == true }
+    val onWelcome = destination?.hasRoute(WelcomeRoute::class) == true
+
+    // Lock the start destination to the value from the first emission.
+    val startDestination: Any = remember { if (completed) HomeRoute else WelcomeRoute }
 
     Scaffold(
         bottomBar = {
-            if (onTab) {
+            if (onTab && !onWelcome) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 6.dp,
@@ -133,9 +153,18 @@ fun HiveApp() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = HomeRoute,
+            startDestination = startDestination,
             modifier = Modifier.padding(padding),
         ) {
+            composable<WelcomeRoute> {
+                WelcomeScreen(
+                    onContinue = {
+                        navController.navigate(HomeRoute) {
+                            popUpTo<WelcomeRoute> { inclusive = true }
+                        }
+                    },
+                )
+            }
             composable<HomeRoute> {
                 HomeScreen(
                     onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },

@@ -18,6 +18,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.Serializable
+import androidx.datastore.preferences.core.booleanPreferencesKey
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "hive")
 
@@ -43,6 +44,7 @@ class AppPreferences(context: Context) {
     val session: Flow<AuthSession?> = store.data.map { it.decode(SESSION, AuthSession.serializer()) }
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
+    val onboardingCompleted: Flow<Boolean?> = store.data.map { it[ONBOARDING_COMPLETED] ?: false }
 
     /** Host credentials for rooms this phone hosts, by room ID. They never leave this phone. */
     val hostTokens: Flow<Map<String, String>> = store.data.map { prefs ->
@@ -56,6 +58,8 @@ class AppPreferences(context: Context) {
     suspend fun setServerUrl(url: String) = store.edit { it[SERVER_URL] = url }
 
     suspend fun setPreferredName(name: String) = store.edit { it[PREFERRED_NAME] = name }
+
+    suspend fun setOnboardingCompleted(completed: Boolean) = store.edit { it[ONBOARDING_COMPLETED] = completed }
 
     suspend fun addHostToken(roomId: RoomId, token: String) = store.edit { prefs ->
         val serializer = MapSerializer(String.serializer(), String.serializer())
@@ -87,6 +91,7 @@ class AppPreferences(context: Context) {
         val SESSION = stringPreferencesKey("session")
         val JOINED_ROOM = stringPreferencesKey("joined_room")
         val PREFERRED_NAME = stringPreferencesKey("preferred_name")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val HOST_TOKENS = stringPreferencesKey("host_tokens")
     }
 }
