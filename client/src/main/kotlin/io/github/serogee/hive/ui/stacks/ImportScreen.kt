@@ -7,23 +7,11 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,11 +20,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -47,14 +32,15 @@ import io.github.serogee.hive.core.transfer.CsvStackImport
 import io.github.serogee.hive.core.transfer.HiveStackFile
 import io.github.serogee.hive.core.transfer.ImportResult
 import io.github.serogee.hive.data.stacks.StackRepository
-import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
-import io.github.serogee.hive.ui.theme.ElectricBlue
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
@@ -152,43 +138,28 @@ fun ImportScreen(onSaved: (StackId) -> Unit) {
         subtitle = "From JSON, CSV or AI-generated stacks",
     ) {
         SleekCard {
-            Text(
-                "CHOOSE FILE",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
-            )
+            Caption("Choose file")
             Text(
                 "Choose a Hive JSON or CSV file from your phone. You can review the questions before saving.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
+                HiveButton(
+                    text = if (state.result == null) "Choose File" else "Change File",
                     onClick = { picker.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ElectricBlue,
-                        contentColor = Color.White,
-                    ),
                     modifier = Modifier.weight(1f),
-                ) {
-                    Text(if (state.result == null) "Choose File" else "Change File", fontWeight = FontWeight.Bold)
-                }
-                OutlinedButton(
+                )
+                HiveButton(
+                    text = if (copied) "Prompt Copied" else "Copy AI Prompt",
                     onClick = {
                         val clipboard = context.getSystemService(ClipboardManager::class.java)
                         clipboard.setPrimaryClip(ClipData.newPlainText("Hive AI formatting prompt", AiFormattingPrompt.text))
                         copied = true
                     },
-                    shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.weight(1f),
-                ) {
-                    Text(if (copied) "Prompt Copied" else "Copy AI Prompt", fontWeight = FontWeight.Bold)
-                }
+                    style = HiveButtonStyle.SECONDARY,
+                )
             }
         }
 
@@ -197,42 +168,26 @@ fun ImportScreen(onSaved: (StackId) -> Unit) {
 
         SectionHeader(title = "File Preview")
         SleekCard {
-            Text(state.fileName.orEmpty(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            OutlinedTextField(
+            Text(state.fileName.orEmpty(), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            HiveTextField(
                 value = state.title,
                 onValueChange = viewModel::setTitle,
-                label = { Text("Stack title") },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                ),
-                modifier = Modifier.fillMaxWidth(),
+                label = "Stack title",
             )
             Text(
                 if (result.questionCount == 1) "1 question ready" else "${result.questionCount} questions ready",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
 
         if (result.errors.isEmpty()) {
-            Button(
+            HiveButton(
+                text = "Save to My Stacks",
                 onClick = { viewModel.save() },
                 enabled = state.title.isNotBlank(),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-            ) {
-                Text("Save to My Stacks", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
         } else {
             SleekCard {
                 Text("Fix these issues in the file and re-import:", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
