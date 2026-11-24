@@ -10,6 +10,7 @@ import io.github.serogee.hive.BuildConfig
 import io.github.serogee.hive.core.api.AuthSession
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.model.RoomId
+import io.github.serogee.hive.ui.theme.AnswerColorChoice
 import io.github.serogee.hive.ui.theme.ThemePreference
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -41,6 +42,7 @@ class AppPreferences(context: Context) {
     val theme: Flow<ThemePreference> = store.data.map { prefs ->
         prefs[THEME]?.let { name -> ThemePreference.entries.firstOrNull { it.name == name } } ?: ThemePreference.SYSTEM
     }
+    val answerColors: Flow<AnswerColorChoice> = store.data.map { AnswerColorChoice.of(it[ANSWER_COLORS]) }
     val session: Flow<AuthSession?> = store.data.map { it.decode(SESSION, AuthSession.serializer()) }
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
@@ -75,6 +77,8 @@ class AppPreferences(context: Context) {
 
     suspend fun setTheme(theme: ThemePreference) = store.edit { it[THEME] = theme.name }
 
+    suspend fun setAnswerColors(choice: AnswerColorChoice) = store.edit { it[ANSWER_COLORS] = choice.name }
+
     suspend fun setSession(session: AuthSession?) = store.edit { prefs ->
         if (session == null) prefs.remove(SESSION) else prefs[SESSION] = HiveJson.encodeToString(AuthSession.serializer(), session)
     }
@@ -98,6 +102,7 @@ class AppPreferences(context: Context) {
 
         val SERVER_URL = stringPreferencesKey("server_url")
         val THEME = stringPreferencesKey("theme")
+        val ANSWER_COLORS = stringPreferencesKey("answer_colors")
         val SESSION = stringPreferencesKey("session")
         val JOINED_ROOM = stringPreferencesKey("joined_room")
         val PREFERRED_NAME = stringPreferencesKey("preferred_name")

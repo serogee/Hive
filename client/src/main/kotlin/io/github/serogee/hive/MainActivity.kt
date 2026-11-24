@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.ui.HiveApp
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.theme.AnswerColorChoice
 import io.github.serogee.hive.ui.theme.HiveTheme
 import io.github.serogee.hive.ui.theme.ThemePreference
 import io.github.serogee.hive.ui.theme.isDark
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             val theme by container.preferences.theme.collectAsStateWithLifecycle(ThemePreference.SYSTEM)
+            val answerColors by container.preferences.answerColors.collectAsStateWithLifecycle(AnswerColorChoice.APP_HONEY)
             val dark = theme.isDark()
             // The status bar icons follow the app's theme, which can differ from the phone's.
             DisposableEffect(dark) {
@@ -38,7 +40,7 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             CompositionLocalProvider(LocalAppContainer provides container) {
-                HiveTheme(theme) {
+                HiveTheme(theme, answerColors) {
                     HiveApp()
                 }
             }

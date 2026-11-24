@@ -88,7 +88,7 @@ data class HiveColors(
     val neutralBorder: Color,
 )
 
-private val LightHiveColors = HiveColors(
+internal val LightHiveColors = HiveColors(
     ink = Graphite,
     solid = Graphite,
     onSolid = Wax,
@@ -99,7 +99,7 @@ private val LightHiveColors = HiveColors(
     neutralBorder = NeutralBorder,
 )
 
-private val DarkHiveColors = HiveColors(
+internal val DarkHiveColors = HiveColors(
     ink = NightInk,
     solid = NightSolid,
     onSolid = Wax,
@@ -115,7 +115,7 @@ private val LocalHiveColors = staticCompositionLocalOf { LightHiveColors }
 val MaterialTheme.hiveColors: HiveColors
     @Composable @ReadOnlyComposable get() = LocalHiveColors.current
 
-private val SoftLight = lightColorScheme(
+internal val SoftLight = lightColorScheme(
     primary = HoneyInk,
     onPrimary = HoneySoft,
     primaryContainer = HoneySoft,
@@ -153,7 +153,7 @@ private val SoftLight = lightColorScheme(
     surfaceContainerHighest = WaxCard,
 )
 
-private val SoftDark = darkColorScheme(
+internal val SoftDark = darkColorScheme(
     primary = NightHoneyInk,
     onPrimary = Graphite,
     primaryContainer = NightHoneySoft,
@@ -296,10 +296,14 @@ fun ThemePreference.isDark(): Boolean = when (this) {
 @Composable
 fun HiveTheme(
     preference: ThemePreference = ThemePreference.SYSTEM,
+    answerColors: AnswerColorChoice = AnswerColorChoice.APP_HONEY,
     content: @Composable () -> Unit,
 ) {
     val dark = preference.isDark()
-    CompositionLocalProvider(LocalHiveColors provides if (dark) DarkHiveColors else LightHiveColors) {
+    CompositionLocalProvider(
+        LocalHiveColors provides if (dark) DarkHiveColors else LightHiveColors,
+        LocalAnswerColors provides answerColors.colors,
+    ) {
         MaterialTheme(
             colorScheme = if (dark) SoftDark else SoftLight,
             shapes = HiveShapes,

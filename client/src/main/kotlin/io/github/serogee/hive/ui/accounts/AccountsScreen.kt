@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
@@ -83,6 +84,7 @@ import io.github.serogee.hive.ui.theme.AmberInk
 import io.github.serogee.hive.ui.theme.AmberInkSoft
 import io.github.serogee.hive.ui.theme.AmberSoft
 import io.github.serogee.hive.ui.theme.AmberStrong
+import io.github.serogee.hive.ui.theme.AnswerColorChoice
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
 import io.github.serogee.hive.ui.theme.MidnightNavy
@@ -112,6 +114,8 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val serverUrl = container.preferences.serverUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val theme = container.preferences.theme.stateIn(viewModelScope, SharingStarted.Eagerly, ThemePreference.SYSTEM)
+    val answerColors = container.preferences.answerColors
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AnswerColorChoice.APP_HONEY)
     val preferredName = container.preferences.preferredName
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val showsDemoHint = container.auth.showsDemoHint
@@ -132,6 +136,8 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
     fun signOut() = viewModelScope.launch { container.auth.signOut() }
 
     fun setTheme(theme: ThemePreference) = viewModelScope.launch { container.preferences.setTheme(theme) }
+
+    fun setAnswerColors(choice: AnswerColorChoice) = viewModelScope.launch { container.preferences.setAnswerColors(choice) }
 
     fun setPreferredName(name: String) = viewModelScope.launch {
         container.preferences.setPreferredName(name)
@@ -172,6 +178,7 @@ fun AccountsScreen(
     val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val answerColors by viewModel.answerColors.collectAsStateWithLifecycle()
     val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
     val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
     val hostedRooms by container.rooms.localHostedRooms.collectAsStateWithLifecycle(emptyList())
@@ -185,6 +192,7 @@ fun AccountsScreen(
 
     var showEditNameDialog by rememberSaveable { mutableStateOf(false) }
     var showSettingsSheet by rememberSaveable { mutableStateOf(false) }
+    var showAnswerColors by rememberSaveable { mutableStateOf(false) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     var showAllHistory by rememberSaveable { mutableStateOf(false) }
 
@@ -354,8 +362,34 @@ fun AccountsScreen(
             )
         }
 
-        // 4. SETTINGS SECTION: Opens the bottom sheet
+        // 4. ANSWER COLOURS AND SETTINGS: Each opens its bottom sheet
         Spacer(Modifier.height(8.dp))
+        SleekCard(onClick = { showAnswerColors = true }) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Palette,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Answer colours", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        answerColors.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Outlined.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Button(
             onClick = { showSettingsSheet = true },
             shape = RoundedCornerShape(16.dp),
@@ -398,6 +432,14 @@ fun AccountsScreen(
         }
 
         Spacer(Modifier.height(16.dp))
+    }
+
+    if (showAnswerColors) {
+        AnswerColorsSheet(
+            selected = answerColors,
+            onSelect = viewModel::setAnswerColors,
+            onDismiss = { showAnswerColors = false },
+        )
     }
 
     // Edit Name Dialog
