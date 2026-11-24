@@ -69,6 +69,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.api.AuthSession
+import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
@@ -179,6 +180,8 @@ fun AccountsScreen(
         ?: preferredName?.takeIf { it.isNotBlank() }
         ?: "Guest"
 
+    val editNameLabel = if (session == null) "Edit Name" else "Edit Guest Name"
+
     var showEditNameDialog by rememberSaveable { mutableStateOf(false) }
     var showSettingsSheet by rememberSaveable { mutableStateOf(false) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
@@ -260,13 +263,13 @@ fun AccountsScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Edit,
-                                contentDescription = "Edit Name",
+                                contentDescription = null,
                                 tint = ElectricBlueLight,
                                 modifier = Modifier.size(14.dp),
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                text = "Edit Name",
+                                text = editNameLabel,
                                 color = ElectricBlueLight,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
@@ -401,17 +404,21 @@ fun AccountsScreen(
         var nameInput by rememberSaveable { mutableStateOf(preferredName ?: "") }
         AlertDialog(
             onDismissRequest = { showEditNameDialog = false },
-            title = { Text("Edit Your Name", fontWeight = FontWeight.Bold) },
+            title = { Text(editNameLabel, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Enter the display name you would like to use in Hive:",
+                        if (session == null) {
+                            "Enter the display name you would like to use in Hive:"
+                        } else {
+                            "This changes only the name you use as a guest. Your account name stays the same."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MutedSlate,
                     )
                     OutlinedTextField(
                         value = nameInput,
-                        onValueChange = { nameInput = it.take(35) },
+                        onValueChange = { nameInput = it.take(DisplayNames.MAX_LENGTH) },
                         placeholder = { Text("Your Name") },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
@@ -426,9 +433,7 @@ fun AccountsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (nameInput.isNotBlank()) {
-                            viewModel.setPreferredName(nameInput.trim())
-                        }
+                        DisplayNames.normalize(nameInput)?.let { viewModel.setPreferredName(it) }
                         showEditNameDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
