@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -95,19 +95,19 @@ import io.github.serogee.hive.ui.theme.MutedSlate
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.launch
 
-private data class CategoryItem(
-    val name: String,
+/** The icon and color that a stack shows on Home, chosen by its position. */
+private data class StackAccent(
     val icon: ImageVector,
     val color: Color,
 )
 
-private val DefaultCategories = listOf(
-    CategoryItem("Contempo", Icons.Outlined.Psychology, Color(0xFF6366F1)),
-    CategoryItem("Appdev", Icons.Outlined.Code, Color(0xFF2558E8)),
-    CategoryItem("Datanal", Icons.Outlined.Analytics, Color(0xFF0EA5E9)),
-    CategoryItem("Networks", Icons.Outlined.Hub, Color(0xFF10B981)),
-    CategoryItem("Hardware", Icons.Outlined.Devices, Color(0xFFF59E0B)),
-    CategoryItem("General", Icons.Outlined.School, Color(0xFF8B5CF6)),
+private val StackAccents = listOf(
+    StackAccent(Icons.Outlined.Psychology, Color(0xFF6366F1)),
+    StackAccent(Icons.Outlined.Code, Color(0xFF2558E8)),
+    StackAccent(Icons.Outlined.Analytics, Color(0xFF0EA5E9)),
+    StackAccent(Icons.Outlined.Hub, Color(0xFF10B981)),
+    StackAccent(Icons.Outlined.Devices, Color(0xFFF59E0B)),
+    StackAccent(Icons.Outlined.School, Color(0xFF8B5CF6)),
 )
 
 enum class SortMode(val label: String) {
@@ -141,7 +141,6 @@ fun HomeScreen(
 
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var sortMode by rememberSaveable { mutableStateOf(SortMode.RECENT) }
-    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -340,91 +339,69 @@ fun HomeScreen(
             }
         }
 
-        // 4. CATEGORIES SECTION: [see all] action + Horizontal row of icon boxes with label underneath
-        SectionHeader(
-            title = "Categories",
-            actionText = "[see all]",
-            onActionClick = onOpenStacks,
-        )
+        // 4. MY STACKS ROW: [see all] action + Horizontal row of icon boxes with label underneath
+        if (stacks.isNotEmpty()) {
+            SectionHeader(
+                title = "My Stacks",
+                actionText = "[see all]",
+                onActionClick = onOpenStacks,
+            )
 
-        val categoriesToDisplay = if (stacks.isNotEmpty()) {
-            stacks.take(6).mapIndexed { index, stack ->
-                val fallback = DefaultCategories[index % DefaultCategories.size]
-                CategoryItem(
-                    name = stack.title.ifBlank { "Stack ${index + 1}" },
-                    icon = fallback.icon,
-                    color = fallback.color,
-                )
-            }
-        } else {
-            DefaultCategories
-        }
-
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(horizontal = 2.dp),
-        ) {
-            items(categoriesToDisplay) { category ->
-                val isSelected = selectedCategory == category.name
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .width(72.dp)
-                        .clickable {
-                            selectedCategory = if (isSelected) null else category.name
-                        },
-                ) {
-                    Box(
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp),
+            ) {
+                itemsIndexed(stacks.take(6)) { index, stack ->
+                    val accent = StackAccents[index % StackAccents.size]
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .size(68.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                if (isSelected) ElectricBlue else MaterialTheme.colorScheme.surface
-                            )
-                            .then(
-                                if (isSelected) Modifier else Modifier.background(
-                                    category.color.copy(alpha = 0.08f)
-                                )
-                            ),
-                        contentAlignment = Alignment.Center,
+                            .width(72.dp)
+                            .clickable { onOpenStack(stack.id) },
                     ) {
-                        Icon(
-                            imageVector = category.icon,
-                            contentDescription = category.name,
-                            tint = if (isSelected) Color.White else category.color,
-                            modifier = Modifier.size(30.dp),
+                        Box(
+                            modifier = Modifier
+                                .size(68.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .background(accent.color.copy(alpha = 0.08f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = accent.icon,
+                                contentDescription = null,
+                                tint = accent.color,
+                                modifier = Modifier.size(30.dp),
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        Text(
+                            text = stack.title.ifBlank { "Untitled stack" },
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Text(
-                        text = category.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
             }
         }
 
-        // 5. RECENT ACTIVITY SECTION: List of Stacks (Contempo, Appdev, Datanal style)
+        // 5. RECENT STACKS SECTION: List of Stacks
         SectionHeader(
-            title = "Recent Activity",
+            title = "Recent stacks",
             actionText = if (stacks.isNotEmpty()) "View All" else null,
             onActionClick = onOpenStacks,
         )
 
         // Filter and sort stacks
         val filteredStacks = stacks
-            .filter { stack ->
-                (searchQuery.isBlank() || stack.title.contains(searchQuery, ignoreCase = true)) &&
-                        (selectedCategory == null || stack.title.contains(selectedCategory!!, ignoreCase = true))
-            }
+            .filter { stack -> searchQuery.isBlank() || stack.title.contains(searchQuery, ignoreCase = true) }
             .let { list ->
                 when (sortMode) {
                     SortMode.RECENT -> list.sortedByDescending { it.updatedAt }
@@ -440,12 +417,12 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
-                        text = "No activities yet",
+                        text = "No stacks yet",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "Create question stacks or add the built-in sample to see your recent quizzes and study material here.",
+                        text = "Create a stack, or add the built-in sample to host it or review it.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MutedSlate,
                     )
@@ -475,7 +452,7 @@ fun HomeScreen(
             // [Square icon box]  Title
             //                    X Questions
             filteredStacks.forEachIndexed { index, stack ->
-                val fallbackColor = DefaultCategories[index % DefaultCategories.size].color
+                val fallbackColor = StackAccents[index % StackAccents.size].color
                 HomeCard(
                     icon = Icons.Outlined.Layers,
                     tint = fallbackColor,
