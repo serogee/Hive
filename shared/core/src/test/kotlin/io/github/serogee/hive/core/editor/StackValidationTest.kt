@@ -1,10 +1,12 @@
 package io.github.serogee.hive.core.editor
 
+import io.github.serogee.hive.core.model.AnswerMatching
 import io.github.serogee.hive.core.model.Choice
 import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.Question
 import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.core.model.StackId
+import io.github.serogee.hive.core.model.TypoTolerance
 import io.github.serogee.hive.core.sample.SampleStacks
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,6 +30,23 @@ class StackValidationTest {
         val sample = SampleStacks.networkingFundamentals
 
         assertEquals(sample, StackValidation.toSnapshot(sample.toDraft()))
+    }
+
+    @Test
+    fun answerMatchingSurvivesEditing() {
+        val matching = AnswerMatching(ignoreCase = false, ignoreSymbols = true, typos = TypoTolerance.HIGH)
+        val identification = QuestionDraft(
+            id = QuestionId("q1"),
+            type = QuestionType.IDENTIFICATION,
+            prompt = "Which protocol resolves names?",
+            identificationAnswer = "DNS",
+            matching = matching,
+        )
+
+        val question = assertNotNull(StackValidation.toSnapshot(draft(identification))).questions.single()
+
+        assertEquals(matching, (question as Question.Identification).matching)
+        assertEquals(matching, question.toDraft().matching)
     }
 
     @Test

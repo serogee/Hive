@@ -3,6 +3,7 @@ package io.github.serogee.hive.ui.stacks
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -39,6 +41,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,7 +63,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.editor.QuestionType
 import io.github.serogee.hive.core.editor.StackValidation
+import io.github.serogee.hive.core.model.AnswerMatching
 import io.github.serogee.hive.core.model.StackId
+import io.github.serogee.hive.core.model.TypoTolerance
 import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
@@ -67,6 +73,7 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.hiveColors
 
 /** One inline editor for creating and editing a stack. */
 @Composable
@@ -371,6 +378,9 @@ private fun QuestionCard(
                         ),
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    MatchingOptions(question.matching) { matching ->
+                        viewModel.updateQuestion(question.id) { it.copy(matching = matching) }
+                    }
                 }
             }
 
@@ -450,5 +460,65 @@ private fun QuestionCard(
                 }
             }
         }
+    }
+}
+
+/** How Hive compares a Player's typed answer with the accepted answers. */
+@Composable
+private fun MatchingOptions(matching: AnswerMatching, onChange: (AnswerMatching) -> Unit) {
+    Text("Answer matching", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+    MatchingToggle("Ignore capital letters", matching.ignoreCase) { onChange(matching.copy(ignoreCase = it)) }
+    MatchingToggle("Ignore symbols", matching.ignoreSymbols) { onChange(matching.copy(ignoreSymbols = it)) }
+    Text("Typo tolerance", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        TypoTolerance.entries.forEach { level ->
+            FilterChip(
+                selected = matching.typos == level,
+                onClick = { onChange(matching.copy(typos = level)) },
+                label = { Text(level.label(), fontWeight = FontWeight.SemiBold) },
+                shape = RoundedCornerShape(50),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = ElectricBlue,
+                    selectedLabelColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+                border = null,
+            )
+        }
+    }
+    val details = if (matching.typos == TypoTolerance.OFF) {
+        ""
+    } else {
+        " A typo is a wrong, missing, extra, or swapped letter. Numbers must always match."
+    }
+    Text(
+        matching.typos.explanation() + details,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun MatchingToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = ElectricBlue,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = MaterialTheme.hiveColors.switchTrackOff,
+            ),
+        )
     }
 }

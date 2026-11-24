@@ -3,6 +3,7 @@ package io.github.serogee.hive.core.transfer
 import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.editor.QuestionType
 import io.github.serogee.hive.core.editor.StackDraft
+import io.github.serogee.hive.core.model.AnswerMatching
 import io.github.serogee.hive.core.model.Choice
 import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.QuestionId
@@ -14,10 +15,11 @@ import io.github.serogee.hive.core.model.StackId
  *
  * Columns: type, prompt, choices, answer, alternatives, explanation, points, seconds. Separate
  * several choices or alternatives with `|`. For multiple choice, `answer` is the correct choice's
- * text.
+ * text. For identification, the optional columns ignore_case and ignore_symbols hold true or false,
+ * and typos holds off, low, medium, or high.
  */
 object CsvStackImport {
-    val COLUMNS = listOf("type", "prompt", "choices", "answer", "alternatives", "explanation", "points", "seconds")
+    val COLUMNS = listOf("type", "prompt", "choices", "answer", "alternatives", "explanation", "points", "seconds", "ignore_case", "ignore_symbols", "typos")
     private val REQUIRED = listOf("type", "prompt", "answer")
 
     fun decode(text: String, title: String, newId: () -> String): ImportResult {
@@ -55,19 +57,32 @@ object CsvStackImport {
                     base.copy(type = QuestionType.MULTIPLE_CHOICE, choices = choices, correctChoiceId = correct?.id)
                 }
                 "true_false", "tf" -> {
-                    val value = when (answer.lowercase()) {
-                        "true", "t" -> true
-                        "false", "f" -> false
-                        else -> null
-                    }
+                    val value = parseBoolean(answer)
                     if (value == null) errors += "$label needs an answer of true or false."
                     base.copy(type = QuestionType.TRUE_FALSE, trueFalseAnswer = value)
                 }
-                "identification", "id" -> base.copy(
-                    type = QuestionType.IDENTIFICATION,
-                    identificationAnswer = answer,
-                    acceptedAlternatives = row.cell("alternatives").split('|').map { it.trim() }.filter { it.isNotEmpty() },
-                )
+                "identification", "id" -> {
+                    fun flag(column: String, default: Boolean): Boolean {
+                        val cell = row.cell(column)
+                        val value = if (cell.isEmpty()) default else parseBoolean(cell)
+                        if (value == null) errors += "$label needs $column to be true or false."
+                        return value ?: default
+                    }
+                    val typos = row.cell("typos").ifEmpty { "off" }
+                    val tolerance = HiveStackFile.parseTypos(typos)
+                    if (tolerance == null) errors += "$label has the unknown typos level '$typos'. ${HiveStackFile.TYPOS_HELP}"
+                    val default = AnswerMatching()
+                    base.copy(
+                        type = QuestionType.IDENTIFICATION,
+                        identificationAnswer = answer,
+                        acceptedAlternatives = row.cell("alternatives").split('|').map { it.trim() }.filter { it.isNotEmpty() },
+                        matching = AnswerMatching(
+                            ignoreCase = flag("ignore_case", default.ignoreCase),
+                            ignoreSymbols = flag("ignore_symbols", default.ignoreSymbols),
+                            typos = tolerance ?: default.typos,
+                        ),
+                    )
+                }
                 else -> {
                     errors += "$label has the unknown type '${row.cell("type")}'. Use multiple_choice, true_false, or identification."
                     null
@@ -75,6 +90,12 @@ object CsvStackImport {
             }
         }
         return HiveStackFile.finish(StackDraft(StackId(newId()), title, "", questions), errors)
+    }
+
+    private fun parseBoolean(text: String): Boolean? = when (text.lowercase()) {
+        "true", "t" -> true
+        "false", "f" -> false
+        else -> null
     }
 
     /** Splits CSV text into rows of cells. Supports quoted cells with commas, quotes, and line breaks. */

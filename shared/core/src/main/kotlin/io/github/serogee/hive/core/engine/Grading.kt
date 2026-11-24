@@ -22,7 +22,7 @@ object Grading {
         }
 
         is Question.Identification -> answer is Answer.Text &&
-            (listOf(question.answer) + question.acceptedAlternatives).any { normalize(it) == normalize(answer.text) }
+            (listOf(question.answer) + question.acceptedAlternatives).any { AnswerMatcher.matches(it, answer.text, question.matching) }
     }
 
     /** Points for one answer. Only correctness counts. */
@@ -32,10 +32,10 @@ object Grading {
      * Makes typed answers comparable: ignores case, accents, surrounding spaces, repeated spaces,
      * and a trailing period.
      */
-    fun normalize(text: String): String =
+    fun normalize(text: String, ignoreCase: Boolean = true): String =
         Normalizer.normalize(text, Normalizer.Form.NFD)
             .replace(Regex("\\p{M}+"), "")
-            .lowercase()
+            .let { if (ignoreCase) it.lowercase() else it }
             .trim()
             .removeSuffix(".")
             .replace(Regex("\\s+"), " ")
