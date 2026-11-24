@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
@@ -60,6 +62,19 @@ fun WelcomeScreen(
     val scope = rememberCoroutineScope()
     var name by rememberSaveable { mutableStateOf("") }
     var visible by rememberSaveable { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    val chosenName = DisplayNames.normalize(name)
+
+    // Leaves only after the choice is saved, because leaving cancels this screen's work.
+    val finish: (String?) -> Unit = { finishName ->
+        if (!saving) {
+            saving = true
+            scope.launch {
+                container.preferences.completeOnboarding(finishName)
+                onContinue()
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         delay(150)
@@ -135,7 +150,7 @@ fun WelcomeScreen(
                 // Name input field
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it.take(40) },
+                    onValueChange = { name = it.take(DisplayNames.MAX_LENGTH) },
                     placeholder = {
                         Text(
                             "Your Name",
@@ -160,16 +175,8 @@ fun WelcomeScreen(
 
                 // Continue button
                 Button(
-                    onClick = {
-                        scope.launch {
-                            if (name.isNotBlank()) {
-                                container.preferences.setPreferredName(name.trim())
-                            }
-                            container.preferences.setOnboardingCompleted(true)
-                        }
-                        onContinue()
-                    },
-                    enabled = name.isNotBlank(),
+                    onClick = { finish(chosenName) },
+                    enabled = chosenName != null && !saving,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ElectricBlue,
@@ -217,12 +224,7 @@ fun WelcomeScreen(
 
                 // Continue with Google button
                 OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            container.preferences.setOnboardingCompleted(true)
-                        }
-                        onContinue()
-                    },
+                    onClick = { finish(null) },
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.White,

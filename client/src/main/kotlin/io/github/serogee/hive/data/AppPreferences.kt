@@ -59,7 +59,11 @@ class AppPreferences(context: Context) {
 
     suspend fun setPreferredName(name: String) = store.edit { it[PREFERRED_NAME] = name }
 
-    suspend fun setOnboardingCompleted(completed: Boolean) = store.edit { it[ONBOARDING_COMPLETED] = completed }
+    /** Finishes Welcome. Saves [name] in the same write, so that Home never opens without it. */
+    suspend fun completeOnboarding(name: String?) = store.edit { prefs ->
+        if (name != null) prefs[PREFERRED_NAME] = name
+        prefs[ONBOARDING_COMPLETED] = true
+    }
 
     suspend fun addHostToken(roomId: RoomId, token: String) = store.edit { prefs ->
         val serializer = MapSerializer(String.serializer(), String.serializer())
