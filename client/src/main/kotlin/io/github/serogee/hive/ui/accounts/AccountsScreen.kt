@@ -170,6 +170,7 @@ fun AccountsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
     val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
+    val hostedRooms by container.rooms.localHostedRooms.collectAsStateWithLifecycle(emptyList())
     val finishedReviews by container.reviews.finished.collectAsStateWithLifecycle(null)
 
     val displayName = session?.account?.displayName
@@ -274,24 +275,24 @@ fun AccountsScreen(
             }
         }
 
-        // 2. STAT CHIPS ROW: [day streak] [quiz taken] [Average score]
+        // 2. STAT CHIPS ROW: [stacks saved] [reviews finished] [rooms hosted], all from this phone
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             MetricStatChip(
-                value = "1",
-                label = "day\nstreak",
-                modifier = Modifier.weight(1f),
-            )
-            MetricStatChip(
                 value = "${stacks.size}",
-                label = "quiz\ntaken",
+                label = "stacks\nsaved",
                 modifier = Modifier.weight(1f),
             )
             MetricStatChip(
-                value = if (stacks.isNotEmpty()) "85%" else "--%",
-                label = "Average\nscore",
+                value = "${finishedReviews.orEmpty().size}",
+                label = "reviews\nfinished",
+                modifier = Modifier.weight(1f),
+            )
+            MetricStatChip(
+                value = "${hostedRooms.size}",
+                label = "rooms\nhosted",
                 modifier = Modifier.weight(1f),
             )
         }
