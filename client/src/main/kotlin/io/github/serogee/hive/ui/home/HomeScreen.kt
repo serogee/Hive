@@ -80,7 +80,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.engine.RoomCodes
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.SavedMembership
-import io.github.serogee.hive.data.stacks.StackSummary
 import io.github.serogee.hive.localhost.LocalHost
 import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.HeroNavyCard
@@ -125,6 +124,7 @@ fun HomeScreen(
     onContinueReview: (attemptId: String) -> Unit,
     onReturnToRoom: (SavedMembership) -> Unit,
     onHostQuiz: () -> Unit,
+    onReview: () -> Unit,
     onStackCreated: (StackId) -> Unit,
 ) {
     val container = LocalAppContainer.current
@@ -268,6 +268,15 @@ fun HomeScreen(
             onJoinCode = onJoinCode,
             onCreateStack = { scope.launch { onStackCreated(container.stacks.create()) } },
             onHostQuiz = onHostQuiz,
+        )
+
+        // Review entry
+        HomeCard(
+            icon = Icons.Outlined.School,
+            tint = ElectricBlue,
+            title = "Review",
+            subtitle = "Practice a stack on your own",
+            onClick = onReview,
         )
 
         // 3. SEARCH & SORT ROW: [Search input] + [[sort]] button
@@ -467,9 +476,11 @@ fun HomeScreen(
             //                    X Questions
             filteredStacks.forEachIndexed { index, stack ->
                 val fallbackColor = DefaultCategories[index % DefaultCategories.size].color
-                RecentActivityCard(
-                    stack = stack,
-                    badgeColor = fallbackColor,
+                HomeCard(
+                    icon = Icons.Outlined.Layers,
+                    tint = fallbackColor,
+                    title = stack.title.ifBlank { "Untitled stack" },
+                    subtitle = if (stack.questionCount == 1) "1 Question" else "${stack.questionCount} Questions",
                     onClick = { onOpenStack(stack.id) },
                 )
             }
@@ -673,14 +684,16 @@ fun JoinCard(
 }
 
 /**
- * Recent Activity Card matching the Figma layout:
+ * A card on Home, used for stacks and for Review:
  * [Square icon]  Title
- *                X Questions
+ *                Subtitle
  */
 @Composable
-private fun RecentActivityCard(
-    stack: StackSummary,
-    badgeColor: Color,
+private fun HomeCard(
+    icon: ImageVector,
+    tint: Color,
+    title: String,
+    subtitle: String,
     onClick: () -> Unit,
 ) {
     SleekCard(onClick = onClick) {
@@ -694,24 +707,24 @@ private fun RecentActivityCard(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(badgeColor.copy(alpha = 0.12f)),
+                    .background(tint.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Layers,
+                    imageVector = icon,
                     contentDescription = null,
-                    tint = badgeColor,
+                    tint = tint,
                     modifier = Modifier.size(22.dp),
                 )
             }
 
-            // Stack details (center)
+            // Title and subtitle (center)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = stack.title.ifBlank { "Untitled stack" },
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -719,7 +732,7 @@ private fun RecentActivityCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = if (stack.questionCount == 1) "1 Question" else "${stack.questionCount} Questions",
+                    text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MutedSlate,
                 )

@@ -78,19 +78,29 @@ data class HostSetupRoute(val stackId: String)
 @Serializable
 object HostPickerRoute
 
+/** Lists stacks so the user can pick one to review. */
+@Serializable
+object ReviewPickerRoute
+
 @Serializable
 data class StackDetailsRoute(val stackId: String)
 
 @Serializable
 data class ReviewRoute(val attemptId: String)
 
-/** [hostAfter] continues to Host Setup when the import started from the host picker. */
+/**
+ * [hostAfter] continues to Host Setup when the import started from the host picker. [reviewAfter]
+ * returns to the review picker when the import started there.
+ */
 @Serializable
-data class ImportRoute(val hostAfter: Boolean = false)
+data class ImportRoute(val hostAfter: Boolean = false, val reviewAfter: Boolean = false)
 
-/** [hostAfter] continues to Host Setup when the stack was created from the host picker. */
+/**
+ * [hostAfter] continues to Host Setup when the stack was created from the host picker. [reviewAfter]
+ * returns to the review picker when the stack was created there.
+ */
 @Serializable
-data class StackEditorRoute(val stackId: String, val hostAfter: Boolean = false)
+data class StackEditorRoute(val stackId: String, val hostAfter: Boolean = false, val reviewAfter: Boolean = false)
 
 @Serializable
 data class LobbyRoute(val roomId: String)
@@ -172,6 +182,7 @@ fun HiveApp() {
                     onContinueReview = { navController.navigate(ReviewRoute(it)) },
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
                     onHostQuiz = { navController.navigate(HostPickerRoute) },
+                    onReview = { navController.navigate(ReviewPickerRoute) },
                     onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
                 )
             }
@@ -199,6 +210,15 @@ fun HiveApp() {
                     },
                 )
             }
+            composable<ReviewPickerRoute> {
+                MyStacksScreen(
+                    purpose = StackListPurpose.REVIEW,
+                    onOpen = {},
+                    onCreated = { navController.navigate(StackEditorRoute(it.value, reviewAfter = true)) },
+                    onImport = { navController.navigate(ImportRoute(reviewAfter = true)) },
+                    onReview = { navController.navigate(ReviewRoute(it)) { popUpTo<ReviewPickerRoute> { inclusive = true } } },
+                )
+            }
             composable<ReviewRoute> { entry ->
                 ReviewScreen(
                     attemptId = entry.toRoute<ReviewRoute>().attemptId,
@@ -209,6 +229,10 @@ fun HiveApp() {
             composable<ImportRoute> { entry ->
                 val route = entry.toRoute<ImportRoute>()
                 ImportScreen(onSaved = { stackId ->
+                    if (route.reviewAfter) {
+                        navController.popBackStack()
+                        return@ImportScreen
+                    }
                     val next: Any = if (route.hostAfter) HostSetupRoute(stackId.value) else StackDetailsRoute(stackId.value)
                     navController.navigate(next) { popUpTo<ImportRoute> { inclusive = true } }
                 })
@@ -226,7 +250,9 @@ fun HiveApp() {
             composable<StackEditorRoute> { entry ->
                 val route = entry.toRoute<StackEditorRoute>()
                 StackEditorScreen(StackId(route.stackId), onDone = {
-                    if (route.hostAfter) {
+                    if (route.reviewAfter) {
+                        navController.popBackStack()
+                    } else if (route.hostAfter) {
                         navController.navigate(HostSetupRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
                     } else {
                         navController.navigate(StackDetailsRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }

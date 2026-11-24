@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 enum class StackListPurpose(val title: String) {
     BROWSE("My Stacks"),
     HOST("Choose a stack to host"),
+    REVIEW("Choose a stack to review"),
 }
 
 @Composable
@@ -69,6 +70,7 @@ fun MyStacksScreen(
     var practiceFor by remember { mutableStateOf<StackId?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var activeTab by remember { mutableStateOf(0) }
+    val open: (StackId) -> Unit = { if (purpose == StackListPurpose.REVIEW) practiceFor = it else onOpen(it) }
 
     Page(
         title = purpose.title,
@@ -173,7 +175,7 @@ fun MyStacksScreen(
                         color = MutedSlate,
                     )
                     Button(
-                        onClick = { scope.launch { onOpen(container.stacks.addSample()) } },
+                        onClick = { scope.launch { open(container.stacks.addSample()) } },
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ElectricBlue,
@@ -199,7 +201,7 @@ fun MyStacksScreen(
             filteredList.forEach { stack ->
                 StackCard(
                     stack = stack,
-                    onClick = { onOpen(stack.id) },
+                    onClick = { open(stack.id) },
                     onHost = if (purpose == StackListPurpose.BROWSE) ({ onHost(stack.id) }) else null,
                     onPractice = if (purpose == StackListPurpose.BROWSE) ({ practiceFor = stack.id }) else null,
                 )
