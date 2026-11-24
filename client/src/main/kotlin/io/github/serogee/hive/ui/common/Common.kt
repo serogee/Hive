@@ -153,9 +153,9 @@ fun SectionHeader(
     }
 }
 
-/** Dark royal blue rounded badge with a value above a short label, such as a question count. */
+/** Badge with a value above a short label, such as a question count. */
 @Composable
-fun BlueBadge(
+fun CountBadge(
     topText: String,
     bottomText: String,
     modifier: Modifier = Modifier,
@@ -226,9 +226,9 @@ fun MetricStatChip(
     }
 }
 
-/** The prominent Midnight Navy hero card with a gradient and a level bars graphic. */
+/** The main card of a screen, with a level bars graphic. */
 @Composable
-fun HeroNavyCard(
+fun HeroCard(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,

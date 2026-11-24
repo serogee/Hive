@@ -33,8 +33,8 @@ import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.model.Answer
-import io.github.serogee.hive.ui.common.BlueBadge
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
@@ -49,7 +49,7 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
     var confirmEnd by rememberSaveable { mutableStateOf(false) }
     val questions = room.room.questionCount
 
-    HeroNavyCard(
+    HeroCard(
         badgeText = "ASYNC ROOM",
         title = "Room ${room.room.code}",
         subtitle = "Players move through the $questions questions at their own pace" +
@@ -155,7 +155,7 @@ fun PlayerAsyncContent(
             }
         }
         attempt.finished || live == null -> {
-            HeroNavyCard(
+            HeroCard(
                 badgeText = "COMPLETED",
                 title = "Quiz Finished!",
                 subtitle = "You answered ${attempt.answeredCount} of ${room.room.questionCount} questions. Results appear when the Host ends the room or the deadline passes.",

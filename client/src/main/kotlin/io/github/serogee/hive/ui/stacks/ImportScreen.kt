@@ -47,9 +47,9 @@ import io.github.serogee.hive.core.transfer.CsvStackImport
 import io.github.serogee.hive.core.transfer.HiveStackFile
 import io.github.serogee.hive.core.transfer.ImportResult
 import io.github.serogee.hive.data.stacks.StackRepository
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader

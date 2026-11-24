@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.stacks.StackSummary
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
@@ -229,7 +229,7 @@ fun StackCard(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             // Blue Badge with question count
-            BlueBadge(
+            CountBadge(
                 topText = "${stack.questionCount}",
                 bottomText = "QS",
             )

@@ -53,8 +53,8 @@ import io.github.serogee.hive.core.review.Review
 import io.github.serogee.hive.core.review.ReviewAttempt
 import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.data.review.ReviewRepository
-import io.github.serogee.hive.ui.common.BlueBadge
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.Page
@@ -446,8 +446,8 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
     val correct = attempt.correctCount
     val percent = if (total > 0) (correct * 100 / total) else 0
 
-    // Hero Navy card with the overall result
-    HeroNavyCard(
+    // Hero card with the overall result
+    HeroCard(
         badgeText = "REVIEW COMPLETED",
         title = "$percent% Mastery",
         subtitle = if (quiz) "$correct of $total questions answered correctly" else "$correct cards mastered, $retry to review",

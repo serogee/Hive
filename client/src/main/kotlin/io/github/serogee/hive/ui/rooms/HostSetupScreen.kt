@@ -56,9 +56,9 @@ import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.rooms.RoomOptions
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.localhost.HostingService
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
@@ -131,7 +131,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         val current = draft ?: return@Page
         val stack = StackValidation.toSnapshot(current)
 
-        HeroNavyCard(
+        HeroCard(
             badgeText = "STACK SELECTED",
             title = current.title.ifBlank { "Untitled stack" },
             subtitle = "${current.questions.size} questions included in this room",

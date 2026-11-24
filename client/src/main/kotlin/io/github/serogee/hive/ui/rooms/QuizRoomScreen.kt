@@ -39,9 +39,9 @@ import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.localhost.HostingService
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
@@ -118,7 +118,7 @@ fun QuizRoomScreen(
 
         joined?.let { membership ->
             SectionHeader(title = "Active Room")
-            HeroNavyCard(
+            HeroCard(
                 badgeText = "JOINED ROOM",
                 title = membership.roomTitle,
                 subtitle = "Code ${membership.roomCode} · as ${membership.displayName}",
@@ -208,7 +208,7 @@ private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            BlueBadge(
+            CountBadge(
                 topText = room.code.take(4),
                 bottomText = "ROOM",
             )

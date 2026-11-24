@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.engine.SpeedBonus
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
@@ -42,7 +42,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
         val correct = results.yourAnswers.count { it.correct }
         val scoreFormatted = SpeedBonus.format(points * 10 + bonus)
 
-        HeroNavyCard(
+        HeroCard(
             badgeText = "QUIZ COMPLETED",
             title = "$scoreFormatted PTS",
             subtitle = "$correct of $total correct" + if (bonus > 0) " · +${SpeedBonus.format(bonus)} speed bonus" else "",

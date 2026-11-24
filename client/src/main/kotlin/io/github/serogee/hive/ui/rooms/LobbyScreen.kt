@@ -40,9 +40,9 @@ import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
@@ -161,7 +161,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
 @Composable
 private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStart: () -> Unit) {
     if (isHost) {
-        HeroNavyCard(
+        HeroCard(
             badgeText = "ROOM CODE",
             title = room.room.code,
             subtitle = "Players enter this code in Quiz Room · Admission: ${room.room.admission.label()}",

@@ -48,7 +48,7 @@ import io.github.serogee.hive.core.api.LiveQuestion
 import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.describe
 import io.github.serogee.hive.core.model.Answer
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.theme.DangerRed

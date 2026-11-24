@@ -45,9 +45,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.StackId
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.Page
@@ -86,8 +86,8 @@ fun StackDetailsScreen(
         val totalPoints = stack.questions.sumOf { it.points }
         val estMinutes = maxOf(1, stack.questions.size * 45 / 60)
 
-        // Hero Navy Summary Card
-        HeroNavyCard(
+        // Hero summary card
+        HeroCard(
             badgeText = "KEY STATS",
             title = "${stack.questions.size} Questions",
             subtitle = if (issues.isEmpty()) "Ready for practice and multiplayer quiz" else "${issues.size} issues to fix before hosting",

@@ -66,7 +66,7 @@ import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.AnswerMatching
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.core.model.TypoTolerance
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.SectionHeader

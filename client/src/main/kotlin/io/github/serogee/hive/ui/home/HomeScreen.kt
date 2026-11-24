@@ -81,8 +81,8 @@ import io.github.serogee.hive.core.engine.RoomCodes
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.localhost.LocalHost
-import io.github.serogee.hive.ui.common.BlueBadge
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
@@ -197,7 +197,7 @@ fun HomeScreen(
 
         // Active Joined Room Banner (if any)
         joined?.let { membership ->
-            HeroNavyCard(
+            HeroCard(
                 badgeText = "ACTIVE QUIZ ROOM",
                 title = membership.roomTitle,
                 subtitle = "Joined as ${membership.displayName} · Code ${membership.roomCode}",
@@ -218,7 +218,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    BlueBadge(
+                    CountBadge(
                         topText = "${attempt.position + 1}",
                         bottomText = "CARD",
                     )
