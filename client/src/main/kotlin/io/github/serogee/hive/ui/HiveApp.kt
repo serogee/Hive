@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.padding
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -291,7 +290,8 @@ fun HiveApp() {
 
 private fun NavHostController.openTab(route: Any) {
     navigate(route) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
+        // Home is the root. Welcome can be the start destination, but it has left the back stack by now.
+        popUpTo<HomeRoute> { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
