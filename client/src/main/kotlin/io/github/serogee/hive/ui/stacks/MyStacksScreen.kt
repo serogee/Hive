@@ -36,11 +36,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.stacks.StackSummary
 import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.HiveSegment
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
-import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.review.ReviewSetupSheet
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import kotlinx.coroutines.launch
@@ -130,12 +130,12 @@ fun MyStacksScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(vertical = 4.dp),
         ) {
-            TagPill(
+            HiveSegment(
                 text = "ALL STACKS",
                 selected = activeTab == 0,
                 onClick = { activeTab = 0 },
             )
-            TagPill(
+            HiveSegment(
                 text = "RECENT",
                 selected = activeTab == 1,
                 onClick = { activeTab = 1 },
