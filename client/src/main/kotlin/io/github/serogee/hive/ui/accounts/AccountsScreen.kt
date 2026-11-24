@@ -152,9 +152,8 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun resetData() = viewModelScope.launch {
-        container.preferences.setJoinedRoom(null)
-    }
+    /** Leaves the joined room on its server too, so that the Host sees the Player leave. */
+    fun resetData() = viewModelScope.launch { container.rooms.leaveJoinedRoom() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -457,7 +456,8 @@ fun AccountsScreen(
             title = { Text("Reset Data", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Are you sure you want to reset your local sessions and cache? Your question stacks will remain safe.",
+                    "This leaves the room you joined and forgets it on this phone. Your stacks, reviews, hosted rooms, " +
+                        "name, sign-in, and settings stay.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MutedSlate,
                 )
