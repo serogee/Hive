@@ -170,21 +170,27 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
         ) {
             if (!room.room.acceptsAccounts) {
                 val addresses = LocalAppContainer.current.rooms.playerAddresses()
-                if (addresses.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Players on this phone's Wi-Fi or hotspot also enter this address:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f),
+                )
+                if (addresses.isEmpty()) {
                     Text(
-                        "Local Wi-Fi Address for players:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f),
+                        "Connect to Wi-Fi or turn on the hotspot to get an address.",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
                     )
-                    addresses.forEach {
-                        Text(
-                            it.removePrefix("http://"),
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
+                }
+                addresses.forEach {
+                    Text(
+                        it.removePrefix("http://"),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         }
