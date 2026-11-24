@@ -275,6 +275,7 @@ fun HiveApp() {
             }
             composable<SignInRoute> {
                 AccountsScreen(
+                    signInRequested = true,
                     onSignedIn = { navController.popBackStack() },
                     onOpenReview = { navController.navigate(ReviewRoute(it)) },
                 )

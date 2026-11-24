@@ -159,6 +159,8 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
+    /** Shows the sign-in form on the page, for another screen that needs a sign-in. */
+    signInRequested: Boolean = false,
     onSignedIn: () -> Unit = {},
     onOpenReview: (attemptId: String) -> Unit,
 ) {
@@ -272,6 +274,18 @@ fun AccountsScreen(
                         }
                     }
                 }
+            }
+        }
+
+        if (signInRequested && session == null) {
+            SectionHeader(title = "Account sign in")
+            SleekCard {
+                SignInForm(
+                    busy = state.busy,
+                    showDemoHint = viewModel.showsDemoHint,
+                    onSignIn = viewModel::signIn,
+                )
+                ErrorText(state.signInError)
             }
         }
 
@@ -463,7 +477,7 @@ fun AccountsScreen(
         )
     }
 
-    // 5. SETTINGS BOTTOM SHEET POPUP ("pop up shit only" from Figma note)
+    // 5. SETTINGS BOTTOM SHEET
     if (showSettingsSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val scope = rememberCoroutineScope()
