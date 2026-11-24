@@ -677,6 +677,11 @@ fun JoinCard(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    Text(
+                        text = "Connect to the Host's Wi-Fi or hotspot first. The Host's lobby shows the address.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.75f),
+                    )
                 }
             }
         }
