@@ -48,9 +48,9 @@ The demo server stores its data in `server/data/hive-demo.db`. It has two fictio
 
 1. Connect the laptop and both phones to the same Wi-Fi network.
 2. Start the demo server. It prints the addresses that phones can use, such as `http://192.168.1.20:8080`. Allow Java through Windows Firewall when asked.
-3. On each phone, enter a name on the Welcome screen or tap Skip. Open Accounts, tap Settings, enter that address under Server Address, and tap Test and Save.
+3. On each phone, tap Use Hive without an account on the Welcome screen. Open Accounts, tap Settings, enter that address under Server Address, and tap Test and Save.
 4. On the Host phone, sign in as `alex` under Account Sign In in the same Settings, open Quiz Room, and tap the Discussion room under Online Rooms.
-5. On the Player phone, stay signed out, enter `NETDSC` as the room code on Home, tap Join, and join as a guest.
+5. On the Player phone, stay signed out, enter `NETDSC` as the room code on Home, tap Join, enter a name, and join as a guest.
 6. Both lobbies now list Alex Rivera as Host and the guest's name below.
 7. On the Host phone, tap Start quiz. The Player phone shows the first question.
 8. On the Player phone, choose an answer and tap Submit answer. It shows Answer received after the server saves it, and the Host phone counts the answer.
@@ -61,8 +61,8 @@ The demo server stores its data in `server/data/hive-demo.db`. It has two fictio
 This checks that a fresh phone can create, review, and host a stack with no internet and no demo server.
 
 1. Turn off mobile data on both phones. On the Host phone, turn on the hotspot. Connect the Player phone to that hotspot.
-2. On both phones, enter a name on the Welcome screen or tap Skip. On the Host phone, tap Create Stack on Home and write a few questions. Tap Done.
+2. On both phones, tap Use Hive without an account on the Welcome screen. On the Host phone, tap Create Stack on Home and write a few questions. Tap Done.
 3. On Home, tap Review, choose the stack, choose Quiz Review or Flashcard Review, and answer the questions.
 4. On Home, tap Host Quiz and choose the stack. Keep On this phone selected, enter your name, and tap Create Room. The lobby shows the room code and the address for Players, such as `192.168.43.1:8090`.
-5. On the Player phone, enter the code on Home, turn on Nearby offline room, enter the address, tap Join, and join as a guest.
+5. On the Player phone, enter the code on Home, turn on Nearby offline room, enter the address, tap Join, enter a name, and join as a guest.
 6. Run the quiz as in the demo above. To stop serving rooms, tap Stop hosting on this phone in Quiz Room.

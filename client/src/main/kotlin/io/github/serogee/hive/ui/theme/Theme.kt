@@ -51,63 +51,32 @@ val NightBad = Color(0xFFFF9B85)
 val NightBadSoft = Color(0xFF45201A)
 val NightEmptyCell = Color(0xFF4A4430)
 
-// Colors of the screens that are not in Wax and Graphite yet
-val MidnightNavy = Color(0xFF0C1838) // Deep midnight navy for hero cards & headers
-val MidnightNavyLight = Color(0xFF14244E)
-val ElectricBlue = Color(0xFF2558E8) // Vibrant royal blue accent
-val ElectricBlueLight = Color(0xFF4A7BFF)
-
-val BadgeBlue = Color(0xFF1B3882) // Number and code badges
-val Amber = Color(0xFFFBBF24) // Create Stack on the join card
-val AmberInk = Color(0xFF78350F) // Text on amber
-val AmberInkSoft = Color(0xFF92400E) // Secondary text on amber
-val AmberSoft = Color(0xFFFEF3C7) // Highlighted history card
-val AmberBorder = Color(0xFFFCD34D)
-val AmberStrong = Color(0xFFF59E0B)
-val Orange = Color(0xFFF97316) // Host Quiz on the join card
-
-val SuccessGreen = Color(0xFF22C55E) // Correct answers
-val SuccessGreenText = Color(0xFF16A34A)
-val DangerRed = Color(0xFFE53E3E) // Leave, delete, end, and wrong answers
-val DangerRedText = Color(0xFFDC2626)
-val SwitchTrackOff = Color(0xFFD6DFEC)
-val NeutralBorder = Color(0xFFE2E8F0)
-
 /** Colors that differ between light and dark but have no Material role. */
 @Immutable
 data class HiveColors(
+    val isDark: Boolean,
     /** Borders of buttons, bars, and the main cards. */
     val ink: Color,
     /** Hero cards, secondary buttons, and the selected segment or tab. Its accent is [Honey]. */
     val solid: Color,
     val onSolid: Color,
     val emptyCell: Color,
-    val successText: Color,
-    val dangerText: Color,
-    val switchTrackOff: Color,
-    val neutralBorder: Color,
 )
 
 internal val LightHiveColors = HiveColors(
+    isDark = false,
     ink = Graphite,
     solid = Graphite,
     onSolid = Wax,
     emptyCell = EmptyCell,
-    successText = SuccessGreenText,
-    dangerText = DangerRedText,
-    switchTrackOff = SwitchTrackOff,
-    neutralBorder = NeutralBorder,
 )
 
 internal val DarkHiveColors = HiveColors(
+    isDark = true,
     ink = NightInk,
     solid = NightSolid,
     onSolid = Wax,
     emptyCell = NightEmptyCell,
-    successText = SuccessGreen,
-    dangerText = DangerRed,
-    switchTrackOff = NightLine,
-    neutralBorder = NightLine,
 )
 
 private val LocalHiveColors = staticCompositionLocalOf { LightHiveColors }
