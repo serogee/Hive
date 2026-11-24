@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
 import io.github.serogee.hive.ui.theme.MidnightNavy
@@ -238,31 +240,40 @@ fun WelcomeScreen(
                     )
                 }
 
-                // Continue with Google button
-                OutlinedButton(
-                    onClick = { finish(null) },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White,
-                    ),
-                    border = BorderStroke(
-                        1.dp, Color.White.copy(alpha = 0.3f)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                ) {
-                    Text(
-                        "G",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = Color.White,
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "Continue with Google",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
+                // Continue with Google button, disabled until Google sign-in exists
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = {},
+                        enabled = false,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            disabledContentColor = Color.White.copy(alpha = 0.5f),
+                        ),
+                        border = BorderStroke(
+                            1.dp, Color.White.copy(alpha = 0.3f)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                    ) {
+                        Text(
+                            "G",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "Continue with Google",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                        )
+                    }
+                    TagPill(
+                        text = "Coming soon",
+                        selected = false,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = (-12).dp, y = (-14).dp),
                     )
                 }
             }
