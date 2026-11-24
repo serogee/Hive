@@ -1,5 +1,6 @@
 package io.github.serogee.hive.core.editor
 
+import io.github.serogee.hive.core.model.AnswerMatching
 import io.github.serogee.hive.core.model.Choice
 import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.Question
@@ -36,6 +37,7 @@ data class QuestionDraft(
     val trueFalseAnswer: Boolean? = null,
     val identificationAnswer: String = "",
     val acceptedAlternatives: List<String> = emptyList(),
+    val matching: AnswerMatching = AnswerMatching(),
     val explanation: String = "",
     val points: Int = DEFAULT_POINTS,
     /** Null means no time limit. */
@@ -134,6 +136,7 @@ object StackValidation {
                 prompt = prompt.trim(),
                 answer = identificationAnswer.trim(),
                 acceptedAlternatives = acceptedAlternatives.map { it.trim() }.filter { it.isNotEmpty() },
+                matching = matching,
                 explanation = explanation,
                 points = points,
                 durationSeconds = durationSeconds,
@@ -187,6 +190,7 @@ fun Question.toDraft(): QuestionDraft = when (this) {
         prompt = prompt,
         identificationAnswer = answer,
         acceptedAlternatives = acceptedAlternatives,
+        matching = matching,
         explanation = explanation.orEmpty(),
         points = points,
         durationSeconds = durationSeconds,
