@@ -205,7 +205,8 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             }
             if (onPhone) {
                 Text(
-                    "Rooms on this phone admit Players as guests with no accounts required.",
+                    "Rooms on this phone admit Players as guests. Signed-in Players only needs a way to check accounts " +
+                        "without internet, which Hive does not have yet.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MutedSlate,
                 )
@@ -216,6 +217,13 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         SectionHeader(title = "Scoring & Rules")
         SleekCard {
             Toggle("Speed bonus for timed questions", speedScoring) { speedScoring = it }
+            if (speedScoring) {
+                Text(
+                    "A correct answer earns up to 50% extra points, shrinking to zero as its timer runs out. Scores show one decimal.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate,
+                )
+            }
             Toggle("Order equal scores by answer time", tiebreak) { timeTiebreak = it }
 
             Spacer(Modifier.height(4.dp))
@@ -232,6 +240,11 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
                 modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Question time limits still apply. When both apply, the earlier one ends answering.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MutedSlate,
             )
         }
 
