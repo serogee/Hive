@@ -172,7 +172,7 @@ fun HiveApp() {
                     onContinueReview = { navController.navigate(ReviewRoute(it)) },
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
                     onHostQuiz = { navController.navigate(HostPickerRoute) },
-                    onCreateStack = { navController.openTab(MyStacksRoute) },
+                    onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
                 )
             }
             composable<MyStacksRoute> {
@@ -238,6 +238,7 @@ fun HiveApp() {
                     onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },
                     onOpenRoom = { navController.navigate(LobbyRoute(it)) },
                     onCreateRoom = { navController.navigate(HostPickerRoute) },
+                    onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
                     onSignIn = { navController.navigate(SignInRoute) },
                 )
             }

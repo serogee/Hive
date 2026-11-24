@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.RoomSummary
+import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
@@ -92,6 +93,7 @@ fun QuizRoomScreen(
     onJoinCode: (code: String, hostAddress: String?) -> Unit,
     onOpenRoom: (roomId: String) -> Unit,
     onCreateRoom: () -> Unit,
+    onStackCreated: (StackId) -> Unit,
     onSignIn: () -> Unit,
 ) {
     val container = LocalAppContainer.current
@@ -110,7 +112,11 @@ fun QuizRoomScreen(
         title = "Quiz Room",
         subtitle = "Multiplayer quiz lobbies & live sessions",
     ) {
-        JoinCard(onJoinCode)
+        JoinCard(
+            onJoinCode = onJoinCode,
+            onCreateStack = { scope.launch { onStackCreated(container.stacks.create()) } },
+            onHostQuiz = onCreateRoom,
+        )
 
         joined?.let { membership ->
             SectionHeader(title = "Active Room")

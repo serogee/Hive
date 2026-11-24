@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -36,10 +37,8 @@ import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -125,8 +124,8 @@ fun HomeScreen(
     onOpenStack: (StackId) -> Unit,
     onContinueReview: (attemptId: String) -> Unit,
     onReturnToRoom: (SavedMembership) -> Unit,
-    onHostQuiz: () -> Unit = {},
-    onCreateStack: () -> Unit = {},
+    onHostQuiz: () -> Unit,
+    onStackCreated: (StackId) -> Unit,
 ) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
@@ -142,7 +141,6 @@ fun HomeScreen(
 
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var sortMode by rememberSaveable { mutableStateOf(SortMode.RECENT) }
-    var showQrDialog by rememberSaveable { mutableStateOf(false) }
     var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
 
     Column(
@@ -265,10 +263,10 @@ fun HomeScreen(
             }
         }
 
-        // 2. HERO DARK CARD: Room Code Input + Join, and [Scan QR] + [Host Quiz] buttons
+        // 2. HERO DARK CARD: Room Code Input + Join, and [Create Stack] + [Host Quiz] buttons
         JoinCard(
             onJoinCode = onJoinCode,
-            onScanQr = { showQrDialog = true },
+            onCreateStack = { scope.launch { onStackCreated(container.stacks.create()) } },
             onHostQuiz = onHostQuiz,
         )
 
@@ -479,41 +477,18 @@ fun HomeScreen(
 
         Spacer(Modifier.height(16.dp))
     }
-
-    // QR Scanner Dialog placeholder
-    if (showQrDialog) {
-        AlertDialog(
-            onDismissRequest = { showQrDialog = false },
-            title = { Text("Scan QR Code", fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "Point your camera at a Hive host's QR code on another screen to join their quiz room instantly.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MutedSlate,
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showQrDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                ) {
-                    Text("Close")
-                }
-            },
-        )
-    }
 }
 
 /**
  * Figma Hero Card:
  * - Room Code Input + [Join]
- * - [Scan QR]  [Host Quiz]
+ * - [Create Stack]  [Host Quiz]
  */
 @Composable
 fun JoinCard(
     onJoinCode: (code: String, hostAddress: String?) -> Unit,
-    onScanQr: () -> Unit = {},
-    onHostQuiz: () -> Unit = {},
+    onCreateStack: () -> Unit,
+    onHostQuiz: () -> Unit,
 ) {
     var code by rememberSaveable { mutableStateOf("") }
     var nearby by rememberSaveable { mutableStateOf(false) }
@@ -596,33 +571,35 @@ fun JoinCard(
                     }
                 }
 
-                // Bottom row: [Scan QR] (warm accent / pill) + [Host Quiz] (primary)
+                // Bottom row: [Create Stack] (warm accent / pill) + [Host Quiz] (primary)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    // Scan QR button (warm gold/amber accent like in Figma)
+                    // Create Stack button (warm gold/amber accent like in Figma), until QR scanning exists
                     Button(
-                        onClick = onScanQr,
+                        onClick = onCreateStack,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFFBBF24),
                             contentColor = Color(0xFF78350F),
                         ),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp),
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.QrCodeScanner,
+                            imageVector = Icons.Outlined.Add,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "Scan QR",
+                            text = "Create Stack",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
+                            maxLines = 1,
                         )
                     }
 
