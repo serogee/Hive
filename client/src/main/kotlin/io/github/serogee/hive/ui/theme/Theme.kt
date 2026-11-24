@@ -73,16 +73,6 @@ val DangerRedText = Color(0xFFDC2626)
 val SwitchTrackOff = Color(0xFFD6DFEC)
 val NeutralBorder = Color(0xFFE2E8F0)
 
-/** Colors that stacks take turns using on Home. */
-val StackAccentColors = listOf(
-    Color(0xFF6366F1),
-    ElectricBlue,
-    Color(0xFF0EA5E9),
-    Color(0xFF10B981),
-    AmberStrong,
-    Color(0xFF8B5CF6),
-)
-
 /** Colors that differ between light and dark but have no Material role. */
 @Immutable
 data class HiveColors(

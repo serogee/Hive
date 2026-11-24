@@ -109,12 +109,13 @@ fun HiveTopBar(
     }
 }
 
-/** A page with a top bar, an optional subtitle and action, and scrolling content. */
+/** A page with a top bar, an optional subtitle, and scrolling content. */
 @Composable
 fun Page(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    leading: @Composable (() -> Unit)? = null,
     action: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -123,7 +124,7 @@ fun Page(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        HiveTopBar(title, action = action)
+        HiveTopBar(title, leading = leading, action = action)
         Column(
             modifier = Modifier
                 .fillMaxSize()

@@ -65,10 +65,11 @@ fun HiveButton(
     enabled: Boolean = true,
     onSolid: Boolean = false,
     icon: ImageVector? = null,
+    iconDescription: String? = null,
 ) {
     ButtonFrame(onClick, modifier, style, enabled, onSolid) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = iconDescription, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
         }
         Text(text.uppercase(), textAlign = TextAlign.Center)
@@ -130,7 +131,7 @@ private fun ButtonFrame(
             },
         ),
         border = BorderStroke(2.dp, border),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
         content = { content() },
     )
 }
