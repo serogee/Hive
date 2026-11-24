@@ -12,6 +12,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.unit.dp
+import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.MutedSlate
+import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.font.FontWeight
 import io.github.serogee.hive.ui.accounts.AccountsScreen
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.ui.home.HomeScreen
@@ -36,7 +44,13 @@ import io.github.serogee.hive.ui.stacks.MyStacksScreen
 import io.github.serogee.hive.ui.stacks.StackDetailsScreen
 import io.github.serogee.hive.ui.stacks.StackEditorScreen
 import io.github.serogee.hive.ui.stacks.StackListPurpose
+import io.github.serogee.hive.ui.welcome.WelcomeScreen
+import io.github.serogee.hive.ui.common.LocalAppContainer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.serialization.Serializable
+
+@Serializable
+object WelcomeRoute
 
 @Serializable
 object HomeRoute
@@ -93,21 +107,44 @@ private val tabs = listOf(
 
 @Composable
 fun HiveApp() {
+    val container = LocalAppContainer.current
+
+    // Read onboarding preference; null means not yet loaded from DataStore.
+    val onboardingCompleted by container.preferences.onboardingCompleted
+        .collectAsStateWithLifecycle(initialValue = null)
+
+    // Wait until DataStore has emitted the real value before rendering navigation.
+    val completed = onboardingCompleted ?: return
+
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val onTab = tabs.any { destination?.hasRoute(it.route::class) == true }
+    val onWelcome = destination?.hasRoute(WelcomeRoute::class) == true
+
+    // Lock the start destination to the value from the first emission.
+    val startDestination: Any = remember { if (completed) HomeRoute else WelcomeRoute }
 
     Scaffold(
         bottomBar = {
-            if (onTab) {
-                NavigationBar {
+            if (onTab && !onWelcome) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp,
+                ) {
                     tabs.forEach { tab ->
                         NavigationBarItem(
                             selected = destination?.hasRoute(tab.route::class) == true,
                             onClick = { navController.openTab(tab.route) },
                             icon = { Icon(tab.icon, contentDescription = null) },
-                            label = { Text(tab.label) },
+                            label = { Text(tab.label, fontWeight = FontWeight.SemiBold) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = ElectricBlue,
+                                selectedTextColor = ElectricBlue,
+                                indicatorColor = SoftBlueContainer,
+                                unselectedIconColor = MutedSlate,
+                                unselectedTextColor = MutedSlate,
+                            ),
                         )
                     }
                 }
@@ -116,9 +153,18 @@ fun HiveApp() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = HomeRoute,
+            startDestination = startDestination,
             modifier = Modifier.padding(padding),
         ) {
+            composable<WelcomeRoute> {
+                WelcomeScreen(
+                    onContinue = {
+                        navController.navigate(HomeRoute) {
+                            popUpTo<WelcomeRoute> { inclusive = true }
+                        }
+                    },
+                )
+            }
             composable<HomeRoute> {
                 HomeScreen(
                     onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },
@@ -126,6 +172,8 @@ fun HiveApp() {
                     onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
                     onContinueReview = { navController.navigate(ReviewRoute(it)) },
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
+                    onHostQuiz = { navController.navigate(HostPickerRoute) },
+                    onCreateStack = { navController.openTab(MyStacksRoute) },
                 )
             }
             composable<MyStacksRoute> {
@@ -194,8 +242,17 @@ fun HiveApp() {
                     onSignIn = { navController.navigate(SignInRoute) },
                 )
             }
-            composable<AccountsRoute> { AccountsScreen() }
-            composable<SignInRoute> { AccountsScreen(onSignedIn = { navController.popBackStack() }) }
+            composable<AccountsRoute> {
+                AccountsScreen(
+                    onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
+                )
+            }
+            composable<SignInRoute> {
+                AccountsScreen(
+                    onSignedIn = { navController.popBackStack() },
+                    onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
+                )
+            }
             composable<SessionEntryRoute> { entry ->
                 val route = entry.toRoute<SessionEntryRoute>()
                 SessionEntryScreen(
