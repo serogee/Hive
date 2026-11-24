@@ -5,12 +5,14 @@ import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.editor.QuestionType
 import io.github.serogee.hive.core.editor.StackDraft
 import io.github.serogee.hive.core.editor.StackValidation
+import io.github.serogee.hive.core.model.AnswerMatching
 import io.github.serogee.hive.core.model.Choice
 import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.Question
 import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.core.model.StackSnapshot
+import io.github.serogee.hive.core.model.TypoTolerance
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
@@ -44,6 +46,11 @@ data class FileQuestion(
     /** A Boolean for true_false questions, or the answer text for identification questions. */
     val answer: JsonElement? = null,
     val alternatives: List<String> = emptyList(),
+    /** For identification questions. Missing options use the defaults of AnswerMatching. */
+    val ignoreCase: Boolean? = null,
+    val ignoreSymbols: Boolean? = null,
+    /** off, low, medium, or high. */
+    val typos: String? = null,
     val explanation: String? = null,
     val points: Int = QuestionDraft.DEFAULT_POINTS,
     val seconds: Int? = null,
@@ -123,6 +130,12 @@ object HiveStackFile {
         return ImportResult(draft, all)
     }
 
+    internal const val TYPOS_HELP = "Use off, low, medium, or high."
+
+    /** Null for an unknown level. */
+    internal fun parseTypos(text: String): TypoTolerance? =
+        TypoTolerance.entries.firstOrNull { it.name.equals(text.trim(), ignoreCase = true) }
+
     private fun FileQuestion.toDraft(number: Int, newId: () -> String, errors: MutableList<String>): QuestionDraft? {
         val base = QuestionDraft(
             id = QuestionId(id ?: newId()),
@@ -149,7 +162,19 @@ object HiveStackFile {
             }
             "identification" -> {
                 val text = answer?.let { runCatching { HiveJson.decodeFromJsonElement<String>(it) }.getOrNull() }
-                base.copy(type = QuestionType.IDENTIFICATION, identificationAnswer = text.orEmpty(), acceptedAlternatives = alternatives)
+                val tolerance = typos?.let(::parseTypos)
+                if (typos != null && tolerance == null) errors += "Question $number has the unknown typos level '$typos'. $TYPOS_HELP"
+                val default = AnswerMatching()
+                base.copy(
+                    type = QuestionType.IDENTIFICATION,
+                    identificationAnswer = text.orEmpty(),
+                    acceptedAlternatives = alternatives,
+                    matching = AnswerMatching(
+                        ignoreCase = ignoreCase ?: default.ignoreCase,
+                        ignoreSymbols = ignoreSymbols ?: default.ignoreSymbols,
+                        typos = tolerance ?: default.typos,
+                    ),
+                )
             }
             else -> {
                 errors += "Question $number has the unknown type '$type'. Use multiple_choice, true_false, or identification."
@@ -182,6 +207,9 @@ object HiveStackFile {
             prompt = prompt,
             answer = JsonPrimitive(answer),
             alternatives = acceptedAlternatives,
+            ignoreCase = matching.ignoreCase,
+            ignoreSymbols = matching.ignoreSymbols,
+            typos = matching.typos.name.lowercase(),
             explanation = explanation,
             points = points,
             seconds = durationSeconds,

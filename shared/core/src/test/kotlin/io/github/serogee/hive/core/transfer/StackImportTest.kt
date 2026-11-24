@@ -2,6 +2,9 @@ package io.github.serogee.hive.core.transfer
 
 import io.github.serogee.hive.core.editor.QuestionType
 import io.github.serogee.hive.core.editor.StackValidation
+import io.github.serogee.hive.core.model.AnswerMatching
+import io.github.serogee.hive.core.model.Question
+import io.github.serogee.hive.core.model.TypoTolerance
 import io.github.serogee.hive.core.sample.SampleStacks
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,6 +25,49 @@ class StackImportTest {
         assertEquals(emptyList(), result.errors)
         assertEquals(sample.questions, snapshot.questions)
         assertEquals(sample.title, snapshot.title)
+    }
+
+    @Test
+    fun filesKeepAnswerMatching() {
+        val matching = AnswerMatching(ignoreCase = false, ignoreSymbols = true, typos = TypoTolerance.HIGH)
+        val sample = SampleStacks.networkingFundamentals
+        val stack = sample.copy(questions = sample.questions.map { if (it is Question.Identification) it.copy(matching = matching) else it })
+
+        val draft = assertNotNull(HiveStackFile.decode(HiveStackFile.encode(stack), newId).draft)
+
+        assertEquals(stack.questions, assertNotNull(StackValidation.toSnapshot(draft)).questions)
+    }
+
+    @Test
+    fun csvReadsAnswerMatching() {
+        val csv = """
+            type,prompt,answer,ignore_case,ignore_symbols,typos
+            identification,Exact?,DNS,false,true,Medium
+            identification,Default?,DNS,,,
+        """.trimIndent()
+
+        val result = CsvStackImport.decode(csv, "T", newId)
+
+        assertEquals(emptyList(), result.errors)
+        assertEquals(
+            listOf(AnswerMatching(ignoreCase = false, ignoreSymbols = true, typos = TypoTolerance.MEDIUM), AnswerMatching()),
+            result.draft!!.questions.map { it.matching },
+        )
+    }
+
+    @Test
+    fun unknownMatchingValuesAreReported() {
+        val json = """{"title": "T", "questions": [{"type": "identification", "prompt": "Q", "answer": "A", "typos": "lots"}]}"""
+        val csv = "type,prompt,answer,ignore_case,typos\nidentification,Q,A,maybe,lots\n"
+
+        assertEquals(
+            listOf("Question 1 has the unknown typos level 'lots'. Use off, low, medium, or high."),
+            HiveStackFile.decode(json, newId).errors,
+        )
+        assertEquals(
+            listOf("Row 2 has the unknown typos level 'lots'. Use off, low, medium, or high.", "Row 2 needs ignore_case to be true or false."),
+            CsvStackImport.decode(csv, "T", newId).errors,
+        )
     }
 
     @Test

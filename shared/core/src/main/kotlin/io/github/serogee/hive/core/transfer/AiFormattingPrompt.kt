@@ -33,7 +33,9 @@ object AiFormattingPrompt {
               "type": "identification",
               "prompt": "Which protocol translates domain names into IP addresses?",
               "answer": "DNS",
-              "alternatives": ["Domain Name System"]
+              "alternatives": ["Domain Name System"],
+              "ignoreSymbols": true,
+              "typos": "low"
             }
           ]
         }
@@ -43,6 +45,7 @@ object AiFormattingPrompt {
         - A multiple_choice question has two or more choices, and exactly one has "correct": true.
         - A true_false question has "answer": true or "answer": false.
         - An identification question has the answer text, and optional alternatives that also count as correct.
+        - For identification, ignoreCase (true by default) and ignoreSymbols (false by default) are optional. typos is off, low, medium, or high, and off by default.
         - points is a whole number from 1 to 100. Leave it out for 1 point.
         - seconds is the time limit, from 5 to 3600. Leave it out for no time limit.
         - Keep my wording. Do not add questions that are not in my notes.
