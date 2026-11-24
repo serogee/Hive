@@ -49,8 +49,8 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
 import io.github.serogee.hive.ui.home.JoinCard
+import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MutedSlate
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -161,8 +161,8 @@ fun QuizRoomScreen(
                         }
                     },
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, Color(0xFFE53E3E)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53E3E)),
+                    border = BorderStroke(1.5.dp, DangerRed),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Stop hosting on this phone", fontWeight = FontWeight.Bold)

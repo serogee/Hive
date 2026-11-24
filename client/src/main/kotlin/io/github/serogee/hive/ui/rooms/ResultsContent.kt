@@ -28,9 +28,12 @@ import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
+import io.github.serogee.hive.ui.theme.DangerRedText
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.MutedSlate
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import io.github.serogee.hive.ui.theme.SuccessGreen
+import io.github.serogee.hive.ui.theme.SuccessGreenText
 
 /** Host Results or Player Result, styled like the Statistics screen in the reference design. */
 @Composable
@@ -144,13 +147,13 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF22C55E).copy(alpha = 0.1f))
+                        .background(SuccessGreen.copy(alpha = 0.1f))
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 ) {
                     Text(
                         "Correct: ${question.correctAnswerText}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF16A34A),
+                        color = SuccessGreenText,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -171,7 +174,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                     Text(
                         "Your answer: ${own?.answerText ?: "none"} · $verdict",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isCorrect) Color(0xFF16A34A) else Color(0xFFDC2626),
+                        color = if (isCorrect) SuccessGreenText else DangerRedText,
                         fontWeight = FontWeight.Medium,
                     )
                 }

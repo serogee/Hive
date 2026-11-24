@@ -39,6 +39,32 @@ val DarkSlate = Color(0xFF0D1730)
 val MutedSlate = Color(0xFF75839C)
 val BorderSubtle = Color(0xFFE8EEF8)
 
+val BadgeBlue = Color(0xFF1B3882) // Number and code badges
+val Amber = Color(0xFFFBBF24) // Create Stack on the join card
+val AmberInk = Color(0xFF78350F) // Text on amber
+val AmberInkSoft = Color(0xFF92400E) // Secondary text on amber
+val AmberSoft = Color(0xFFFEF3C7) // Highlighted history card
+val AmberBorder = Color(0xFFFCD34D)
+val AmberStrong = Color(0xFFF59E0B)
+val Orange = Color(0xFFF97316) // Host Quiz on the join card
+
+val SuccessGreen = Color(0xFF22C55E) // Correct answers
+val SuccessGreenText = Color(0xFF16A34A)
+val DangerRed = Color(0xFFE53E3E) // Leave, delete, end, and wrong answers
+val DangerRedText = Color(0xFFDC2626)
+val SwitchTrackOff = Color(0xFFD6DFEC)
+val NeutralBorder = Color(0xFFE2E8F0)
+
+/** Colors that stacks take turns using on Home. */
+val StackAccentColors = listOf(
+    Color(0xFF6366F1),
+    ElectricBlue,
+    Color(0xFF0EA5E9),
+    Color(0xFF10B981),
+    AmberStrong,
+    Color(0xFF8B5CF6),
+)
+
 val DarkBackground = Color(0xFF090E1D)
 val DarkSurface = Color(0xFF0E162D)
 val DarkSurfaceVariant = Color(0xFF16203D)

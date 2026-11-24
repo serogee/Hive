@@ -65,8 +65,8 @@ import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
+import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MutedSlate
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
 
@@ -447,7 +447,7 @@ private fun QuestionCard(
                         Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move down", tint = if (isLast) MutedSlate.copy(alpha = 0.3f) else MutedSlate)
                     }
                     IconButton(onClick = { viewModel.delete(question.id) }) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = Color(0xFFE53E3E))
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = DangerRed)
                     }
                 }
             }

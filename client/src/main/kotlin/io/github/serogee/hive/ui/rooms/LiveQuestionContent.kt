@@ -51,10 +51,12 @@ import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
+import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MutedSlate
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import io.github.serogee.hive.ui.theme.SuccessGreen
+import io.github.serogee.hive.ui.theme.SuccessGreenText
 import kotlinx.coroutines.delay
 
 @Composable
@@ -96,7 +98,7 @@ private fun Countdown(live: LiveQuestion, onTimeUp: () -> Unit) {
         if (seconds > 0) "Time left: $seconds s" else "Time is up",
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        color = if (seconds <= 5) Color(0xFFE53E3E) else ElectricBlue,
+        color = if (seconds <= 5) DangerRed else ElectricBlue,
     )
 }
 
@@ -107,14 +109,14 @@ private fun RevealedAnswer(live: LiveQuestion) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF22C55E).copy(alpha = 0.1f))
+            .background(SuccessGreen.copy(alpha = 0.1f))
             .padding(14.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 "CORRECT ANSWER",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF16A34A),
+                color = SuccessGreenText,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 1.sp,
             )
@@ -196,8 +198,8 @@ fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) 
                 onClick = { confirm = END },
                 enabled = !busy,
                 shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, Color(0xFFE53E3E)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53E3E)),
+                border = BorderStroke(1.5.dp, DangerRed),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("End Quiz for Everyone", fontWeight = FontWeight.Bold) }
         }
@@ -229,7 +231,7 @@ fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) 
                         confirm = null
                         onCommand(HostCommand.EndRoom)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53E3E)),
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                 ) { Text("End for Everyone") }
             },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text("Continue Quiz") } },
@@ -343,12 +345,12 @@ fun PlayerLiveContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF22C55E).copy(alpha = 0.1f))
+                    .background(SuccessGreen.copy(alpha = 0.1f))
                     .padding(12.dp),
             ) {
                 Text(
                     "✓ Answer received by server",
-                    color = Color(0xFF16A34A),
+                    color = SuccessGreenText,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )

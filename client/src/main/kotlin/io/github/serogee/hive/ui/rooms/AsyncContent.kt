@@ -38,10 +38,9 @@ import io.github.serogee.hive.ui.common.HeroNavyCard
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
+import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import java.text.DateFormat
 import java.util.Date
 
@@ -110,7 +109,7 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
                         confirmEnd = false
                         onCommand(HostCommand.EndRoom)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53E3E)),
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                 ) { Text("End for Everyone") }
             },
             dismissButton = { TextButton(onClick = { confirmEnd = false }) { Text("Keep Open") } },

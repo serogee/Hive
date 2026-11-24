@@ -40,6 +40,7 @@ import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.data.remote.ApiException
+import io.github.serogee.hive.ui.theme.BadgeBlue
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
 import io.github.serogee.hive.ui.theme.MidnightNavy
@@ -165,7 +166,7 @@ fun BlueBadge(
         modifier = modifier
             .size(width = 46.dp, height = 48.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF1B3882)),
+            .background(BadgeBlue),
         contentAlignment = Alignment.Center,
     ) {
         Column(

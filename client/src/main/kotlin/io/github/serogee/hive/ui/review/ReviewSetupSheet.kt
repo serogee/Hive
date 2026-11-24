@@ -43,6 +43,7 @@ import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.MutedSlate
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import io.github.serogee.hive.ui.theme.SwitchTrackOff
 import kotlinx.coroutines.launch
 
 /** Review Setup: choose a mode, Prefer typing, and the order, or continue an unfinished review. */
@@ -158,7 +159,7 @@ private fun Option(label: String, checked: Boolean, onChange: (Boolean) -> Unit)
                 checkedThumbColor = Color.White,
                 checkedTrackColor = ElectricBlue,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color(0xFFD6DFEC),
+                uncheckedTrackColor = SwitchTrackOff,
             ),
         )
     }

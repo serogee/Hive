@@ -78,6 +78,11 @@ import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.theme.AmberBorder
+import io.github.serogee.hive.ui.theme.AmberInk
+import io.github.serogee.hive.ui.theme.AmberInkSoft
+import io.github.serogee.hive.ui.theme.AmberSoft
+import io.github.serogee.hive.ui.theme.AmberStrong
 import io.github.serogee.hive.ui.theme.DarkSlate
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
@@ -692,11 +697,11 @@ private fun QuizHistoryCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isHighlight) Color(0xFFFEF3C7) else MaterialTheme.colorScheme.surface,
+            containerColor = if (isHighlight) AmberSoft else MaterialTheme.colorScheme.surface,
         ),
         border = BorderStroke(
             1.dp,
-            if (isHighlight) Color(0xFFFCD34D) else MaterialTheme.colorScheme.outline,
+            if (isHighlight) AmberBorder else MaterialTheme.colorScheme.outline,
         ),
     ) {
         Row(
@@ -714,19 +719,19 @@ private fun QuizHistoryCard(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (isHighlight) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurface,
+                    color = if (isHighlight) AmberInk else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = date,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isHighlight) Color(0xFF92400E) else MutedSlate,
+                    color = if (isHighlight) AmberInkSoft else MutedSlate,
                 )
             }
 
             // Score on right (e.g. "20/20")
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isHighlight) Color(0xFFF59E0B) else SoftBlueContainer,
+                color = if (isHighlight) AmberStrong else SoftBlueContainer,
             ) {
                 Text(
                     text = score,

@@ -86,13 +86,17 @@ import io.github.serogee.hive.ui.common.HeroNavyCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
+import io.github.serogee.hive.ui.theme.Amber
+import io.github.serogee.hive.ui.theme.AmberInk
 import io.github.serogee.hive.ui.theme.DarkSlate
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
 import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MidnightNavyLight
 import io.github.serogee.hive.ui.theme.MutedSlate
+import io.github.serogee.hive.ui.theme.Orange
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import io.github.serogee.hive.ui.theme.StackAccentColors
 import kotlinx.coroutines.launch
 
 /** The icon and color that a stack shows on Home, chosen by its position. */
@@ -102,12 +106,12 @@ private data class StackAccent(
 )
 
 private val StackAccents = listOf(
-    StackAccent(Icons.Outlined.Psychology, Color(0xFF6366F1)),
-    StackAccent(Icons.Outlined.Code, Color(0xFF2558E8)),
-    StackAccent(Icons.Outlined.Analytics, Color(0xFF0EA5E9)),
-    StackAccent(Icons.Outlined.Hub, Color(0xFF10B981)),
-    StackAccent(Icons.Outlined.Devices, Color(0xFFF59E0B)),
-    StackAccent(Icons.Outlined.School, Color(0xFF8B5CF6)),
+    StackAccent(Icons.Outlined.Psychology, StackAccentColors[0]),
+    StackAccent(Icons.Outlined.Code, StackAccentColors[1]),
+    StackAccent(Icons.Outlined.Analytics, StackAccentColors[2]),
+    StackAccent(Icons.Outlined.Hub, StackAccentColors[3]),
+    StackAccent(Icons.Outlined.Devices, StackAccentColors[4]),
+    StackAccent(Icons.Outlined.School, StackAccentColors[5]),
 )
 
 enum class SortMode(val label: String) {
@@ -569,8 +573,8 @@ fun JoinCard(
                         onClick = onCreateStack,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFBBF24),
-                            contentColor = Color(0xFF78350F),
+                            containerColor = Amber,
+                            contentColor = AmberInk,
                         ),
                         contentPadding = PaddingValues(horizontal = 8.dp),
                         modifier = Modifier
@@ -596,7 +600,7 @@ fun JoinCard(
                         onClick = onHostQuiz,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFF97316),
+                            containerColor = Orange,
                             contentColor = Color.White,
                         ),
                         modifier = Modifier

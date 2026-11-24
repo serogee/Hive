@@ -66,9 +66,8 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import io.github.serogee.hive.ui.theme.SwitchTrackOff
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -293,7 +292,7 @@ private fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit)
                 checkedThumbColor = Color.White,
                 checkedTrackColor = ElectricBlue,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color(0xFFD6DFEC),
+                uncheckedTrackColor = SwitchTrackOff,
             ),
         )
     }

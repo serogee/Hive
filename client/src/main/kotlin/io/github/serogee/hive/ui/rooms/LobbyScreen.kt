@@ -49,10 +49,9 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.common.label
+import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.launch
 
 /** One room from lobby to results, for the Host or a Player. */
@@ -129,8 +128,8 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
             OutlinedButton(
                 onClick = { confirmLeave = true },
                 shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, Color(0xFFE53E3E)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53E3E)),
+                border = BorderStroke(1.5.dp, DangerRed),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Leave room", fontWeight = FontWeight.Bold)
@@ -152,7 +151,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                             onLeft()
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53E3E)),
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                 ) { Text("Leave") }
             },
             dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Stay") } },

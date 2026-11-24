@@ -61,10 +61,13 @@ import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
+import io.github.serogee.hive.ui.theme.DangerRed
+import io.github.serogee.hive.ui.theme.DangerRedText
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MutedSlate
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import io.github.serogee.hive.ui.theme.SuccessGreen
+import io.github.serogee.hive.ui.theme.SuccessGreenText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -385,9 +388,9 @@ private fun FlashCard(question: Question, preferTyping: Boolean, onMark: (Boolea
             OutlinedButton(
                 onClick = { onMark(false) },
                 shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, Color(0xFFE53E3E)),
+                border = BorderStroke(1.5.dp, DangerRed),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFE53E3E),
+                    contentColor = DangerRed,
                 ),
                 modifier = Modifier.weight(1f),
             ) {
@@ -403,8 +406,8 @@ private fun AnswerFeedback(question: Question, correct: Boolean?) {
     val isCorrect = correct == true
     val isIncorrect = correct == false
     val bannerColor = when {
-        isCorrect -> Color(0xFF22C55E)
-        isIncorrect -> Color(0xFFE53E3E)
+        isCorrect -> SuccessGreen
+        isIncorrect -> DangerRed
         else -> ElectricBlue
     }
 
@@ -529,12 +532,12 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
                     modifier = Modifier
                         .size(32.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isGood) Color(0xFF22C55E).copy(alpha = 0.15f) else Color(0xFFE53E3E).copy(alpha = 0.15f)),
+                        .background(if (isGood) SuccessGreen.copy(alpha = 0.15f) else DangerRed.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "${index + 1}",
-                        color = if (isGood) Color(0xFF16A34A) else Color(0xFFDC2626),
+                        color = if (isGood) SuccessGreenText else DangerRedText,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                     )
@@ -548,7 +551,7 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
                     Text(
                         mark,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isGood) Color(0xFF16A34A) else Color(0xFFDC2626),
+                        color = if (isGood) SuccessGreenText else DangerRedText,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }

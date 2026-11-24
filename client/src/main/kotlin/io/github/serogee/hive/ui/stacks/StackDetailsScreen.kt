@@ -55,9 +55,11 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.review.ReviewSetupSheet
+import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MutedSlate
+import io.github.serogee.hive.ui.theme.NeutralBorder
 import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.launch
 
@@ -139,9 +141,9 @@ fun StackDetailsScreen(
             OutlinedButton(
                 onClick = { confirmDelete = true },
                 shape = RoundedCornerShape(50),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                border = BorderStroke(1.dp, NeutralBorder),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFE53E3E),
+                    contentColor = DangerRed,
                 ),
             ) {
                 Icon(
@@ -265,7 +267,7 @@ fun StackDetailsScreen(
                             onDeleted()
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53E3E)),
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                 ) { Text("Delete") }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Keep") } },
