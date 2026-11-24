@@ -1,25 +1,13 @@
 package io.github.serogee.hive.ui.rooms
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,10 +16,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.HostCommand
@@ -40,17 +26,17 @@ import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
-import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveDialog
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.common.label
-import io.github.serogee.hive.ui.theme.DangerRed
-import io.github.serogee.hive.ui.theme.ElectricBlue
 import kotlinx.coroutines.launch
 
 /** One room from lobby to results, for the Host or a Player. */
@@ -124,36 +110,30 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
         ErrorText(state.error)
 
         if (!isHost && room.room.status != RoomStatus.ENDED) {
-            OutlinedButton(
+            HiveButton(
+                text = "Leave room",
                 onClick = { confirmLeave = true },
-                shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, DangerRed),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Leave room", fontWeight = FontWeight.Bold)
-            }
+                style = HiveButtonStyle.DANGER,
+            )
         }
     }
 
     if (confirmLeave) {
-        AlertDialog(
-            onDismissRequest = { confirmLeave = false },
-            title = { Text("Leave this room?", fontWeight = FontWeight.Bold) },
-            text = { Text("You can rejoin with the room code, but this device will forget your place.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        confirmLeave = false
-                        scope.launch {
-                            container.rooms.leaveJoinedRoom()
-                            onLeft()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
-                ) { Text("Leave") }
+        HiveDialog(
+            title = "Leave this room?",
+            message = "You can rejoin with the room code, but this device will forget your place.",
+            confirmText = "Leave",
+            onConfirm = {
+                confirmLeave = false
+                scope.launch {
+                    container.rooms.leaveJoinedRoom()
+                    onLeft()
+                }
             },
-            dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Stay") } },
+            dismissText = "Stay",
+            onDismiss = { confirmLeave = false },
+            danger = true,
         )
     }
 }
@@ -172,22 +152,17 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
                 Text(
                     "Players on this phone's Wi-Fi or hotspot also enter this address:",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.7f),
                 )
                 if (addresses.isEmpty()) {
                     Text(
                         "Connect to Wi-Fi or turn on the hotspot to get an address.",
-                        color = Color.White,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
                     )
                 }
                 addresses.forEach {
                     Text(
                         it.removePrefix("http://"),
-                        color = Color.White,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
@@ -197,7 +172,6 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
             Text(
                 "You joined as ${room.you.displayName}",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
             )
             Text(
                 "Waiting for ${room.room.hostName} to start the quiz...",
@@ -210,20 +184,12 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
     if (isHost) {
         val players = room.participants.count { it.role == RoomRole.PLAYER }
         val start = if (room.room.mode == RoomMode.ASYNCHRONOUS) "Open room" else "Start quiz"
-        Button(
+        HiveButton(
+            text = if (players > 0) start else "Waiting for Players...",
             onClick = onStart,
             enabled = !busy && players > 0,
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ElectricBlue,
-                contentColor = Color.White,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-        ) {
-            Text(if (players > 0) start else "Waiting for Players...", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        }
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 
     SectionHeader(title = "In this room (${room.participants.size})")
@@ -241,13 +207,14 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
         SleekCard {
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     participant.displayName + you,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
+                    modifier = Modifier.weight(1f),
+                    fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 TagPill(

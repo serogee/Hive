@@ -1,38 +1,18 @@
 package io.github.serogee.hive.ui.rooms
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -46,16 +26,19 @@ import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.remote.ApiException
 import io.github.serogee.hive.data.rooms.RoomRepository
-import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveDialog
+import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
-import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
-import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.Honey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -157,17 +140,13 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
     LaunchedEffect(state.joined) { state.joined?.let(onJoined) }
 
     state.confirmLeave?.let { question ->
-        AlertDialog(
-            onDismissRequest = viewModel::cancelLeave,
-            title = { Text("Leave your current room?", fontWeight = FontWeight.Bold) },
-            text = { Text(question) },
-            confirmButton = {
-                Button(
-                    onClick = viewModel::confirmLeave,
-                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                ) { Text("Leave and join") }
-            },
-            dismissButton = { TextButton(onClick = viewModel::cancelLeave) { Text("Stay") } },
+        HiveDialog(
+            title = "Leave your current room?",
+            message = question,
+            confirmText = "Leave and join",
+            onConfirm = viewModel::confirmLeave,
+            dismissText = "Stay",
+            onDismiss = viewModel::cancelLeave,
         )
     }
 
@@ -180,11 +159,10 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
             state.loading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             room == null -> {
                 ErrorText(state.error)
-                Button(
+                HiveButton(
+                    text = "Try again",
                     onClick = { viewModel.load() },
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                ) { Text("Try again") }
+                )
             }
             else -> {
                 RoomSummaryCard(room)
@@ -201,59 +179,38 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
 
                 if (guestsAllowed) {
                     SleekCard {
-                        Text("JOIN AS GUEST", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                        OutlinedTextField(
+                        Caption("Join as guest")
+                        HiveTextField(
                             value = name ?: preferredName.orEmpty(),
                             onValueChange = { name = it },
-                            label = { Text("Your name in this room") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(14.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
+                            label = "Your name in this room",
                         )
-                        Button(
+                        HiveButton(
+                            text = "Join as guest",
                             onClick = { viewModel.join(name ?: preferredName, asGuest = true) },
                             enabled = !state.joining && !(name ?: preferredName).isNullOrBlank(),
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ElectricBlue,
-                                contentColor = Color.White,
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                        ) { Text("Join as guest", fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
 
                 if (accountsAllowed) {
                     val signedIn = account
                     if (signedIn != null) {
-                        Button(
+                        HiveButton(
+                            text = "Join as ${signedIn.displayName}",
                             onClick = { viewModel.join(null, asGuest = false) },
                             enabled = !state.joining,
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondary,
-                                contentColor = MaterialTheme.colorScheme.onSecondary,
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                        ) { Text("Join as ${signedIn.displayName}", fontWeight = FontWeight.Bold, fontSize = 15.sp) }
-                    } else {
-                        OutlinedButton(
-                            onClick = onSignIn,
-                            shape = RoundedCornerShape(50),
-                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(if (guestsAllowed) "Sign in to join with your account" else "Sign in to join", fontWeight = FontWeight.Bold)
-                        }
+                            style = HiveButtonStyle.SECONDARY,
+                        )
+                    } else {
+                        HiveButton(
+                            text = if (guestsAllowed) "Sign in to join with your account" else "Sign in to join",
+                            onClick = onSignIn,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = HiveButtonStyle.SECONDARY,
+                        )
                     }
                 }
                 if (state.joining) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -270,20 +227,18 @@ fun RoomSummaryCard(room: RoomSummary) {
         title = room.title,
         subtitle = "Host: ${room.hostName} · ${room.questionCount} questions",
     ) {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 "${room.mode.label()} · ${room.status.label()}",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.8f),
             )
             Text(
                 "Admission: ${room.admission.label()}",
                 style = MaterialTheme.typography.bodySmall,
-                color = ElectricBlue,
-                fontWeight = FontWeight.Bold,
+                color = Honey,
             )
         }
     }
