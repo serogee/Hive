@@ -1,45 +1,29 @@
 package io.github.serogee.hive.ui.rooms
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.model.Answer
-import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveDialog
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
-import io.github.serogee.hive.ui.theme.DangerRed
-import io.github.serogee.hive.ui.theme.ElectricBlue
 import java.text.DateFormat
 import java.util.Date
 
@@ -67,51 +51,34 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
             else -> "Question ${player.currentQuestion} of $questions · ${player.answeredCount} answered"
         }
         SleekCard {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(player.displayName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                TagPill(
-                    text = statusText,
-                    selected = player.finished,
-                )
-            }
+            Text(player.displayName, style = MaterialTheme.typography.titleMedium)
+            TagPill(
+                text = statusText,
+                selected = player.finished,
+            )
         }
     }
 
     Spacer(Modifier.height(4.dp))
-    Button(
+    HiveButton(
+        text = "End Room and Show Results",
         onClick = { confirmEnd = true },
         enabled = !busy,
-        shape = RoundedCornerShape(50),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ElectricBlue,
-            contentColor = Color.White,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp),
-    ) {
-        Text("End Room and Show Results", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-    }
+        modifier = Modifier.fillMaxWidth(),
+    )
 
     if (confirmEnd) {
-        AlertDialog(
-            onDismissRequest = { confirmEnd = false },
-            title = { Text("End the room for everyone?", fontWeight = FontWeight.Bold) },
-            text = { Text("Players who have not finished can no longer answer. Answers already received are kept.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        confirmEnd = false
-                        onCommand(HostCommand.EndRoom)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
-                ) { Text("End for Everyone") }
+        HiveDialog(
+            title = "End the room for everyone?",
+            message = "Players who have not finished can no longer answer. Answers already received are kept.",
+            confirmText = "End for Everyone",
+            onConfirm = {
+                confirmEnd = false
+                onCommand(HostCommand.EndRoom)
             },
-            dismissButton = { TextButton(onClick = { confirmEnd = false }) { Text("Keep Open") } },
+            dismissText = "Keep Open",
+            onDismiss = { confirmEnd = false },
+            danger = true,
         )
     }
 }
@@ -132,26 +99,18 @@ fun PlayerAsyncContent(
     when {
         attempt == null || !attempt.started -> {
             SleekCard {
-                Text("SELF-PACED QUIZ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Caption("Self-paced quiz", color = MaterialTheme.colorScheme.primary)
                 Text(
                     "Answer the ${room.room.questionCount} questions at your own pace. A timed question's clock starts when you open it.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Button(
+                HiveButton(
+                    text = "Start Quiz",
                     onClick = { onAttempt(PlayerCommand.StartAttempt) },
                     enabled = !busy,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ElectricBlue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                ) {
-                    Text("Start Quiz", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
         attempt.finished || live == null -> {
@@ -167,31 +126,20 @@ fun PlayerAsyncContent(
             val label = if (last) "Finish" else "Next Question"
             Spacer(Modifier.height(8.dp))
             if (live.yourAnswer != null || !live.isOpen) {
-                Button(
+                HiveButton(
+                    text = label,
                     onClick = { onAttempt(PlayerCommand.NextQuestion) },
                     enabled = !busy,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ElectricBlue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                ) {
-                    Text(label, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
+                    modifier = Modifier.fillMaxWidth(),
+                )
             } else {
-                OutlinedButton(
+                HiveButton(
+                    text = if (last) "Skip and Finish" else "Skip This Question",
                     onClick = { onAttempt(PlayerCommand.NextQuestion) },
                     enabled = !busy && pending == null,
-                    shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(if (last) "Skip and Finish" else "Skip This Question", fontWeight = FontWeight.Bold)
-                }
+                    style = HiveButtonStyle.SECONDARY,
+                )
             }
         }
     }
