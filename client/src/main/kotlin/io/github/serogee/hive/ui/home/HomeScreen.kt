@@ -151,7 +151,7 @@ fun HomeScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        // 1. TOP HEADER: Avatar Circle + User's Name (Matching Figma Placement)
+        // 1. TOP HEADER: Avatar Circle + User's Name
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -449,7 +449,7 @@ fun HomeScreen(
                 modifier = Modifier.padding(vertical = 12.dp),
             )
         } else {
-            // Render recent stacks in the Figma card style:
+            // Render recent stacks as cards:
             // [Square icon box]  Title
             //                    X Questions
             filteredStacks.forEachIndexed { index, stack ->
@@ -469,7 +469,7 @@ fun HomeScreen(
 }
 
 /**
- * Figma Hero Card:
+ * Hero Card:
  * - Room Code Input + [Join]
  * - [Create Stack]  [Host Quiz]
  */
@@ -565,7 +565,7 @@ fun JoinCard(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    // Create Stack button (warm gold/amber accent like in Figma), until QR scanning exists
+                    // Create Stack button (warm gold/amber accent), until QR scanning exists
                     Button(
                         onClick = onCreateStack,
                         shape = RoundedCornerShape(14.dp),
@@ -592,7 +592,7 @@ fun JoinCard(
                         )
                     }
 
-                    // Host Quiz button (orange / vibrant accent button like in Figma)
+                    // Host Quiz button (orange / vibrant accent button)
                     Button(
                         onClick = onHostQuiz,
                         shape = RoundedCornerShape(14.dp),

@@ -26,7 +26,7 @@ enum class ThemePreference {
     SOFT_DARK,
 }
 
-// Design System Palette matching the reference design in the photo
+// Design system palette
 val MidnightNavy = Color(0xFF0C1838) // Deep midnight navy for hero cards & headers
 val MidnightNavyDark = Color(0xFF070E22)
 val MidnightNavyLight = Color(0xFF14244E)

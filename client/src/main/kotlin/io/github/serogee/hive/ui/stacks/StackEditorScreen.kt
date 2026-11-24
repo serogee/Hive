@@ -68,7 +68,7 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
 
-/** One inline editor for creating and editing a stack, styled like the "Add Sets / Superset" screen. */
+/** One inline editor for creating and editing a stack. */
 @Composable
 fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
     val container = LocalAppContainer.current

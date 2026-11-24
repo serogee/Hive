@@ -73,7 +73,7 @@ fun RoomStatus.label() = when (this) {
     RoomStatus.ENDED -> "Ended"
 }
 
-/** A scrolling page styled like the dashboard and screen headers in the reference design. */
+/** A scrolling page with a title, an optional subtitle, and an optional action beside them. */
 @Composable
 fun Page(
     title: String,
@@ -153,7 +153,7 @@ fun SectionHeader(
     }
 }
 
-/** Distinctive dark royal blue rounded badge (like the "22 MAY" badge in the photo). */
+/** Dark royal blue rounded badge with a value above a short label, such as a question count. */
 @Composable
 fun BlueBadge(
     topText: String,
@@ -190,7 +190,7 @@ fun BlueBadge(
     }
 }
 
-/** Metric stat chip (like the "25 workouts completed" / "103k kg" cards at the top of the dashboard). */
+/** Stat chip with a value above its label, such as a number of finished reviews. */
 @Composable
 fun MetricStatChip(
     value: String,
@@ -226,7 +226,7 @@ fun MetricStatChip(
     }
 }
 
-/** The prominent Midnight Navy hero card with gradient and optional vertical set/workout bars graphic. */
+/** The prominent Midnight Navy hero card with a gradient and a level bars graphic. */
 @Composable
 fun HeroNavyCard(
     title: String,
@@ -285,7 +285,7 @@ fun HeroNavyCard(
                         )
                     }
 
-                    // Level/progress graphic matching the reference mockup
+                    // Decorative level graphic
                     LevelBarsGraphic()
                 }
 
@@ -316,7 +316,7 @@ fun HeroNavyCard(
     }
 }
 
-/** 5 vertical blue bars matching the graphic in the reference design's "Chest & Back" workout card. */
+/** Five vertical blue bars that decorate a hero card. */
 @Composable
 fun LevelBarsGraphic(modifier: Modifier = Modifier) {
     val barHeights = listOf(14.dp, 22.dp, 30.dp, 38.dp, 44.dp)
@@ -339,7 +339,7 @@ fun LevelBarsGraphic(modifier: Modifier = Modifier) {
     }
 }
 
-/** Tag pill matching the muscle chips ("Quadriceps", "Hamstrings") from the picture. */
+/** Tag pill for a status, a filter, or a short label. */
 @Composable
 fun TagPill(
     text: String,

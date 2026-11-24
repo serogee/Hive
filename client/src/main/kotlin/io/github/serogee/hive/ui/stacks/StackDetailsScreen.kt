@@ -86,7 +86,7 @@ fun StackDetailsScreen(
         val totalPoints = stack.questions.sumOf { it.points }
         val estMinutes = maxOf(1, stack.questions.size * 45 / 60)
 
-        // Hero Navy Summary Card (matching the "KEY LIFTS" card in the picture)
+        // Hero Navy Summary Card
         HeroNavyCard(
             badgeText = "KEY STATS",
             title = "${stack.questions.size} Questions",
@@ -95,7 +95,7 @@ fun StackDetailsScreen(
             onButtonClick = { reviewSetup = true },
         )
 
-        // Action Buttons Row (Capsule buttons matching the mockup)
+        // Action Buttons Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -163,7 +163,7 @@ fun StackDetailsScreen(
             }
         }
 
-        // Section: "QUESTION TYPES" (styled like "MUSCLES INVOLVED" in the picture)
+        // Section: "QUESTION TYPES"
         if (typesPresent.isNotEmpty()) {
             SectionHeader(title = "Question Types")
             Row(
@@ -179,7 +179,7 @@ fun StackDetailsScreen(
             }
         }
 
-        // Section: "ABOUT" (styled like "ABOUT" with icons and metrics from the picture)
+        // Section: "ABOUT"
         SectionHeader(title = "About")
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -197,7 +197,7 @@ fun StackDetailsScreen(
             )
         }
 
-        // Section: "QUESTIONS" (styled like the exercise list in "Add Exercises" from the picture)
+        // Section: "QUESTIONS"
         SectionHeader(title = "Questions (${stack.questions.size})")
 
         stack.questions.forEachIndexed { index, question ->

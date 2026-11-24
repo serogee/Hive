@@ -446,7 +446,7 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
     val correct = attempt.correctCount
     val percent = if (total > 0) (correct * 100 / total) else 0
 
-    // Hero Navy card styled like the "Statistics" / "Tonnage Lifted" card in the picture
+    // Hero Navy card with the overall result
     HeroNavyCard(
         badgeText = "REVIEW COMPLETED",
         title = "$percent% Mastery",

@@ -102,7 +102,7 @@ fun MyStacksScreen(
             }
         }
 
-        // Search bar (styled like the "Add Exercises" search bar from the picture)
+        // Search bar
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -214,7 +214,7 @@ fun MyStacksScreen(
     }
 }
 
-/** A saved stack styled like the workout list items in the reference mockup. */
+/** A saved stack. Quick actions appear when their callbacks are given. */
 @Composable
 fun StackCard(
     stack: StackSummary,
@@ -228,7 +228,7 @@ fun StackCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Blue Badge with question count (matching 22 MAY style)
+            // Blue Badge with question count
             BlueBadge(
                 topText = "${stack.questionCount}",
                 bottomText = "QS",

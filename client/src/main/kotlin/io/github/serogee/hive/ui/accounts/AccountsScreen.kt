@@ -198,7 +198,7 @@ fun AccountsScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        // 1. PROFILE HERO SECTION (Matching Figma Placement)
+        // 1. PROFILE HERO SECTION
         // [Avatar Circle]
         // Name
         // Edit Name
@@ -315,7 +315,7 @@ fun AccountsScreen(
             )
         }
 
-        // 3. REVIEW HISTORY SECTION (Matching Figma Cards with Date + Score)
+        // 3. REVIEW HISTORY SECTION: Cards with date and score
         val finished = finishedReviews.orEmpty()
         val hasMore = finished.size > HISTORY_PREVIEW
         SectionHeader(
@@ -354,7 +354,7 @@ fun AccountsScreen(
             )
         }
 
-        // 4. SETTINGS SECTION (Opens the popup / bottom sheet as designed in Figma)
+        // 4. SETTINGS SECTION: Opens the bottom sheet
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = { showSettingsSheet = true },
@@ -518,7 +518,7 @@ fun AccountsScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                // Theme Toggle Section: [Theme] -> [Auto] [Light] [Dark] (matching Figma)
+                // Theme Toggle Section: [Auto] [Light] [Dark]
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "THEME",
@@ -595,7 +595,7 @@ fun AccountsScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                // Reset Data Row (Figma: "Reset Data")
+                // Reset Data Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -630,7 +630,7 @@ fun AccountsScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                // Log Out / Sign In Section (Figma: "Log Out")
+                // Log Out / Sign In Section
                 val current = session
                 if (current != null) {
                     Button(
@@ -676,8 +676,8 @@ fun AccountsScreen(
 }
 
 /**
- * Quiz History Card matching Figma:
- * Title (e.g. Contemporary)     Score (e.g. 20/20)
+ * Quiz History Card:
+ * Title     Score (e.g. 20/20)
  * Date (e.g. today)
  */
 @Composable
@@ -743,7 +743,7 @@ private fun QuizHistoryCard(
 }
 
 /**
- * Segmented Pill for Theme (Auto / Light / Dark) matching Figma
+ * Segmented Pill for Theme (Auto / Light / Dark)
  */
 @Composable
 private fun ThemePill(

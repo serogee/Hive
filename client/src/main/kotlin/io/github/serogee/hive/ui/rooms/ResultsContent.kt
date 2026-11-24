@@ -32,7 +32,7 @@ import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.SuccessGreen
 import io.github.serogee.hive.ui.theme.hiveColors
 
-/** Host Results or Player Result, styled like the Statistics screen in the reference design. */
+/** Host Results or Player Result, depending on [isHost]. */
 @Composable
 fun ResultsContent(results: RoomResults, isHost: Boolean) {
     if (!isHost) {
