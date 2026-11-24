@@ -1,7 +1,5 @@
 package io.github.serogee.hive.ui.stacks
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,16 +7,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,21 +19,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.stacks.StackSummary
 import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveSegment
+import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.review.ReviewSetupSheet
-import io.github.serogee.hive.ui.theme.ElectricBlue
 import kotlinx.coroutines.launch
 
 /** Why the stack list is open. A picker returns the chosen stack to the action that opened it. */
@@ -78,51 +68,25 @@ fun MyStacksScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Button(
+            HiveButton(
+                text = "Create Stack",
                 onClick = { scope.launch { onCreated(container.stacks.create()) } },
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
                 modifier = Modifier.weight(1f),
-            ) {
-                Text("Create Stack", fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
+            )
+            HiveButton(
+                text = "Import File",
                 onClick = onImport,
-                shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ),
                 modifier = Modifier.weight(1f),
-            ) {
-                Text("Import File", fontWeight = FontWeight.Bold)
-            }
+                style = HiveButtonStyle.SECONDARY,
+            )
         }
 
         // Search bar
-        OutlinedTextField(
+        HiveTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Search stacks...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Search,
-                    contentDescription = "Search",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-            ),
-            modifier = Modifier.fillMaxWidth(),
+            placeholder = "Search stacks...",
+            leadingIcon = Icons.Outlined.Search,
         )
 
         // Filter tabs (LIBRARY / ALL style)
@@ -164,23 +128,16 @@ fun MyStacksScreen(
                     Text(
                         text = "No stacks yet",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
                     )
                     Text(
                         text = "Create your own stack or add the built-in sample stack to get started.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Button(
+                    HiveButton(
+                        text = "Add Networking Fundamentals sample",
                         onClick = { scope.launch { open(container.stacks.addSample()) } },
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ElectricBlue,
-                            contentColor = Color.White,
-                        ),
-                    ) {
-                        Text("Add Networking Fundamentals sample", fontWeight = FontWeight.Bold)
-                    }
+                    )
                 }
             }
         } else if (filteredList.isEmpty()) {
@@ -241,7 +198,6 @@ fun StackCard(
                 Text(
                     text = stack.title.ifBlank { "Untitled stack" },
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
@@ -254,32 +210,17 @@ fun StackCard(
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         onHost?.let {
-                            Button(
+                            HiveButton(
+                                text = "Host",
                                 onClick = it,
-                                shape = RoundedCornerShape(50),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondary,
-                                    contentColor = MaterialTheme.colorScheme.onSecondary,
-                                ),
-                                contentPadding = ButtonDefaults.TextButtonContentPadding,
-                                modifier = Modifier.height(34.dp),
-                            ) {
-                                Text("Host", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                                style = HiveButtonStyle.SECONDARY,
+                            )
                         }
                         onPractice?.let {
-                            Button(
+                            HiveButton(
+                                text = "Practice",
                                 onClick = it,
-                                shape = RoundedCornerShape(50),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                ),
-                                contentPadding = ButtonDefaults.TextButtonContentPadding,
-                                modifier = Modifier.height(34.dp),
-                            ) {
-                                Text("Practice", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                            )
                         }
                     }
                 }
