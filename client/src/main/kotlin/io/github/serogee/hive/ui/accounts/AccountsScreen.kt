@@ -69,7 +69,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.api.AuthSession
-import io.github.serogee.hive.core.model.StackId
+import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.MetricStatChip
@@ -92,6 +92,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** How many finished reviews show before Show All, so that Settings stays within reach. */
+private const val HISTORY_PREVIEW = 5
 
 data class AccountsUiState(
     val busy: Boolean = false,
@@ -157,7 +160,7 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
 @Composable
 fun AccountsScreen(
     onSignedIn: () -> Unit = {},
-    onOpenStack: (StackId) -> Unit = {},
+    onOpenReview: (attemptId: String) -> Unit,
 ) {
     val container = LocalAppContainer.current
     val viewModel = viewModel { AccountsViewModel(container) }
@@ -167,6 +170,7 @@ fun AccountsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
     val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
+    val finishedReviews by container.reviews.finished.collectAsStateWithLifecycle(null)
 
     val displayName = session?.account?.displayName
         ?: preferredName?.takeIf { it.isNotBlank() }
@@ -175,6 +179,7 @@ fun AccountsScreen(
     var showEditNameDialog by rememberSaveable { mutableStateOf(false) }
     var showSettingsSheet by rememberSaveable { mutableStateOf(false) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
+    var showAllHistory by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state.signedIn) { if (state.signedIn) onSignedIn() }
 
@@ -291,46 +296,43 @@ fun AccountsScreen(
             )
         }
 
-        // 3. QUIZ HISTORY SECTION (Matching Figma Cards with Date + Score)
+        // 3. REVIEW HISTORY SECTION (Matching Figma Cards with Date + Score)
+        val finished = finishedReviews.orEmpty()
+        val hasMore = finished.size > HISTORY_PREVIEW
         SectionHeader(
-            title = "Quiz History",
+            title = "Review History",
+            actionText = if (!hasMore) null else if (showAllHistory) "Show Less" else "Show All",
+            onActionClick = { showAllHistory = !showAllHistory },
         )
 
-        if (stacks.isEmpty()) {
+        if (finishedReviews?.isEmpty() == true) {
             SleekCard {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "No quiz history yet",
+                        text = "No finished reviews yet",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "Take a quiz or practice question stacks to record your scores and progress.",
+                        text = "Finish a review of a stack to see its score and date here.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MutedSlate,
                     )
                 }
             }
-        } else {
-            // Render quiz history cards in warm gold/amber or sleek cards like in Figma:
-            // "Contemporary"  20/20
-            // today
-            val sampleScores = listOf("20/20", "05/20", "18/20", "12/15")
-            stacks.forEachIndexed { index, stack ->
-                val score = sampleScores.getOrElse(index) {
-                    "${stack.questionCount}/${stack.questionCount}"
-                }
-                QuizHistoryCard(
-                    title = stack.title.ifBlank { "Quiz ${index + 1}" },
-                    date = if (index == 0) "today" else "yesterday",
-                    score = score,
-                    isHighlight = index == 0,
-                    onClick = { onOpenStack(stack.id) },
-                )
-            }
+        }
+        (if (showAllHistory) finished else finished.take(HISTORY_PREVIEW)).forEachIndexed { index, review ->
+            val mode = if (review.attempt.settings.mode == ReviewMode.QUIZ) "Quiz Review" else "Flashcard Review"
+            QuizHistoryCard(
+                title = review.attempt.stack.title.ifBlank { "Untitled stack" },
+                date = "${historyDate(review.finishedAt)} · $mode",
+                score = review.score,
+                isHighlight = index == 0,
+                onClick = { onOpenReview(review.attempt.id) },
+            )
         }
 
         // 4. SETTINGS SECTION (Opens the popup / bottom sheet as designed in Figma)

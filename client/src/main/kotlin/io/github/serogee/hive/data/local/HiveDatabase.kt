@@ -117,6 +117,10 @@ interface ReviewDao {
     @Query("SELECT * FROM review_attempts WHERE stackId = :stackId AND finished = 0 ORDER BY updatedAt DESC LIMIT 1")
     fun observeUnfinishedFor(stackId: String): Flow<ReviewAttemptEntity?>
 
+    /** Finished attempts, newest first. Finishing is the last change to an attempt. */
+    @Query("SELECT * FROM review_attempts WHERE finished = 1 ORDER BY updatedAt DESC")
+    fun observeFinished(): Flow<List<ReviewAttemptEntity>>
+
     @Upsert
     suspend fun upsert(attempt: ReviewAttemptEntity)
 

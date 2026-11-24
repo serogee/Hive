@@ -270,13 +270,13 @@ fun HiveApp() {
             }
             composable<AccountsRoute> {
                 AccountsScreen(
-                    onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
+                    onOpenReview = { navController.navigate(ReviewRoute(it)) },
                 )
             }
             composable<SignInRoute> {
                 AccountsScreen(
                     onSignedIn = { navController.popBackStack() },
-                    onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
+                    onOpenReview = { navController.navigate(ReviewRoute(it)) },
                 )
             }
             composable<SessionEntryRoute> { entry ->
