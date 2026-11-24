@@ -84,6 +84,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -101,20 +102,25 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                             fontSize = 13.sp,
                         )
                     }
-                    Text(
-                        entry.displayName + if (entry.isGuest) " (guest)" else "",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Column {
+                        Text(
+                            entry.displayName + if (entry.isGuest) " (guest)" else "",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (entry.speedBonusTenths > 0) {
+                            Text(
+                                "${entry.score} base + ${SpeedBonus.format(entry.speedBonusTenths)} speed",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MutedSlate,
+                            )
+                        }
+                    }
                 }
 
                 TagPill(
-                    text = if (entry.speedBonusTenths > 0) {
-                        "${SpeedBonus.format(entry.totalTenths)} pts"
-                    } else {
-                        "${SpeedBonus.format(entry.totalTenths)} pts"
-                    },
+                    text = "${SpeedBonus.format(entry.totalTenths)} pts",
                     selected = isFirst,
                 )
             }
