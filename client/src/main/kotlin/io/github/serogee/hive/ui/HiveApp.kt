@@ -1,21 +1,33 @@
 package io.github.serogee.hive.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -23,10 +35,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.text.font.FontWeight
 import io.github.serogee.hive.ui.accounts.AccountsScreen
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.ui.home.HomeScreen
@@ -40,6 +49,8 @@ import io.github.serogee.hive.ui.stacks.MyStacksScreen
 import io.github.serogee.hive.ui.stacks.StackDetailsScreen
 import io.github.serogee.hive.ui.stacks.StackEditorScreen
 import io.github.serogee.hive.ui.stacks.StackListPurpose
+import io.github.serogee.hive.ui.theme.Honey
+import io.github.serogee.hive.ui.theme.hiveColors
 import io.github.serogee.hive.ui.welcome.WelcomeScreen
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -134,26 +145,10 @@ fun HiveApp() {
     Scaffold(
         bottomBar = {
             if (onTab && !onWelcome) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 6.dp,
-                ) {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = destination?.hasRoute(tab.route::class) == true,
-                            onClick = { navController.openTab(tab.route) },
-                            icon = { Icon(tab.icon, contentDescription = null) },
-                            label = { Text(tab.label, fontWeight = FontWeight.SemiBold) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            ),
-                        )
-                    }
-                }
+                HiveTabBar(
+                    isSelected = { destination?.hasRoute(it.route::class) == true },
+                    onSelect = { navController.openTab(it.route) },
+                )
             }
         },
     ) { padding ->
@@ -308,6 +303,45 @@ fun HiveApp() {
                     roomId = entry.toRoute<LobbyRoute>().roomId,
                     onLeft = { navController.popBackStack() },
                 )
+            }
+        }
+    }
+}
+
+/** The selected tab is graphite with a honey icon and label. */
+@Composable
+private fun HiveTabBar(isSelected: (Tab) -> Boolean, onSelect: (Tab) -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .navigationBarsPadding(),
+    ) {
+        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.ink)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            tabs.forEach { tab ->
+                val selected = isSelected(tab)
+                val content = if (selected) Honey else MaterialTheme.colorScheme.onSurfaceVariant
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 56.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(if (selected) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.surface)
+                        .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(tab) })
+                        .padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(tab.icon, contentDescription = null, tint = content)
+                    Text(tab.label.uppercase(), color = content, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
             }
         }
     }
