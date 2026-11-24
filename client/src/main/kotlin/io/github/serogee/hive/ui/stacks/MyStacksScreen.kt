@@ -145,9 +145,16 @@ fun MyStacksScreen(
 
         val list = stacks ?: return@Page
 
-        val filteredList = list.filter {
-            searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true)
-        }
+        // RECENT lists the newest change first. ALL STACKS is in title order.
+        val filteredList = list
+            .filter { searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) }
+            .let { found ->
+                if (activeTab == 1) {
+                    found.sortedByDescending { it.updatedAt }
+                } else {
+                    found.sortedBy { it.title.ifBlank { "Untitled stack" }.lowercase() }
+                }
+            }
 
         if (list.isEmpty()) {
             SleekCard {
