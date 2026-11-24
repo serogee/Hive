@@ -12,17 +12,21 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.padding
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.font.FontWeight
 import io.github.serogee.hive.ui.accounts.AccountsScreen
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.ui.home.HomeScreen
@@ -36,7 +40,13 @@ import io.github.serogee.hive.ui.stacks.MyStacksScreen
 import io.github.serogee.hive.ui.stacks.StackDetailsScreen
 import io.github.serogee.hive.ui.stacks.StackEditorScreen
 import io.github.serogee.hive.ui.stacks.StackListPurpose
+import io.github.serogee.hive.ui.welcome.WelcomeScreen
+import io.github.serogee.hive.ui.common.LocalAppContainer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.serialization.Serializable
+
+@Serializable
+object WelcomeRoute
 
 @Serializable
 object HomeRoute
@@ -65,19 +75,29 @@ data class HostSetupRoute(val stackId: String)
 @Serializable
 object HostPickerRoute
 
+/** Lists stacks so the user can pick one to review. */
+@Serializable
+object ReviewPickerRoute
+
 @Serializable
 data class StackDetailsRoute(val stackId: String)
 
 @Serializable
 data class ReviewRoute(val attemptId: String)
 
-/** [hostAfter] continues to Host Setup when the import started from the host picker. */
+/**
+ * [hostAfter] continues to Host Setup when the import started from the host picker. [reviewAfter]
+ * returns to the review picker when the import started there.
+ */
 @Serializable
-data class ImportRoute(val hostAfter: Boolean = false)
+data class ImportRoute(val hostAfter: Boolean = false, val reviewAfter: Boolean = false)
 
-/** [hostAfter] continues to Host Setup when the stack was created from the host picker. */
+/**
+ * [hostAfter] continues to Host Setup when the stack was created from the host picker. [reviewAfter]
+ * returns to the review picker when the stack was created there.
+ */
 @Serializable
-data class StackEditorRoute(val stackId: String, val hostAfter: Boolean = false)
+data class StackEditorRoute(val stackId: String, val hostAfter: Boolean = false, val reviewAfter: Boolean = false)
 
 @Serializable
 data class LobbyRoute(val roomId: String)
@@ -93,21 +113,44 @@ private val tabs = listOf(
 
 @Composable
 fun HiveApp() {
+    val container = LocalAppContainer.current
+
+    // Read onboarding preference; null means not yet loaded from DataStore.
+    val onboardingCompleted by container.preferences.onboardingCompleted
+        .collectAsStateWithLifecycle(initialValue = null)
+
+    // Wait until DataStore has emitted the real value before rendering navigation.
+    val completed = onboardingCompleted ?: return
+
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val onTab = tabs.any { destination?.hasRoute(it.route::class) == true }
+    val onWelcome = destination?.hasRoute(WelcomeRoute::class) == true
+
+    // Lock the start destination to the value from the first emission.
+    val startDestination: Any = remember { if (completed) HomeRoute else WelcomeRoute }
 
     Scaffold(
         bottomBar = {
-            if (onTab) {
-                NavigationBar {
+            if (onTab && !onWelcome) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp,
+                ) {
                     tabs.forEach { tab ->
                         NavigationBarItem(
                             selected = destination?.hasRoute(tab.route::class) == true,
                             onClick = { navController.openTab(tab.route) },
                             icon = { Icon(tab.icon, contentDescription = null) },
-                            label = { Text(tab.label) },
+                            label = { Text(tab.label, fontWeight = FontWeight.SemiBold) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
                         )
                     }
                 }
@@ -116,9 +159,18 @@ fun HiveApp() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = HomeRoute,
+            startDestination = startDestination,
             modifier = Modifier.padding(padding),
         ) {
+            composable<WelcomeRoute> {
+                WelcomeScreen(
+                    onContinue = {
+                        navController.navigate(HomeRoute) {
+                            popUpTo<WelcomeRoute> { inclusive = true }
+                        }
+                    },
+                )
+            }
             composable<HomeRoute> {
                 HomeScreen(
                     onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },
@@ -126,6 +178,9 @@ fun HiveApp() {
                     onOpenStack = { navController.navigate(StackDetailsRoute(it.value)) },
                     onContinueReview = { navController.navigate(ReviewRoute(it)) },
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
+                    onHostQuiz = { navController.navigate(HostPickerRoute) },
+                    onReview = { navController.navigate(ReviewPickerRoute) },
+                    onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
                 )
             }
             composable<MyStacksRoute> {
@@ -152,6 +207,15 @@ fun HiveApp() {
                     },
                 )
             }
+            composable<ReviewPickerRoute> {
+                MyStacksScreen(
+                    purpose = StackListPurpose.REVIEW,
+                    onOpen = {},
+                    onCreated = { navController.navigate(StackEditorRoute(it.value, reviewAfter = true)) },
+                    onImport = { navController.navigate(ImportRoute(reviewAfter = true)) },
+                    onReview = { navController.navigate(ReviewRoute(it)) { popUpTo<ReviewPickerRoute> { inclusive = true } } },
+                )
+            }
             composable<ReviewRoute> { entry ->
                 ReviewScreen(
                     attemptId = entry.toRoute<ReviewRoute>().attemptId,
@@ -162,6 +226,10 @@ fun HiveApp() {
             composable<ImportRoute> { entry ->
                 val route = entry.toRoute<ImportRoute>()
                 ImportScreen(onSaved = { stackId ->
+                    if (route.reviewAfter) {
+                        navController.popBackStack()
+                        return@ImportScreen
+                    }
                     val next: Any = if (route.hostAfter) HostSetupRoute(stackId.value) else StackDetailsRoute(stackId.value)
                     navController.navigate(next) { popUpTo<ImportRoute> { inclusive = true } }
                 })
@@ -179,7 +247,9 @@ fun HiveApp() {
             composable<StackEditorRoute> { entry ->
                 val route = entry.toRoute<StackEditorRoute>()
                 StackEditorScreen(StackId(route.stackId), onDone = {
-                    if (route.hostAfter) {
+                    if (route.reviewAfter) {
+                        navController.popBackStack()
+                    } else if (route.hostAfter) {
                         navController.navigate(HostSetupRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
                     } else {
                         navController.navigate(StackDetailsRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
@@ -191,11 +261,22 @@ fun HiveApp() {
                     onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },
                     onOpenRoom = { navController.navigate(LobbyRoute(it)) },
                     onCreateRoom = { navController.navigate(HostPickerRoute) },
+                    onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
                     onSignIn = { navController.navigate(SignInRoute) },
                 )
             }
-            composable<AccountsRoute> { AccountsScreen() }
-            composable<SignInRoute> { AccountsScreen(onSignedIn = { navController.popBackStack() }) }
+            composable<AccountsRoute> {
+                AccountsScreen(
+                    onOpenReview = { navController.navigate(ReviewRoute(it)) },
+                )
+            }
+            composable<SignInRoute> {
+                AccountsScreen(
+                    signInRequested = true,
+                    onSignedIn = { navController.popBackStack() },
+                    onOpenReview = { navController.navigate(ReviewRoute(it)) },
+                )
+            }
             composable<SessionEntryRoute> { entry ->
                 val route = entry.toRoute<SessionEntryRoute>()
                 SessionEntryScreen(
@@ -234,7 +315,8 @@ fun HiveApp() {
 
 private fun NavHostController.openTab(route: Any) {
     navigate(route) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
+        // Home is the root. Welcome can be the start destination, but it has left the back stack by now.
+        popUpTo<HomeRoute> { saveState = true }
         launchSingleTop = true
         restoreState = true
     }

@@ -18,6 +18,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.Serializable
+import androidx.datastore.preferences.core.booleanPreferencesKey
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "hive")
 
@@ -44,6 +45,9 @@ class AppPreferences(context: Context) {
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
 
+    /** Whether the app opens to Home instead of Welcome. */
+    val onboardingCompleted: Flow<Boolean> = store.data.map { it.onboardingCompleted() }
+
     /** Host credentials for rooms this phone hosts, by room ID. They never leave this phone. */
     val hostTokens: Flow<Map<String, String>> = store.data.map { prefs ->
         prefs.decode(HOST_TOKENS, MapSerializer(String.serializer(), String.serializer())).orEmpty()
@@ -56,6 +60,12 @@ class AppPreferences(context: Context) {
     suspend fun setServerUrl(url: String) = store.edit { it[SERVER_URL] = url }
 
     suspend fun setPreferredName(name: String) = store.edit { it[PREFERRED_NAME] = name }
+
+    /** Finishes Welcome. Saves [name] in the same write, so that Home never opens without it. */
+    suspend fun completeOnboarding(name: String?) = store.edit { prefs ->
+        if (name != null) prefs[PREFERRED_NAME] = name
+        prefs[ONBOARDING_COMPLETED] = true
+    }
 
     suspend fun addHostToken(roomId: RoomId, token: String) = store.edit { prefs ->
         val serializer = MapSerializer(String.serializer(), String.serializer())
@@ -81,12 +91,17 @@ class AppPreferences(context: Context) {
     private fun <T> Preferences.decode(key: Preferences.Key<String>, serializer: KSerializer<T>): T? =
         this[key]?.let { runCatching { HiveJson.decodeFromString(serializer, it) }.getOrNull() }
 
-    private companion object {
+    internal companion object {
+        /** True after Welcome, and for people who had a name or a session before Welcome existed. */
+        fun Preferences.onboardingCompleted(): Boolean =
+            this[ONBOARDING_COMPLETED] ?: (contains(PREFERRED_NAME) || contains(SESSION))
+
         val SERVER_URL = stringPreferencesKey("server_url")
         val THEME = stringPreferencesKey("theme")
         val SESSION = stringPreferencesKey("session")
         val JOINED_ROOM = stringPreferencesKey("joined_room")
         val PREFERRED_NAME = stringPreferencesKey("preferred_name")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val HOST_TOKENS = stringPreferencesKey("host_tokens")
     }
 }

@@ -12,9 +12,20 @@ import kotlin.random.Random
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+/** A review that reached its summary, and when it did. */
+data class FinishedReview(val attempt: ReviewAttempt, val finishedAt: Long) {
+    /** Correct or mastered cards out of all cards, such as "8/10". */
+    val score: String get() = "${attempt.correctCount}/${attempt.order.size}"
+}
+
 /** Self-review attempts saved on this phone, so a review can resume at the same card. */
 class ReviewRepository(private val dao: ReviewDao, private val now: () -> Long = System::currentTimeMillis) {
     val latestUnfinished: Flow<ReviewAttempt?> = dao.observeLatestUnfinished().map { it?.decode() }
+
+    /** Newest first. */
+    val finished: Flow<List<FinishedReview>> = dao.observeFinished().map { rows ->
+        rows.map { FinishedReview(it.decode(), it.updatedAt) }
+    }
 
     fun unfinishedFor(stackId: String): Flow<ReviewAttempt?> = dao.observeUnfinishedFor(stackId).map { it?.decode() }
 

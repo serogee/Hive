@@ -1,14 +1,22 @@
 package io.github.serogee.hive.ui.stacks
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -18,14 +26,19 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,18 +48,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.editor.QuestionType
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.StackId
+import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.SectionHeader
+import io.github.serogee.hive.ui.common.SleekCard
+import io.github.serogee.hive.ui.theme.DangerRed
+import io.github.serogee.hive.ui.theme.ElectricBlue
 
-/** One inline editor for creating and editing a stack, in the style of Google Forms. */
+/** One inline editor for creating and editing a stack. */
 @Composable
 fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
     val container = LocalAppContainer.current
@@ -57,34 +79,73 @@ fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
     val draft = state.draft ?: return
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
             Row(
-                Modifier.fillMaxWidth().padding(top = 16.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 18.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Edit stack", style = MaterialTheme.typography.headlineMedium)
-                Button(onClick = onDone) { Text("Done") }
+                Column {
+                    Text(
+                        "Edit Stack",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text("Changes save automatically.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Button(
+                    onClick = onDone,
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ElectricBlue,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Text("Done", fontWeight = FontWeight.Bold)
+                }
             }
-            Text("Changes save automatically.", style = MaterialTheme.typography.bodySmall)
         }
         item {
-            OutlinedTextField(
-                value = draft.title,
-                onValueChange = viewModel::setTitle,
-                label = { Text("Stack title") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = draft.description,
-                onValueChange = viewModel::setDescription,
-                label = { Text("Description (optional)") },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            SleekCard {
+                Text(
+                    text = "STACK DETAILS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp,
+                )
+                OutlinedTextField(
+                    value = draft.title,
+                    onValueChange = viewModel::setTitle,
+                    label = { Text("Stack title") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = draft.description,
+                    onValueChange = viewModel::setDescription,
+                    label = { Text("Description (optional)") },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         itemsIndexed(draft.questions, key = { _, question -> question.id.value }) { index, question ->
             val active = question.id == state.activeQuestionId
@@ -98,12 +159,24 @@ fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
             )
         }
         item {
-            TextButton(onClick = { viewModel.addQuestionAfter(draft.questions.lastOrNull()?.id) }) {
-                Icon(Icons.Outlined.Add, contentDescription = null)
-                Text("Add question")
+            Button(
+                onClick = { viewModel.addQuestionAfter(draft.questions.lastOrNull()?.id) },
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                Spacer(Modifier.size(8.dp))
+                Text("Add question", fontWeight = FontWeight.Bold)
             }
             val stackIssues = StackValidation.validate(draft).filter { it.questionId == null }
             stackIssues.forEach { ErrorText(it.message) }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -118,64 +191,153 @@ private fun QuestionCard(
     viewModel: StackEditorViewModel,
 ) {
     val issues = StackValidation.questionIssues(question, number)
+
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(enabled = !active) { viewModel.activate(question.id) },
-        colors = if (active) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant) else CardDefaults.cardColors(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !active) { viewModel.activate(question.id) },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface,
+        ),
+        border = BorderStroke(
+            if (active) 2.dp else 1.dp,
+            if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+        ),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!active) {
-                Text("$number. ${question.prompt.ifBlank { "(No prompt yet)" }}", style = MaterialTheme.typography.titleSmall)
-                Text(question.summary(), style = MaterialTheme.typography.bodySmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "$number",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            question.prompt.ifBlank { "(No prompt yet)" },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(question.summary(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 issues.firstOrNull()?.let { ErrorText(it) }
                 return@Column
             }
 
-            Text("Question $number", style = MaterialTheme.typography.labelLarge)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "QUESTION $number",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp,
+                )
+                Text(
+                    text = question.type.label(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             OutlinedTextField(
                 value = question.prompt,
                 onValueChange = { text -> viewModel.updateQuestion(question.id) { it.copy(prompt = text) } },
-                label = { Text("Prompt") },
+                label = { Text("Question Prompt") },
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
                 modifier = Modifier.fillMaxWidth(),
             )
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QuestionType.entries.forEach { type ->
                     FilterChip(
                         selected = question.type == type,
                         onClick = { viewModel.setType(question.id, type) },
-                        label = { Text(type.label()) },
+                        label = { Text(type.label(), fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(50),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ElectricBlue,
+                            selectedLabelColor = Color.White,
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                        border = null,
                     )
                 }
             }
 
             when (question.type) {
                 QuestionType.MULTIPLE_CHOICE -> {
-                    Text("Select the correct choice", style = MaterialTheme.typography.bodySmall)
+                    Text("Choices", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                     question.choices.forEachIndexed { index, choice ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
                             RadioButton(
                                 selected = question.correctChoiceId == choice.id,
                                 onClick = { viewModel.updateQuestion(question.id) { it.copy(correctChoiceId = choice.id) } },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary),
                             )
                             OutlinedTextField(
                                 value = choice.text,
                                 onValueChange = { viewModel.setChoiceText(question.id, choice.id, it) },
-                                placeholder = { Text("Choice ${index + 1}") },
+                                placeholder = { Text("Choice ${index + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                 singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                ),
                                 modifier = Modifier.weight(1f),
                             )
                             IconButton(onClick = { viewModel.removeChoice(question.id, choice.id) }) {
-                                Icon(Icons.Outlined.Close, contentDescription = "Remove choice ${index + 1}")
+                                Icon(Icons.Outlined.Close, contentDescription = "Remove choice ${index + 1}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
-                    TextButton(onClick = { viewModel.addChoice(question.id) }) { Text("Add choice") }
+                    TextButton(onClick = { viewModel.addChoice(question.id) }) {
+                        Icon(Icons.Outlined.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add Choice", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
                 }
                 QuestionType.TRUE_FALSE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(true, false).forEach { value ->
                         FilterChip(
                             selected = question.trueFalseAnswer == value,
                             onClick = { viewModel.updateQuestion(question.id) { it.copy(trueFalseAnswer = value) } },
-                            label = { Text(if (value) "True" else "False") },
+                            label = { Text(if (value) "True" else "False", fontWeight = FontWeight.Bold) },
+                            shape = RoundedCornerShape(50),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ElectricBlue,
+                                selectedLabelColor = Color.White,
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                            border = null,
                         )
                     }
                 }
@@ -185,6 +347,11 @@ private fun QuestionCard(
                         onValueChange = { text -> viewModel.updateQuestion(question.id) { it.copy(identificationAnswer = text) } },
                         label = { Text("Correct answer") },
                         singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     var alternatives by remember(question.id) { mutableStateOf(question.acceptedAlternatives.joinToString(", ")) }
@@ -197,6 +364,11 @@ private fun QuestionCard(
                             }
                         },
                         label = { Text("Also accept (separate with commas)") },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -206,9 +378,14 @@ private fun QuestionCard(
                 value = question.explanation,
                 onValueChange = { text -> viewModel.updateQuestion(question.id) { it.copy(explanation = text) } },
                 label = { Text("Explanation (optional)") },
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 var points by remember(question.id) { mutableStateOf(question.points.toString()) }
                 OutlinedTextField(
                     value = points,
@@ -218,7 +395,12 @@ private fun QuestionCard(
                     },
                     label = { Text("Points") },
                     singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
                     modifier = Modifier.weight(1f),
                 )
                 var seconds by remember(question.id) { mutableStateOf(question.durationSeconds?.toString().orEmpty()) }
@@ -229,29 +411,42 @@ private fun QuestionCard(
                         viewModel.updateQuestion(question.id) { it.copy(durationSeconds = seconds.toIntOrNull()) }
                     },
                     label = { Text("Seconds") },
-                    placeholder = { Text("No time limit") },
+                    placeholder = { Text("No limit", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
                     modifier = Modifier.weight(1f),
                 )
             }
             issues.forEach { ErrorText(it) }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { viewModel.addQuestionAfter(question.id) }) {
-                    Icon(Icons.Outlined.Add, contentDescription = "Add a question after this one")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row {
+                    IconButton(onClick = { viewModel.addQuestionAfter(question.id) }) {
+                        Icon(Icons.Outlined.Add, contentDescription = "Add question", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = { viewModel.duplicate(question.id) }) {
+                        Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-                IconButton(onClick = { viewModel.duplicate(question.id) }) {
-                    Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate question")
-                }
-                IconButton(onClick = { viewModel.move(question.id, -1) }, enabled = !isFirst) {
-                    Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move up")
-                }
-                IconButton(onClick = { viewModel.move(question.id, 1) }, enabled = !isLast) {
-                    Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move down")
-                }
-                IconButton(onClick = { viewModel.delete(question.id) }) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete question")
+                Row {
+                    IconButton(onClick = { viewModel.move(question.id, -1) }, enabled = !isFirst) {
+                        Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move up", tint = if (isFirst) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { viewModel.move(question.id, 1) }, enabled = !isLast) {
+                        Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move down", tint = if (isLast) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { viewModel.delete(question.id) }) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = DangerRed)
+                    }
                 }
             }
         }

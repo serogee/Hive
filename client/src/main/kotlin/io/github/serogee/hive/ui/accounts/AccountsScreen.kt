@@ -1,37 +1,92 @@
 package io.github.serogee.hive.ui.accounts
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.api.AuthSession
+import io.github.serogee.hive.core.engine.DisplayNames
+import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.common.SectionHeader
+import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.theme.AmberBorder
+import io.github.serogee.hive.ui.theme.AmberInk
+import io.github.serogee.hive.ui.theme.AmberInkSoft
+import io.github.serogee.hive.ui.theme.AmberSoft
+import io.github.serogee.hive.ui.theme.AmberStrong
+import io.github.serogee.hive.ui.theme.ElectricBlue
+import io.github.serogee.hive.ui.theme.ElectricBlueLight
+import io.github.serogee.hive.ui.theme.MidnightNavy
+import io.github.serogee.hive.ui.theme.MidnightNavyLight
 import io.github.serogee.hive.ui.theme.ThemePreference
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,6 +95,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** How many finished reviews show before Show All, so that Settings stays within reach. */
+private const val HISTORY_PREVIEW = 5
 
 data class AccountsUiState(
     val busy: Boolean = false,
@@ -54,6 +112,8 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val serverUrl = container.preferences.serverUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val theme = container.preferences.theme.stateIn(viewModelScope, SharingStarted.Eagerly, ThemePreference.SYSTEM)
+    val preferredName = container.preferences.preferredName
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val showsDemoHint = container.auth.showsDemoHint
 
     private val _state = MutableStateFlow(AccountsUiState())
@@ -73,6 +133,10 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setTheme(theme: ThemePreference) = viewModelScope.launch { container.preferences.setTheme(theme) }
 
+    fun setPreferredName(name: String) = viewModelScope.launch {
+        container.preferences.setPreferredName(name)
+    }
+
     /** Saves the address only when a Hive server answers there. */
     fun saveServer(rawUrl: String) = viewModelScope.launch {
         val url = rawUrl.trim().trimEnd('/').let { if (it.startsWith("http")) it else "http://$it" }
@@ -89,63 +153,620 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
             _state.update { it.copy(serverStatus = "No Hive server at $url. ${e.userMessage()}") }
         }
     }
+
+    /** Leaves the joined room on its server too, so that the Host sees the Player leave. */
+    fun resetData() = viewModelScope.launch { container.rooms.leaveJoinedRoom() }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountsScreen(onSignedIn: () -> Unit = {}) {
+fun AccountsScreen(
+    /** Shows the sign-in form on the page, for another screen that needs a sign-in. */
+    signInRequested: Boolean = false,
+    onSignedIn: () -> Unit = {},
+    onOpenReview: (attemptId: String) -> Unit,
+) {
     val container = LocalAppContainer.current
     val viewModel = viewModel { AccountsViewModel(container) }
     val session by viewModel.session.collectAsStateWithLifecycle()
     val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
+    val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
+    val hostedRooms by container.rooms.localHostedRooms.collectAsStateWithLifecycle(emptyList())
+    val finishedReviews by container.reviews.finished.collectAsStateWithLifecycle(null)
+
+    val displayName = session?.account?.displayName
+        ?: preferredName?.takeIf { it.isNotBlank() }
+        ?: "Guest"
+
+    val editNameLabel = if (session == null) "Edit Name" else "Edit Guest Name"
+
+    var showEditNameDialog by rememberSaveable { mutableStateOf(false) }
+    var showSettingsSheet by rememberSaveable { mutableStateOf(false) }
+    var showResetDialog by rememberSaveable { mutableStateOf(false) }
+    var showAllHistory by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state.signedIn) { if (state.signedIn) onSignedIn() }
 
-    Page("Accounts") {
-        Text("Account", style = MaterialTheme.typography.titleMedium)
-        val current = session
-        if (current != null) {
-            Text("Signed in as ${current.account.displayName}")
-            OutlinedButton(onClick = { viewModel.signOut() }) { Text("Sign out") }
-        } else {
-            SignInForm(
-                busy = state.busy,
-                showDemoHint = viewModel.showsDemoHint,
-                onSignIn = viewModel::signIn,
-            )
-            ErrorText(state.signInError)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        // 1. PROFILE HERO SECTION
+        // [Avatar Circle]
+        // Name
+        // Edit Name
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(MidnightNavy, MidnightNavyLight)
+                        )
+                    )
+                    .padding(22.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    // Large Circle Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(ElectricBlue, ElectricBlueLight)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = displayName.take(1).uppercase(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 26.sp,
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        // Edit Name Clickable Link
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showEditNameDialog = true }
+                                .padding(vertical = 2.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = null,
+                                tint = ElectricBlueLight,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = editNameLabel,
+                                color = ElectricBlueLight,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+            }
         }
 
-        Text("Server", style = MaterialTheme.typography.titleMedium)
-        var address by rememberSaveable(serverUrl) { mutableStateOf(serverUrl) }
-        OutlinedTextField(
-            value = address,
-            onValueChange = { address = it },
-            label = { Text("Server address") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedButton(onClick = { viewModel.saveServer(address) }) { Text("Test and save") }
-        state.serverStatus?.let { Text(it) }
+        if (signInRequested && session == null) {
+            SectionHeader(title = "Account sign in")
+            SleekCard {
+                SignInForm(
+                    busy = state.busy,
+                    showDemoHint = viewModel.showsDemoHint,
+                    onSignIn = viewModel::signIn,
+                )
+                ErrorText(state.signInError)
+            }
+        }
 
-        Text("Appearance", style = MaterialTheme.typography.titleMedium)
-        ThemePreference.entries.forEach { option ->
+        // 2. STAT CHIPS ROW: [stacks saved] [reviews finished] [rooms hosted], all from this phone
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            MetricStatChip(
+                value = "${stacks.size}",
+                label = "stacks\nsaved",
+                modifier = Modifier.weight(1f),
+            )
+            MetricStatChip(
+                value = "${finishedReviews.orEmpty().size}",
+                label = "reviews\nfinished",
+                modifier = Modifier.weight(1f),
+            )
+            MetricStatChip(
+                value = "${hostedRooms.size}",
+                label = "rooms\nhosted",
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        // 3. REVIEW HISTORY SECTION: Cards with date and score
+        val finished = finishedReviews.orEmpty()
+        val hasMore = finished.size > HISTORY_PREVIEW
+        SectionHeader(
+            title = "Review History",
+            actionText = if (!hasMore) null else if (showAllHistory) "Show Less" else "Show All",
+            onActionClick = { showAllHistory = !showAllHistory },
+        )
+
+        if (finishedReviews?.isEmpty() == true) {
+            SleekCard {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "No finished reviews yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "Finish a review of a stack to see its score and date here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        (if (showAllHistory) finished else finished.take(HISTORY_PREVIEW)).forEachIndexed { index, review ->
+            val mode = if (review.attempt.settings.mode == ReviewMode.QUIZ) "Quiz Review" else "Flashcard Review"
+            QuizHistoryCard(
+                title = review.attempt.stack.title.ifBlank { "Untitled stack" },
+                date = "${historyDate(review.finishedAt)} · $mode",
+                score = review.score,
+                isHighlight = index == 0,
+                onClick = { onOpenReview(review.attempt.id) },
+            )
+        }
+
+        // 4. SETTINGS SECTION: Opens the bottom sheet
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { showSettingsSheet = true },
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+        ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().selectable(selected = theme == option) { viewModel.setTheme(option) },
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                RadioButton(selected = theme == option, onClick = null)
-                Text(
-                    when (option) {
-                        ThemePreference.SYSTEM -> "System default"
-                        ThemePreference.SOFT_LIGHT -> "Soft light"
-                        ThemePreference.SOFT_DARK -> "Soft dark"
-                    },
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Outlined.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
+
+        Spacer(Modifier.height(16.dp))
+    }
+
+    // Edit Name Dialog
+    if (showEditNameDialog) {
+        var nameInput by rememberSaveable { mutableStateOf(preferredName ?: "") }
+        AlertDialog(
+            onDismissRequest = { showEditNameDialog = false },
+            title = { Text(editNameLabel, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        if (session == null) {
+                            "Enter the display name you would like to use in Hive:"
+                        } else {
+                            "This changes only the name you use as a guest. Your account name stays the same."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it.take(DisplayNames.MAX_LENGTH) },
+                        placeholder = { Text("Your Name") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        DisplayNames.normalize(nameInput)?.let { viewModel.setPreferredName(it) }
+                        showEditNameDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+                    shape = RoundedCornerShape(50),
+                ) {
+                    Text("Save", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditNameDialog = false }) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+        )
+    }
+
+    // Reset Data Confirmation Dialog
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset Data", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "This leaves the room you joined and forgets it on this phone. Your stacks, reviews, hosted rooms, " +
+                        "name, sign-in, and settings stay.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.resetData()
+                        showResetDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(50),
+                ) {
+                    Text("Reset", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+        )
+    }
+
+    // 5. SETTINGS BOTTOM SHEET
+    if (showSettingsSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val scope = rememberCoroutineScope()
+
+        ModalBottomSheet(
+            onDismissRequest = { showSettingsSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Theme Toggle Section: [Auto] [Light] [Dark]
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "THEME",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.2.sp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ThemePill(
+                            label = "Auto",
+                            selected = theme == ThemePreference.SYSTEM,
+                            onClick = { viewModel.setTheme(ThemePreference.SYSTEM) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ThemePill(
+                            label = "Light",
+                            selected = theme == ThemePreference.SOFT_LIGHT,
+                            onClick = { viewModel.setTheme(ThemePreference.SOFT_LIGHT) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ThemePill(
+                            label = "Dark",
+                            selected = theme == ThemePreference.SOFT_DARK,
+                            onClick = { viewModel.setTheme(ThemePreference.SOFT_DARK) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Server Configuration Section
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "SERVER ADDRESS",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.2.sp,
+                    )
+                    var address by rememberSaveable(serverUrl) { mutableStateOf(serverUrl) }
+                    OutlinedTextField(
+                        value = address,
+                        onValueChange = { address = it },
+                        placeholder = { Text("http://10.0.2.2:8080") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Button(
+                        onClick = { viewModel.saveServer(address) },
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ElectricBlue,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Test and Save", fontWeight = FontWeight.Bold)
+                    }
+                    state.serverStatus?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Reset Data Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { showResetDialog = true }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Refresh,
+                            contentDescription = "Reset Data",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "Reset Data",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Outlined.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Log Out / Sign In Section
+                val current = session
+                if (current != null) {
+                    Button(
+                        onClick = {
+                            viewModel.signOut()
+                            scope.launch { sheetState.hide() }.invokeOnCompletion {
+                                showSettingsSheet = false
+                            }
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                    ) {
+                        Text("Log Out", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "ACCOUNT SIGN IN",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.2.sp,
+                        )
+                        SignInForm(
+                            busy = state.busy,
+                            showDemoHint = viewModel.showsDemoHint,
+                            onSignIn = viewModel::signIn,
+                        )
+                        ErrorText(state.signInError)
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+            }
+        }
+    }
+}
+
+/**
+ * Quiz History Card:
+ * Title     Score (e.g. 20/20)
+ * Date (e.g. today)
+ */
+@Composable
+private fun QuizHistoryCard(
+    title: String,
+    date: String,
+    score: String,
+    isHighlight: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isHighlight) AmberSoft else MaterialTheme.colorScheme.surface,
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isHighlight) AmberBorder else MaterialTheme.colorScheme.outline,
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isHighlight) AmberInk else MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = date,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isHighlight) AmberInkSoft else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // Score on right (e.g. "20/20")
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isHighlight) AmberStrong else MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Text(
+                    text = score,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp,
+                    color = if (isHighlight) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Segmented Pill for Theme (Auto / Light / Dark)
+ */
+@Composable
+private fun ThemePill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) ElectricBlue else MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Text(
+            text = label,
+            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 13.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(vertical = 12.dp),
+        )
     }
 }
 
@@ -155,13 +776,18 @@ private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, 
     var password by rememberSaveable { mutableStateOf("") }
 
     if (showDemoHint) {
-        Text("Demo server accounts: alex or sam, password hive-demo", style = MaterialTheme.typography.bodySmall)
+        Text("Demo server accounts: alex or sam, password hive-demo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     OutlinedTextField(
         value = username,
         onValueChange = { username = it },
         label = { Text("Username") },
         singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
         modifier = Modifier.fillMaxWidth(),
     )
     OutlinedTextField(
@@ -171,11 +797,25 @@ private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, 
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        ),
         modifier = Modifier.fillMaxWidth(),
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { onSignIn(username, password) }, enabled = !busy && username.isNotBlank() && password.isNotEmpty()) {
-            Text("Sign in")
-        }
+    Button(
+        onClick = { onSignIn(username, password) },
+        enabled = !busy && username.isNotBlank() && password.isNotEmpty(),
+        shape = RoundedCornerShape(50),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ElectricBlue,
+            contentColor = Color.White,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
+    ) {
+        Text("Sign in", fontWeight = FontWeight.Bold, fontSize = 15.sp)
     }
 }

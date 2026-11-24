@@ -1,16 +1,24 @@
 package io.github.serogee.hive.ui.rooms
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -19,8 +27,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -34,11 +46,16 @@ import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.remote.ApiException
 import io.github.serogee.hive.data.rooms.RoomRepository
+import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.ErrorText
+import io.github.serogee.hive.ui.common.HeroNavyCard
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.common.SectionHeader
+import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.theme.ElectricBlue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -142,60 +159,104 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
     state.confirmLeave?.let { question ->
         AlertDialog(
             onDismissRequest = viewModel::cancelLeave,
-            title = { Text("Leave your current room?") },
+            title = { Text("Leave your current room?", fontWeight = FontWeight.Bold) },
             text = { Text(question) },
-            confirmButton = { TextButton(onClick = viewModel::confirmLeave) { Text("Leave and join") } },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::confirmLeave,
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+                ) { Text("Leave and join") }
+            },
             dismissButton = { TextButton(onClick = viewModel::cancelLeave) { Text("Stay") } },
         )
     }
 
-    Page("Join room $code") {
+    Page(
+        title = "Join Room",
+        subtitle = "Code $code",
+    ) {
         val room = state.room
         when {
-            state.loading -> CircularProgressIndicator()
+            state.loading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             room == null -> {
                 ErrorText(state.error)
-                OutlinedButton(onClick = { viewModel.load() }) { Text("Try again") }
+                Button(
+                    onClick = { viewModel.load() },
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+                ) { Text("Try again") }
             }
             else -> {
                 RoomSummaryCard(room)
                 if (room.status == RoomStatus.ENDED) {
-                    Text("This room has ended.")
+                    Text("This room has ended.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
                     return@Page
                 }
 
                 val guestsAllowed = room.admission != AdmissionPolicy.SIGNED_IN_ONLY
                 val accountsAllowed = room.admission != AdmissionPolicy.GUESTS_ONLY && room.acceptsAccounts
-                if (!room.acceptsAccounts) Text("This room is hosted on a phone, so everyone joins as a guest.")
-                if (guestsAllowed) {
-                    OutlinedTextField(
-                        value = name ?: preferredName.orEmpty(),
-                        onValueChange = { name = it },
-                        label = { Text("Your name in this room") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Button(
-                        onClick = { viewModel.join(name ?: preferredName, asGuest = true) },
-                        enabled = !state.joining && !(name ?: preferredName).isNullOrBlank(),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Join as guest") }
+                if (!room.acceptsAccounts) {
+                    Text("This room is hosted on a phone, so everyone joins as a guest.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
+
+                if (guestsAllowed) {
+                    SleekCard {
+                        Text("JOIN AS GUEST", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        OutlinedTextField(
+                            value = name ?: preferredName.orEmpty(),
+                            onValueChange = { name = it },
+                            label = { Text("Your name in this room") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Button(
+                            onClick = { viewModel.join(name ?: preferredName, asGuest = true) },
+                            enabled = !state.joining && !(name ?: preferredName).isNullOrBlank(),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ElectricBlue,
+                                contentColor = Color.White,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                        ) { Text("Join as guest", fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                    }
+                }
+
                 if (accountsAllowed) {
                     val signedIn = account
                     if (signedIn != null) {
                         Button(
                             onClick = { viewModel.join(null, asGuest = false) },
                             enabled = !state.joining,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Join as ${signedIn.displayName}") }
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                contentColor = MaterialTheme.colorScheme.onSecondary,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                        ) { Text("Join as ${signedIn.displayName}", fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                     } else {
-                        OutlinedButton(onClick = onSignIn, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (guestsAllowed) "Sign in to join with your account" else "Sign in to join")
+                        OutlinedButton(
+                            onClick = onSignIn,
+                            shape = RoundedCornerShape(50),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (guestsAllowed) "Sign in to join with your account" else "Sign in to join", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-                if (state.joining) CircularProgressIndicator()
+                if (state.joining) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 ErrorText(state.error)
             }
         }
@@ -204,12 +265,26 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
 
 @Composable
 fun RoomSummaryCard(room: RoomSummary) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(room.title, style = MaterialTheme.typography.titleLarge)
-            Text("Host: ${room.hostName}")
-            Text("${room.mode.label()} · ${room.questionCount} questions · ${room.status.label()}")
-            Text("Who can join: ${room.admission.label()}")
+    HeroNavyCard(
+        badgeText = "ROOM FOUND",
+        title = room.title,
+        subtitle = "Host: ${room.hostName} · ${room.questionCount} questions",
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                "${room.mode.label()} · ${room.status.label()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.8f),
+            )
+            Text(
+                "Admission: ${room.admission.label()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = ElectricBlue,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }
