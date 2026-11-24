@@ -1,9 +1,7 @@
 package io.github.serogee.hive.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -17,7 +15,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.serogee.hive.R
 
@@ -28,22 +25,37 @@ enum class ThemePreference {
     SOFT_DARK,
 }
 
-// Design system palette
+// Wax and Graphite, light
+val Wax = Color(0xFFE4E6E0) // Background, and text on graphite
+val WaxCard = Color(0xFFFBFBF8)
+val Graphite = Color(0xFF202327) // Text, borders, and solid areas. Also the text on honey, in light and dark
+val WaxMuted = Color(0xFF555B62)
+val WaxLine = Color(0xFFCDD0C8)
+val Honey = Color(0xFFF2A900) // The same in light and dark
+val HoneyInk = Color(0xFF5C3D00) // Text on soft honey, links, and icons
+val HoneySoft = Color(0xFFFFF1C7)
+val Bad = Color(0xFFA3301B) // Wrong answers, errors, leave, delete, and end
+val BadSoft = Color(0xFFF8DDD6)
+val EmptyCell = Color(0xFFD9CFA8) // Progress cells that are not filled yet
+
+// Wax and Graphite, dark
+val Night = Color(0xFF16181B)
+val NightCard = Color(0xFF202327)
+val NightInk = Color(0xFFECEDE8)
+val NightMuted = Color(0xFFA9AEA5)
+val NightLine = Color(0xFF363A40)
+val NightSolid = Color(0xFF2B2E33)
+val NightHoneyInk = Color(0xFFFFD66B)
+val NightHoneySoft = Color(0xFF3A2F12)
+val NightBad = Color(0xFFFF9B85)
+val NightBadSoft = Color(0xFF45201A)
+val NightEmptyCell = Color(0xFF4A4430)
+
+// Colors of the screens that are not in Wax and Graphite yet
 val MidnightNavy = Color(0xFF0C1838) // Deep midnight navy for hero cards & headers
-val MidnightNavyDark = Color(0xFF070E22)
 val MidnightNavyLight = Color(0xFF14244E)
 val ElectricBlue = Color(0xFF2558E8) // Vibrant royal blue accent
 val ElectricBlueLight = Color(0xFF4A7BFF)
-val ElectricBlueDark = Color(0xFF1742BC)
-val SoftBlueContainer = Color(0xFFEEF3FF) // Soft blue tint for secondary pills
-val OnSoftBlueContainer = Color(0xFF2558E8)
-
-val LightBackground = Color(0xFFF5F7FB) // Clean cool off-white background
-val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFEFF2F8)
-val DarkSlate = Color(0xFF0D1730)
-val MutedSlate = Color(0xFF75839C)
-val BorderSubtle = Color(0xFFE8EEF8)
 
 val BadgeBlue = Color(0xFF1B3882) // Number and code badges
 val Amber = Color(0xFFFBBF24) // Create Stack on the join card
@@ -71,15 +83,15 @@ val StackAccentColors = listOf(
     Color(0xFF8B5CF6),
 )
 
-val DarkBackground = Color(0xFF090E1D)
-val DarkSurface = Color(0xFF0E162D)
-val DarkSurfaceVariant = Color(0xFF16203D)
-val DarkBorderSubtle = Color(0xFF1F2B4D)
-val DarkOutlineVariant = Color(0xFF2D3C5E)
-
 /** Colors that differ between light and dark but have no Material role. */
 @Immutable
 data class HiveColors(
+    /** Borders of buttons, bars, and the main cards. */
+    val ink: Color,
+    /** Hero cards, secondary buttons, and the selected segment or tab. Its accent is [Honey]. */
+    val solid: Color,
+    val onSolid: Color,
+    val emptyCell: Color,
     val successText: Color,
     val dangerText: Color,
     val switchTrackOff: Color,
@@ -87,6 +99,10 @@ data class HiveColors(
 )
 
 private val LightHiveColors = HiveColors(
+    ink = Graphite,
+    solid = Graphite,
+    onSolid = Wax,
+    emptyCell = EmptyCell,
     successText = SuccessGreenText,
     dangerText = DangerRedText,
     switchTrackOff = SwitchTrackOff,
@@ -94,10 +110,14 @@ private val LightHiveColors = HiveColors(
 )
 
 private val DarkHiveColors = HiveColors(
+    ink = NightInk,
+    solid = NightSolid,
+    onSolid = Wax,
+    emptyCell = NightEmptyCell,
     successText = SuccessGreen,
     dangerText = DangerRed,
-    switchTrackOff = DarkOutlineVariant,
-    neutralBorder = DarkOutlineVariant,
+    switchTrackOff = NightLine,
+    neutralBorder = NightLine,
 )
 
 private val LocalHiveColors = staticCompositionLocalOf { LightHiveColors }
@@ -106,52 +126,79 @@ val MaterialTheme.hiveColors: HiveColors
     @Composable @ReadOnlyComposable get() = LocalHiveColors.current
 
 private val SoftLight = lightColorScheme(
-    primary = ElectricBlue,
-    onPrimary = Color.White,
-    primaryContainer = SoftBlueContainer,
-    onPrimaryContainer = OnSoftBlueContainer,
-    secondary = MidnightNavy,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE3EAFA),
-    onSecondaryContainer = MidnightNavy,
-    tertiary = Color(0xFF3B82F6),
-    onTertiary = Color.White,
-    background = LightBackground,
-    onBackground = DarkSlate,
-    surface = LightSurface,
-    onSurface = DarkSlate,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = MutedSlate,
-    outline = BorderSubtle,
-    outlineVariant = Color(0xFFE0E6F0),
+    primary = HoneyInk,
+    onPrimary = HoneySoft,
+    primaryContainer = HoneySoft,
+    onPrimaryContainer = HoneyInk,
+    secondary = Graphite,
+    onSecondary = Honey,
+    secondaryContainer = Graphite,
+    onSecondaryContainer = Honey,
+    tertiary = Honey,
+    onTertiary = Graphite,
+    tertiaryContainer = HoneySoft,
+    onTertiaryContainer = HoneyInk,
+    background = Wax,
+    onBackground = Graphite,
+    surface = WaxCard,
+    onSurface = Graphite,
+    surfaceVariant = Wax,
+    onSurfaceVariant = WaxMuted,
+    surfaceTint = WaxCard,
+    inverseSurface = Graphite,
+    inverseOnSurface = Wax,
+    inversePrimary = Honey,
+    error = Bad,
+    onError = WaxCard,
+    errorContainer = BadSoft,
+    onErrorContainer = Bad,
+    outline = WaxLine,
+    outlineVariant = WaxLine,
+    surfaceBright = WaxCard,
+    surfaceDim = Wax,
+    surfaceContainerLowest = WaxCard,
+    surfaceContainerLow = WaxCard,
+    surfaceContainer = WaxCard,
+    surfaceContainerHigh = WaxCard,
+    surfaceContainerHighest = WaxCard,
 )
 
 private val SoftDark = darkColorScheme(
-    primary = ElectricBlueLight,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFF152A5E),
-    onPrimaryContainer = Color(0xFFD6E3FF),
-    secondary = Color(0xFF8BA5EE),
-    onSecondary = Color(0xFF001B54),
-    secondaryContainer = MidnightNavyLight,
-    onSecondaryContainer = Color.White,
-    tertiary = Color(0xFF60A5FA),
-    onTertiary = Color.White,
-    background = DarkBackground,
-    onBackground = Color(0xFFE2E8F0),
-    surface = DarkSurface,
-    onSurface = Color(0xFFE2E8F0),
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = Color(0xFF94A3B8),
-    outline = DarkBorderSubtle,
-    outlineVariant = DarkOutlineVariant,
-)
-
-val HiveShapes = Shapes(
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(22.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    primary = NightHoneyInk,
+    onPrimary = Graphite,
+    primaryContainer = NightHoneySoft,
+    onPrimaryContainer = NightHoneyInk,
+    secondary = NightSolid,
+    onSecondary = Honey,
+    secondaryContainer = NightSolid,
+    onSecondaryContainer = Honey,
+    tertiary = Honey,
+    onTertiary = Graphite,
+    tertiaryContainer = NightHoneySoft,
+    onTertiaryContainer = NightHoneyInk,
+    background = Night,
+    onBackground = NightInk,
+    surface = NightCard,
+    onSurface = NightInk,
+    surfaceVariant = Night,
+    onSurfaceVariant = NightMuted,
+    surfaceTint = NightCard,
+    inverseSurface = NightSolid,
+    inverseOnSurface = Wax,
+    inversePrimary = Honey,
+    error = NightBad,
+    onError = Night,
+    errorContainer = NightBadSoft,
+    onErrorContainer = NightBad,
+    outline = NightLine,
+    outlineVariant = NightLine,
+    surfaceBright = NightCard,
+    surfaceDim = Night,
+    surfaceContainerLowest = NightCard,
+    surfaceContainerLow = NightCard,
+    surfaceContainer = NightCard,
+    surfaceContainerHigh = NightCard,
+    surfaceContainerHighest = NightCard,
 )
 
 /** Archivo at 75% width, for headings, captions, buttons, and numbers. Text in it is all caps. */
