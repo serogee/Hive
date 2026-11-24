@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -95,6 +96,21 @@ fun WelcomeScreen(
             ),
         contentAlignment = Alignment.Center,
     ) {
+        TextButton(
+            onClick = { finish(null) },
+            enabled = !saving,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp),
+        ) {
+            Text(
+                "Skip",
+                color = Color.White.copy(alpha = 0.7f),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+            )
+        }
+
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn() + slideInVertically { it / 4 },

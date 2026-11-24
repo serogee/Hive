@@ -44,7 +44,9 @@ class AppPreferences(context: Context) {
     val session: Flow<AuthSession?> = store.data.map { it.decode(SESSION, AuthSession.serializer()) }
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
-    val onboardingCompleted: Flow<Boolean?> = store.data.map { it[ONBOARDING_COMPLETED] ?: false }
+
+    /** Whether the app opens to Home instead of Welcome. */
+    val onboardingCompleted: Flow<Boolean> = store.data.map { it.onboardingCompleted() }
 
     /** Host credentials for rooms this phone hosts, by room ID. They never leave this phone. */
     val hostTokens: Flow<Map<String, String>> = store.data.map { prefs ->
@@ -89,7 +91,11 @@ class AppPreferences(context: Context) {
     private fun <T> Preferences.decode(key: Preferences.Key<String>, serializer: KSerializer<T>): T? =
         this[key]?.let { runCatching { HiveJson.decodeFromString(serializer, it) }.getOrNull() }
 
-    private companion object {
+    internal companion object {
+        /** True after Welcome, and for people who had a name or a session before Welcome existed. */
+        fun Preferences.onboardingCompleted(): Boolean =
+            this[ONBOARDING_COMPLETED] ?: (contains(PREFERRED_NAME) || contains(SESSION))
+
         val SERVER_URL = stringPreferencesKey("server_url")
         val THEME = stringPreferencesKey("theme")
         val SESSION = stringPreferencesKey("session")
