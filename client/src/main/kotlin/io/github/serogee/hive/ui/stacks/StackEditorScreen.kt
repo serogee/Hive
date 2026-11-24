@@ -67,8 +67,6 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 
 /** One inline editor for creating and editing a stack, styled like the "Add Sets / Superset" screen. */
 @Composable
@@ -101,7 +99,7 @@ fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
                     )
-                    Text("Changes save automatically.", style = MaterialTheme.typography.bodySmall, color = MutedSlate)
+                    Text("Changes save automatically.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Button(
                     onClick = onDone,
@@ -120,7 +118,7 @@ fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
                 Text(
                     text = "STACK DETAILS",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp,
                 )
@@ -131,7 +129,7 @@ fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ElectricBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -142,7 +140,7 @@ fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
                     label = { Text("Description (optional)") },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ElectricBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -165,14 +163,14 @@ fun StackEditorScreen(stackId: StackId, onDone: () -> Unit) {
                 onClick = { viewModel.addQuestionAfter(draft.questions.lastOrNull()?.id) },
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SoftBlueContainer,
-                    contentColor = ElectricBlue,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = null, tint = ElectricBlue)
+                Icon(Icons.Outlined.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                 Spacer(Modifier.size(8.dp))
                 Text("Add question", fontWeight = FontWeight.Bold)
             }
@@ -204,7 +202,7 @@ private fun QuestionCard(
         ),
         border = BorderStroke(
             if (active) 2.dp else 1.dp,
-            if (active) ElectricBlue else MaterialTheme.colorScheme.outline,
+            if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
         ),
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -218,12 +216,12 @@ private fun QuestionCard(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(SoftBlueContainer),
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "$number",
-                            color = ElectricBlue,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                         )
@@ -234,7 +232,7 @@ private fun QuestionCard(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
-                        Text(question.summary(), style = MaterialTheme.typography.bodySmall, color = MutedSlate)
+                        Text(question.summary(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 issues.firstOrNull()?.let { ErrorText(it) }
@@ -249,14 +247,14 @@ private fun QuestionCard(
                 Text(
                     "QUESTION $number",
                     style = MaterialTheme.typography.labelSmall,
-                    color = ElectricBlue,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp,
                 )
                 Text(
                     text = question.type.label(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -266,7 +264,7 @@ private fun QuestionCard(
                 label = { Text("Question Prompt") },
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ElectricBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
                 modifier = Modifier.fillMaxWidth(),
@@ -282,8 +280,8 @@ private fun QuestionCard(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = ElectricBlue,
                             selectedLabelColor = Color.White,
-                            containerColor = SoftBlueContainer,
-                            labelColor = ElectricBlue,
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         ),
                         border = null,
                     )
@@ -292,7 +290,7 @@ private fun QuestionCard(
 
             when (question.type) {
                 QuestionType.MULTIPLE_CHOICE -> {
-                    Text("Choices", style = MaterialTheme.typography.labelSmall, color = MutedSlate, fontWeight = FontWeight.Bold)
+                    Text("Choices", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                     question.choices.forEachIndexed { index, choice ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -301,29 +299,29 @@ private fun QuestionCard(
                             RadioButton(
                                 selected = question.correctChoiceId == choice.id,
                                 onClick = { viewModel.updateQuestion(question.id) { it.copy(correctChoiceId = choice.id) } },
-                                colors = RadioButtonDefaults.colors(selectedColor = ElectricBlue),
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary),
                             )
                             OutlinedTextField(
                                 value = choice.text,
                                 onValueChange = { viewModel.setChoiceText(question.id, choice.id, it) },
-                                placeholder = { Text("Choice ${index + 1}", color = MutedSlate) },
+                                placeholder = { Text("Choice ${index + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = ElectricBlue,
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                                 ),
                                 modifier = Modifier.weight(1f),
                             )
                             IconButton(onClick = { viewModel.removeChoice(question.id, choice.id) }) {
-                                Icon(Icons.Outlined.Close, contentDescription = "Remove choice ${index + 1}", tint = MutedSlate)
+                                Icon(Icons.Outlined.Close, contentDescription = "Remove choice ${index + 1}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
                     TextButton(onClick = { viewModel.addChoice(question.id) }) {
-                        Icon(Icons.Outlined.Add, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Add Choice", color = ElectricBlue, fontWeight = FontWeight.Bold)
+                        Text("Add Choice", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
                 QuestionType.TRUE_FALSE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -336,8 +334,8 @@ private fun QuestionCard(
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = ElectricBlue,
                                 selectedLabelColor = Color.White,
-                                containerColor = SoftBlueContainer,
-                                labelColor = ElectricBlue,
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
                             border = null,
                         )
@@ -351,7 +349,7 @@ private fun QuestionCard(
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ElectricBlue,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                         ),
                         modifier = Modifier.fillMaxWidth(),
@@ -368,7 +366,7 @@ private fun QuestionCard(
                         label = { Text("Also accept (separate with commas)") },
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ElectricBlue,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                         ),
                         modifier = Modifier.fillMaxWidth(),
@@ -382,7 +380,7 @@ private fun QuestionCard(
                 label = { Text("Explanation (optional)") },
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ElectricBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
                 modifier = Modifier.fillMaxWidth(),
@@ -400,7 +398,7 @@ private fun QuestionCard(
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ElectricBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                     ),
                     modifier = Modifier.weight(1f),
@@ -413,12 +411,12 @@ private fun QuestionCard(
                         viewModel.updateQuestion(question.id) { it.copy(durationSeconds = seconds.toIntOrNull()) }
                     },
                     label = { Text("Seconds") },
-                    placeholder = { Text("No limit", color = MutedSlate) },
+                    placeholder = { Text("No limit", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ElectricBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                     ),
                     modifier = Modifier.weight(1f),
@@ -433,18 +431,18 @@ private fun QuestionCard(
             ) {
                 Row {
                     IconButton(onClick = { viewModel.addQuestionAfter(question.id) }) {
-                        Icon(Icons.Outlined.Add, contentDescription = "Add question", tint = ElectricBlue)
+                        Icon(Icons.Outlined.Add, contentDescription = "Add question", tint = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = { viewModel.duplicate(question.id) }) {
-                        Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate", tint = MutedSlate)
+                        Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Row {
                     IconButton(onClick = { viewModel.move(question.id, -1) }, enabled = !isFirst) {
-                        Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move up", tint = if (isFirst) MutedSlate.copy(alpha = 0.3f) else MutedSlate)
+                        Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move up", tint = if (isFirst) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { viewModel.move(question.id, 1) }, enabled = !isLast) {
-                        Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move down", tint = if (isLast) MutedSlate.copy(alpha = 0.3f) else MutedSlate)
+                        Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move down", tint = if (isLast) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { viewModel.delete(question.id) }) {
                         Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = DangerRed)

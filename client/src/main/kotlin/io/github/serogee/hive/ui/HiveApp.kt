@@ -25,9 +25,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.ui.unit.dp
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.font.FontWeight
 import io.github.serogee.hive.ui.accounts.AccountsScreen
@@ -148,11 +145,11 @@ fun HiveApp() {
                             icon = { Icon(tab.icon, contentDescription = null) },
                             label = { Text(tab.label, fontWeight = FontWeight.SemiBold) },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = ElectricBlue,
-                                selectedTextColor = ElectricBlue,
-                                indicatorColor = SoftBlueContainer,
-                                unselectedIconColor = MutedSlate,
-                                unselectedTextColor = MutedSlate,
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             ),
                         )
                     }

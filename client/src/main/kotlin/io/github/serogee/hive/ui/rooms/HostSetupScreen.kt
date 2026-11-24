@@ -66,8 +66,7 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SwitchTrackOff
+import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -172,19 +171,19 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ElectricBlue,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else if (session == null) {
                 Spacer(Modifier.height(4.dp))
-                Text("Sign in to host online.", color = MutedSlate, style = MaterialTheme.typography.bodySmall)
+                Text("Sign in to host online.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(
                     onClick = onSignIn,
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, ElectricBlue),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ElectricBlue),
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                 ) { Text("Sign in", fontWeight = FontWeight.Bold) }
             }
         }
@@ -207,7 +206,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                     "Rooms on this phone admit Players as guests. Signed-in Players only needs a way to check accounts " +
                         "without internet, which Hive does not have yet.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -220,7 +219,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 Text(
                     "A correct answer earns up to 50% extra points, shrinking to zero as its timer runs out. Scores show one decimal.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Toggle("Order equal scores by answer time", tiebreak) { timeTiebreak = it }
@@ -230,12 +229,12 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 value = deadlineMinutes,
                 onValueChange = { deadlineMinutes = it.filter(Char::isDigit).take(4) },
                 label = { Text("Close room after (minutes)") },
-                placeholder = { Text("No deadline", color = MutedSlate) },
+                placeholder = { Text("No deadline", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ElectricBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
                 modifier = Modifier.fillMaxWidth(),
@@ -243,7 +242,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             Text(
                 "Question time limits still apply. When both apply, the earlier one ends answering.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MutedSlate,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -270,7 +269,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         ) {
             Text("Create Room", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
-        if (state.creating) CircularProgressIndicator(color = ElectricBlue)
+        if (state.creating) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         ErrorText(state.error)
     }
 }
@@ -292,7 +291,7 @@ private fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit)
                 checkedThumbColor = Color.White,
                 checkedTrackColor = ElectricBlue,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = SwitchTrackOff,
+                uncheckedTrackColor = MaterialTheme.hiveColors.switchTrackOff,
             ),
         )
     }
@@ -311,14 +310,14 @@ private fun Choice(label: String, selected: Boolean, enabled: Boolean = true, on
             selected = selected,
             onClick = null,
             enabled = enabled,
-            colors = RadioButtonDefaults.colors(selectedColor = ElectricBlue),
+            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary),
         )
         Spacer(Modifier.size(8.dp))
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) ElectricBlue else MaterialTheme.colorScheme.onSurface,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

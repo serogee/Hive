@@ -55,9 +55,6 @@ import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
@@ -158,14 +155,14 @@ fun ImportScreen(onSaved: (StackId) -> Unit) {
             Text(
                 "CHOOSE FILE",
                 style = MaterialTheme.typography.labelSmall,
-                color = MutedSlate,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
             )
             Text(
                 "Choose a Hive JSON or CSV file from your phone. You can review the questions before saving.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MutedSlate,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
@@ -186,8 +183,8 @@ fun ImportScreen(onSaved: (StackId) -> Unit) {
                         copied = true
                     },
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, ElectricBlue),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ElectricBlue),
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(if (copied) "Prompt Copied" else "Copy AI Prompt", fontWeight = FontWeight.Bold)
@@ -195,12 +192,12 @@ fun ImportScreen(onSaved: (StackId) -> Unit) {
             }
         }
 
-        if (state.reading) CircularProgressIndicator(color = ElectricBlue)
+        if (state.reading) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         val result = state.result ?: return@Page
 
         SectionHeader(title = "File Preview")
         SleekCard {
-            Text(state.fileName.orEmpty(), style = MaterialTheme.typography.labelLarge, color = ElectricBlue, fontWeight = FontWeight.Bold)
+            Text(state.fileName.orEmpty(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = state.title,
                 onValueChange = viewModel::setTitle,
@@ -208,7 +205,7 @@ fun ImportScreen(onSaved: (StackId) -> Unit) {
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ElectricBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
                 modifier = Modifier.fillMaxWidth(),

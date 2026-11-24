@@ -62,12 +62,9 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.theme.DangerRed
-import io.github.serogee.hive.ui.theme.DangerRedText
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import io.github.serogee.hive.ui.theme.SuccessGreen
-import io.github.serogee.hive.ui.theme.SuccessGreenText
+import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -129,7 +126,7 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
         subtitle = mode,
         action = {
             TextButton(onClick = onExit) {
-                Text("Pause", color = ElectricBlue, fontWeight = FontWeight.Bold)
+                Text("Pause", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
         },
     ) {
@@ -149,14 +146,14 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
                 Text(
                     text = "${if (current.settings.mode == ReviewMode.QUIZ) "QUESTION" else "CARD"} ${current.position + 1} OF ${current.order.size}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = ElectricBlue,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                 )
                 Text(
                     text = "${(progress * 100).toInt()}%",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -166,8 +163,8 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp)),
-                color = ElectricBlue,
-                trackColor = SoftBlueContainer,
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primaryContainer,
             )
         }
 
@@ -211,9 +208,9 @@ private fun QuizCard(
         if (typing) {
             if (question is Question.MultipleChoice) {
                 TextButton(onClick = { showChoices = !showChoices }) {
-                    Text(if (showChoices) "Hide choices" else "Show choices", color = ElectricBlue)
+                    Text(if (showChoices) "Hide choices" else "Show choices", color = MaterialTheme.colorScheme.primary)
                 }
-                if (showChoices) question.choices.forEach { Text("• ${it.text}", color = MutedSlate) }
+                if (showChoices) question.choices.forEach { Text("• ${it.text}", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             OutlinedTextField(
                 value = typed,
@@ -223,7 +220,7 @@ private fun QuizCard(
                 enabled = !checked,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ElectricBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
                 modifier = Modifier.fillMaxWidth(),
@@ -239,11 +236,11 @@ private fun QuizCard(
                             .clickable(enabled = !checked) { choice = option.id.value },
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) SoftBlueContainer else MaterialTheme.colorScheme.surface,
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                         ),
                         border = BorderStroke(
                             1.5.dp,
-                            if (isSelected) ElectricBlue else MaterialTheme.colorScheme.outline,
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         ),
                     ) {
                         Row(
@@ -254,14 +251,14 @@ private fun QuizCard(
                                 selected = isSelected,
                                 onClick = null,
                                 enabled = !checked,
-                                colors = RadioButtonDefaults.colors(selectedColor = ElectricBlue),
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary),
                             )
                             Spacer(Modifier.size(8.dp))
                             Text(
                                 option.text,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.onSurface,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                             )
                         }
                     }
@@ -275,8 +272,8 @@ private fun QuizCard(
                             enabled = !checked,
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) ElectricBlue else SoftBlueContainer,
-                                contentColor = if (isSelected) Color.White else ElectricBlue,
+                                containerColor = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
                             modifier = Modifier.weight(1f),
                         ) {
@@ -347,7 +344,7 @@ private fun FlashCard(question: Question, preferTyping: Boolean, onMark: (Boolea
                 enabled = !revealed,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ElectricBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
                 modifier = Modifier.fillMaxWidth(),
@@ -408,7 +405,7 @@ private fun AnswerFeedback(question: Question, correct: Boolean?) {
     val bannerColor = when {
         isCorrect -> SuccessGreen
         isIncorrect -> DangerRed
-        else -> ElectricBlue
+        else -> MaterialTheme.colorScheme.primary
     }
 
     Box(
@@ -434,9 +431,9 @@ private fun AnswerFeedback(question: Question, correct: Boolean?) {
                 fontWeight = FontWeight.Bold,
             )
             (question as? Question.Identification)?.acceptedAlternatives?.takeIf { it.isNotEmpty() }?.let {
-                Text("Also accepted: ${it.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, color = MutedSlate)
+                Text("Also accepted: ${it.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            question.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MutedSlate) }
+            question.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -498,9 +495,9 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
         OutlinedButton(
             onClick = onExit,
             shape = RoundedCornerShape(50),
-            border = BorderStroke(1.5.dp, ElectricBlue),
+            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = ElectricBlue,
+                contentColor = MaterialTheme.colorScheme.primary,
             ),
             modifier = Modifier.weight(1f),
         ) {
@@ -537,7 +534,7 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
                 ) {
                     Text(
                         text = "${index + 1}",
-                        color = if (isGood) SuccessGreenText else DangerRedText,
+                        color = if (isGood) MaterialTheme.hiveColors.successText else MaterialTheme.hiveColors.dangerText,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                     )
@@ -551,7 +548,7 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
                     Text(
                         mark,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isGood) SuccessGreenText else DangerRedText,
+                        color = if (isGood) MaterialTheme.hiveColors.successText else MaterialTheme.hiveColors.dangerText,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }

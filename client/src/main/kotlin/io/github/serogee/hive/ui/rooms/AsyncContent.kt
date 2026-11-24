@@ -40,7 +40,6 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
 import java.text.DateFormat
 import java.util.Date
 
@@ -59,7 +58,7 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
 
     SectionHeader(title = "Player Progress")
     if (room.progress.isEmpty()) {
-        Text("No Players have joined yet.", color = MutedSlate, style = MaterialTheme.typography.bodyMedium)
+        Text("No Players have joined yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     }
     room.progress.forEach { player ->
         val statusText = when {
@@ -133,11 +132,11 @@ fun PlayerAsyncContent(
     when {
         attempt == null || !attempt.started -> {
             SleekCard {
-                Text("SELF-PACED QUIZ", style = MaterialTheme.typography.labelSmall, color = ElectricBlue, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("SELF-PACED QUIZ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Text(
                     "Answer the ${room.room.questionCount} questions at your own pace. A timed question's clock starts when you open it.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Button(
                     onClick = { onAttempt(PlayerCommand.StartAttempt) },
@@ -187,8 +186,8 @@ fun PlayerAsyncContent(
                     onClick = { onAttempt(PlayerCommand.NextQuestion) },
                     enabled = !busy && pending == null,
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, ElectricBlue),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ElectricBlue),
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(if (last) "Skip and Finish" else "Skip This Question", fontWeight = FontWeight.Bold)

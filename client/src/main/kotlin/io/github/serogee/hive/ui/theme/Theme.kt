@@ -8,6 +8,10 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -69,6 +73,35 @@ val DarkBackground = Color(0xFF090E1D)
 val DarkSurface = Color(0xFF0E162D)
 val DarkSurfaceVariant = Color(0xFF16203D)
 val DarkBorderSubtle = Color(0xFF1F2B4D)
+val DarkOutlineVariant = Color(0xFF2D3C5E)
+
+/** Colors that differ between light and dark but have no Material role. */
+@Immutable
+data class HiveColors(
+    val successText: Color,
+    val dangerText: Color,
+    val switchTrackOff: Color,
+    val neutralBorder: Color,
+)
+
+private val LightHiveColors = HiveColors(
+    successText = SuccessGreenText,
+    dangerText = DangerRedText,
+    switchTrackOff = SwitchTrackOff,
+    neutralBorder = NeutralBorder,
+)
+
+private val DarkHiveColors = HiveColors(
+    successText = SuccessGreen,
+    dangerText = DangerRed,
+    switchTrackOff = DarkOutlineVariant,
+    neutralBorder = DarkOutlineVariant,
+)
+
+private val LocalHiveColors = staticCompositionLocalOf { LightHiveColors }
+
+val MaterialTheme.hiveColors: HiveColors
+    @Composable @ReadOnlyComposable get() = LocalHiveColors.current
 
 private val SoftLight = lightColorScheme(
     primary = ElectricBlue,
@@ -109,7 +142,7 @@ private val SoftDark = darkColorScheme(
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = Color(0xFF94A3B8),
     outline = DarkBorderSubtle,
-    outlineVariant = Color(0xFF2D3C5E),
+    outlineVariant = DarkOutlineVariant,
 )
 
 val HiveShapes = Shapes(
@@ -209,10 +242,12 @@ fun HiveTheme(
         ThemePreference.SOFT_LIGHT -> false
         ThemePreference.SOFT_DARK -> true
     }
-    MaterialTheme(
-        colorScheme = if (dark) SoftDark else SoftLight,
-        shapes = HiveShapes,
-        typography = HiveTypography,
-        content = content,
-    )
+    CompositionLocalProvider(LocalHiveColors provides if (dark) DarkHiveColors else LightHiveColors) {
+        MaterialTheme(
+            colorScheme = if (dark) SoftDark else SoftLight,
+            shapes = HiveShapes,
+            typography = HiveTypography,
+            content = content,
+        )
+    }
 }

@@ -83,13 +83,10 @@ import io.github.serogee.hive.ui.theme.AmberInk
 import io.github.serogee.hive.ui.theme.AmberInkSoft
 import io.github.serogee.hive.ui.theme.AmberSoft
 import io.github.serogee.hive.ui.theme.AmberStrong
-import io.github.serogee.hive.ui.theme.DarkSlate
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
 import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MidnightNavyLight
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import io.github.serogee.hive.ui.theme.ThemePreference
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -341,7 +338,7 @@ fun AccountsScreen(
                     Text(
                         text = "Finish a review of a stack to see its score and date here.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -364,7 +361,7 @@ fun AccountsScreen(
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = DarkSlate,
+                contentColor = MaterialTheme.colorScheme.onSurface,
             ),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             modifier = Modifier
@@ -383,7 +380,7 @@ fun AccountsScreen(
                     Icon(
                         imageVector = Icons.Outlined.Settings,
                         contentDescription = "Settings",
-                        tint = ElectricBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                     Text(
                         text = "Settings",
@@ -395,7 +392,7 @@ fun AccountsScreen(
                 Icon(
                     imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = null,
-                    tint = MutedSlate,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -418,7 +415,7 @@ fun AccountsScreen(
                             "This changes only the name you use as a guest. Your account name stays the same."
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     OutlinedTextField(
                         value = nameInput,
@@ -427,7 +424,7 @@ fun AccountsScreen(
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ElectricBlue,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                         ),
                         modifier = Modifier.fillMaxWidth(),
@@ -448,7 +445,7 @@ fun AccountsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showEditNameDialog = false }) {
-                    Text("Cancel", color = MutedSlate)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
         )
@@ -464,7 +461,7 @@ fun AccountsScreen(
                     "This leaves the room you joined and forgets it on this phone. Your stacks, reviews, hosted rooms, " +
                         "name, sign-in, and settings stay.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
             confirmButton = {
@@ -481,7 +478,7 @@ fun AccountsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) {
-                    Text("Cancel", color = MutedSlate)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
         )
@@ -527,7 +524,7 @@ fun AccountsScreen(
                         text = "THEME",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         letterSpacing = 1.2.sp,
                     )
                     Row(
@@ -563,7 +560,7 @@ fun AccountsScreen(
                         text = "SERVER ADDRESS",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         letterSpacing = 1.2.sp,
                     )
                     var address by rememberSaveable(serverUrl) { mutableStateOf(serverUrl) }
@@ -574,7 +571,7 @@ fun AccountsScreen(
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ElectricBlue,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                         ),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -592,7 +589,7 @@ fun AccountsScreen(
                         Text("Test and Save", fontWeight = FontWeight.Bold)
                     }
                     state.serverStatus?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MutedSlate)
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
@@ -615,7 +612,7 @@ fun AccountsScreen(
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
                             contentDescription = "Reset Data",
-                            tint = MutedSlate,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
                             text = "Reset Data",
@@ -627,7 +624,7 @@ fun AccountsScreen(
                     Icon(
                         imageVector = Icons.Outlined.ChevronRight,
                         contentDescription = null,
-                        tint = MutedSlate,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -660,7 +657,7 @@ fun AccountsScreen(
                             text = "ACCOUNT SIGN IN",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MutedSlate,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             letterSpacing = 1.2.sp,
                         )
                         SignInForm(
@@ -724,20 +721,20 @@ private fun QuizHistoryCard(
                 Text(
                     text = date,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isHighlight) AmberInkSoft else MutedSlate,
+                    color = if (isHighlight) AmberInkSoft else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             // Score on right (e.g. "20/20")
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isHighlight) AmberStrong else SoftBlueContainer,
+                color = if (isHighlight) AmberStrong else MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Text(
                     text = score,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
-                    color = if (isHighlight) Color.White else ElectricBlue,
+                    color = if (isHighlight) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                 )
             }
@@ -779,7 +776,7 @@ private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, 
     var password by rememberSaveable { mutableStateOf("") }
 
     if (showDemoHint) {
-        Text("Demo server accounts: alex or sam, password hive-demo", style = MaterialTheme.typography.bodySmall, color = MutedSlate)
+        Text("Demo server accounts: alex or sam, password hive-demo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     OutlinedTextField(
         value = username,
@@ -788,7 +785,7 @@ private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, 
         singleLine = true,
         shape = RoundedCornerShape(14.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ElectricBlue,
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),
@@ -802,7 +799,7 @@ private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, 
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         shape = RoundedCornerShape(14.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ElectricBlue,
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth(),

@@ -88,14 +88,11 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.theme.Amber
 import io.github.serogee.hive.ui.theme.AmberInk
-import io.github.serogee.hive.ui.theme.DarkSlate
 import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
 import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MidnightNavyLight
-import io.github.serogee.hive.ui.theme.MutedSlate
 import io.github.serogee.hive.ui.theme.Orange
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import io.github.serogee.hive.ui.theme.StackAccentColors
 import kotlinx.coroutines.launch
 
@@ -193,7 +190,7 @@ fun HomeScreen(
                 Text(
                     text = "Ready to test your knowledge?",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -229,7 +226,7 @@ fun HomeScreen(
                         Text(
                             text = "CONTINUE REVIEW",
                             style = MaterialTheme.typography.labelSmall,
-                            color = ElectricBlue,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp,
                         )
@@ -244,7 +241,7 @@ fun HomeScreen(
                         Text(
                             text = "${attempt.position} of ${attempt.order.size} questions reviewed",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MutedSlate,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(6.dp))
                         LinearProgressIndicator(
@@ -253,14 +250,14 @@ fun HomeScreen(
                                 .fillMaxWidth()
                                 .height(6.dp)
                                 .clip(RoundedCornerShape(3.dp)),
-                            color = ElectricBlue,
-                            trackColor = SoftBlueContainer,
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.primaryContainer,
                         )
                     }
                     Icon(
                         imageVector = Icons.Outlined.ChevronRight,
                         contentDescription = null,
-                        tint = MutedSlate,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -276,7 +273,7 @@ fun HomeScreen(
         // Review entry
         HomeCard(
             icon = Icons.Outlined.School,
-            tint = ElectricBlue,
+            tint = MaterialTheme.colorScheme.primary,
             title = "Review",
             subtitle = "Practice a stack on your own",
             onClick = onReview,
@@ -291,18 +288,18 @@ fun HomeScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search", color = MutedSlate) },
+                placeholder = { Text("Search", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Outlined.Search,
                         contentDescription = "Search",
-                        tint = MutedSlate,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ElectricBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -323,14 +320,14 @@ fun HomeScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = DarkSlate,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.Sort,
                     contentDescription = "Sort",
-                    tint = ElectricBlue,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.width(4.dp))
@@ -338,7 +335,7 @@ fun HomeScreen(
                     text = sortMode.label,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = ElectricBlue,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -428,7 +425,7 @@ fun HomeScreen(
                     Text(
                         text = "Create a stack, or add the built-in sample to host it or review it.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Button(
@@ -447,7 +444,7 @@ fun HomeScreen(
         } else if (filteredStacks.isEmpty()) {
             Text(
                 text = "No stacks match \"$searchQuery\"",
-                color = MutedSlate,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 12.dp),
             )
@@ -720,7 +717,7 @@ private fun HomeCard(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -728,7 +725,7 @@ private fun HomeCard(
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
-                tint = MutedSlate,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

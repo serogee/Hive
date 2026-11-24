@@ -53,10 +53,8 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import io.github.serogee.hive.ui.theme.SuccessGreen
-import io.github.serogee.hive.ui.theme.SuccessGreenText
+import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.delay
 
 @Composable
@@ -98,7 +96,7 @@ private fun Countdown(live: LiveQuestion, onTimeUp: () -> Unit) {
         if (seconds > 0) "Time left: $seconds s" else "Time is up",
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        color = if (seconds <= 5) DangerRed else ElectricBlue,
+        color = if (seconds <= 5) DangerRed else MaterialTheme.colorScheme.primary,
     )
 }
 
@@ -116,7 +114,7 @@ private fun RevealedAnswer(live: LiveQuestion) {
             Text(
                 "CORRECT ANSWER",
                 style = MaterialTheme.typography.labelSmall,
-                color = SuccessGreenText,
+                color = MaterialTheme.hiveColors.successText,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 1.sp,
             )
@@ -125,7 +123,7 @@ private fun RevealedAnswer(live: LiveQuestion) {
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
-            live.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MutedSlate) }
+            live.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -139,13 +137,13 @@ fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) 
     SleekCard {
         QuestionHeader(live, onTimeUp)
         (live.question as? PlayerQuestion.MultipleChoice)?.choices?.forEach {
-            Text("• ${it.text}", color = MutedSlate, style = MaterialTheme.typography.bodyMedium)
+            Text("• ${it.text}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         }
         Text(
             "${live.answeredCount} of ${live.playerCount} Players answered",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = ElectricBlue,
+            color = MaterialTheme.colorScheme.primary,
         )
         RevealedAnswer(live)
 
@@ -164,7 +162,7 @@ fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) 
                     .height(50.dp),
             ) { Text("Close Question", fontWeight = FontWeight.Bold) }
         } else {
-            Text("Answers are locked. Discuss, then continue.", color = MutedSlate, style = MaterialTheme.typography.bodySmall)
+            Text("Answers are locked. Discuss, then continue.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             if (isLast) {
                 Button(
                     onClick = { onCommand(HostCommand.EndRoom) },
@@ -271,11 +269,11 @@ fun PlayerLiveContent(
                         .clickable(enabled = !locked) { choice = option.id.value },
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) SoftBlueContainer else MaterialTheme.colorScheme.surface,
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                     ),
                     border = BorderStroke(
                         1.5.dp,
-                        if (isSelected) ElectricBlue else MaterialTheme.colorScheme.outline,
+                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                     ),
                 ) {
                     Row(
@@ -286,14 +284,14 @@ fun PlayerLiveContent(
                             selected = isSelected,
                             onClick = null,
                             enabled = !locked,
-                            colors = RadioButtonDefaults.colors(selectedColor = ElectricBlue),
+                            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary),
                         )
                         Spacer(Modifier.size(8.dp))
                         Text(
                             option.text,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.onSurface,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -308,8 +306,8 @@ fun PlayerLiveContent(
                         enabled = !locked,
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSelected) ElectricBlue else SoftBlueContainer,
-                            contentColor = if (isSelected) Color.White else ElectricBlue,
+                            containerColor = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
                         ),
                         modifier = Modifier.weight(1f),
                     ) {
@@ -325,7 +323,7 @@ fun PlayerLiveContent(
                 enabled = !locked,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ElectricBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
                 modifier = Modifier.fillMaxWidth(),
@@ -350,7 +348,7 @@ fun PlayerLiveContent(
             ) {
                 Text(
                     "✓ Answer received by server",
-                    color = SuccessGreenText,
+                    color = MaterialTheme.hiveColors.successText,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -364,10 +362,10 @@ fun PlayerLiveContent(
                 ) { Text("Send again", fontWeight = FontWeight.Bold) }
             }
             sendingThis != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CircularProgressIndicator(color = ElectricBlue, modifier = Modifier.size(20.dp))
-                Text("Sending answer...", color = MutedSlate)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Text("Sending answer...", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            !live.isOpen -> Text("This question is closed.", color = MutedSlate, fontWeight = FontWeight.Medium)
+            !live.isOpen -> Text("This question is closed.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             else -> Button(
                 onClick = { answer?.let(onSubmit) },
                 enabled = answer != null,
@@ -383,7 +381,7 @@ fun PlayerLiveContent(
         }
 
         if (!live.isOpen) {
-            if (hostPaced) Text("Wait for the Host to continue.", color = MutedSlate, style = MaterialTheme.typography.bodySmall)
+            if (hostPaced) Text("Wait for the Host to continue.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             RevealedAnswer(live)
         }
     }

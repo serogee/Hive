@@ -45,8 +45,6 @@ import io.github.serogee.hive.ui.theme.ElectricBlue
 import io.github.serogee.hive.ui.theme.ElectricBlueLight
 import io.github.serogee.hive.ui.theme.MidnightNavy
 import io.github.serogee.hive.ui.theme.MidnightNavyLight
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlin.coroutines.cancellation.CancellationException
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("No AppContainer") }
@@ -110,7 +108,7 @@ fun Page(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -140,7 +138,7 @@ fun SectionHeader(
             text = title.uppercase(),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            color = MutedSlate,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 1.2.sp,
         )
         if (actionText != null && onActionClick != null) {
@@ -148,7 +146,7 @@ fun SectionHeader(
                 text = actionText,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = ElectricBlue,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clickable(onClick = onActionClick),
             )
         }
@@ -221,7 +219,7 @@ fun MetricStatChip(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
-                color = MutedSlate,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 14.sp,
             )
         }
@@ -349,8 +347,8 @@ fun TagPill(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
-    val bg = if (selected) ElectricBlue else SoftBlueContainer
-    val contentColor = if (selected) Color.White else ElectricBlue
+    val bg = if (selected) ElectricBlue else MaterialTheme.colorScheme.primaryContainer
+    val contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
     Surface(
         modifier = modifier
             .clip(RoundedCornerShape(50))

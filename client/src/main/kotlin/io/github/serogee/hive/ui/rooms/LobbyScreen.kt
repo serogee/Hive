@@ -51,7 +51,6 @@ import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
 import kotlinx.coroutines.launch
 
 /** One room from lobby to results, for the Host or a Player. */
@@ -85,7 +84,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
             return@Page
         }
         if (room == null) {
-            CircularProgressIndicator(color = ElectricBlue)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             return@Page
         }
 
@@ -106,7 +105,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                         onRetry = viewModel::retrySubmit,
                         onTimeUp = { viewModel.refreshNow() },
                     )
-                    live == null -> Text("Waiting for the first question.", color = MutedSlate)
+                    live == null -> Text("Waiting for the first question.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     isHost -> HostLiveContent(live, state.busy, onCommand = viewModel::command, onTimeUp = { viewModel.refreshNow() })
                     else -> PlayerLiveContent(
                         live = live,
@@ -119,7 +118,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
             }
             RoomStatus.ENDED -> {
                 val results = state.results
-                if (results == null) CircularProgressIndicator(color = ElectricBlue) else ResultsContent(results, isHost)
+                if (results == null) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) else ResultsContent(results, isHost)
             }
         }
         ErrorText(state.error)
@@ -203,7 +202,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
             Text(
                 "Waiting for ${room.room.hostName} to start the quiz...",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MutedSlate,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

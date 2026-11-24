@@ -57,10 +57,7 @@ import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.review.ReviewSetupSheet
 import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.NeutralBorder
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
+import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -108,8 +105,8 @@ fun StackDetailsScreen(
                 enabled = issues.isEmpty(),
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MidnightNavy,
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
                 ),
                 modifier = Modifier.weight(1f),
             ) {
@@ -130,9 +127,9 @@ fun StackDetailsScreen(
             OutlinedButton(
                 onClick = onEdit,
                 shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, ElectricBlue),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = ElectricBlue,
+                    contentColor = MaterialTheme.colorScheme.primary,
                 ),
                 modifier = Modifier.weight(1f),
             ) {
@@ -141,7 +138,7 @@ fun StackDetailsScreen(
             OutlinedButton(
                 onClick = { confirmDelete = true },
                 shape = RoundedCornerShape(50),
-                border = BorderStroke(1.dp, NeutralBorder),
+                border = BorderStroke(1.dp, MaterialTheme.hiveColors.neutralBorder),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = DangerRed,
                 ),
@@ -214,12 +211,12 @@ fun StackDetailsScreen(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(SoftBlueContainer),
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "${index + 1}",
-                            color = ElectricBlue,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 14.sp,
                         )
@@ -238,7 +235,7 @@ fun StackDetailsScreen(
                         Text(
                             text = question.summary(),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MutedSlate,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }

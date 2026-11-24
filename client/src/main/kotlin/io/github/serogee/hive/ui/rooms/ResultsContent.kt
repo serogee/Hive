@@ -28,12 +28,9 @@ import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
-import io.github.serogee.hive.ui.theme.DangerRedText
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import io.github.serogee.hive.ui.theme.SuccessGreen
-import io.github.serogee.hive.ui.theme.SuccessGreenText
+import io.github.serogee.hive.ui.theme.hiveColors
 
 /** Host Results or Player Result, styled like the Statistics screen in the reference design. */
 @Composable
@@ -75,7 +72,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
 
     SectionHeader(title = "Leaderboard")
     if (results.leaderboard.isEmpty()) {
-        Text("No Players answered.", color = MutedSlate, style = MaterialTheme.typography.bodyMedium)
+        Text("No Players answered.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     }
 
     results.leaderboard.forEach { entry ->
@@ -95,12 +92,12 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isFirst) ElectricBlue else SoftBlueContainer),
+                            .background(if (isFirst) ElectricBlue else MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "#${entry.rank}",
-                            color = if (isFirst) Color.White else ElectricBlue,
+                            color = if (isFirst) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                         )
@@ -116,7 +113,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                             Text(
                                 "${entry.score} base + ${SpeedBonus.format(entry.speedBonusTenths)} speed",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MutedSlate,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -153,7 +150,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                     Text(
                         "Correct: ${question.correctAnswerText}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = SuccessGreenText,
+                        color = MaterialTheme.hiveColors.successText,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -162,7 +159,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                     Text(
                         "${question.correctCount} of ${question.answeredCount} answers correct",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     val verdict = when {
@@ -174,12 +171,12 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                     Text(
                         "Your answer: ${own?.answerText ?: "none"} · $verdict",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isCorrect) SuccessGreenText else DangerRedText,
+                        color = if (isCorrect) MaterialTheme.hiveColors.successText else MaterialTheme.hiveColors.dangerText,
                         fontWeight = FontWeight.Medium,
                     )
                 }
                 question.explanation?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MutedSlate)
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

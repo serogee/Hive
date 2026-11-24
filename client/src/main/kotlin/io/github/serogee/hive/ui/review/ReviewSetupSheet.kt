@@ -41,9 +41,7 @@ import io.github.serogee.hive.core.review.ReviewSettings
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
-import io.github.serogee.hive.ui.theme.SwitchTrackOff
+import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.launch
 
 /** Review Setup: choose a mode, Prefer typing, and the order, or continue an unfinished review. */
@@ -70,18 +68,18 @@ fun ReviewSetupSheet(stackId: StackId, onDismiss: () -> Unit, onStart: (attemptI
                 OutlinedButton(
                     onClick = { onStart(attempt.id) },
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, ElectricBlue),
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
                         "Continue review · card ${attempt.position + 1} of ${attempt.order.size}",
-                        color = ElectricBlue,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                     )
                 }
             }
 
-            Text("REVIEW MODE", style = MaterialTheme.typography.labelSmall, color = MutedSlate, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("REVIEW MODE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 FilterChip(
                     selected = mode == ReviewMode.QUIZ,
@@ -91,8 +89,8 @@ fun ReviewSetupSheet(stackId: StackId, onDismiss: () -> Unit, onStart: (attemptI
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = ElectricBlue,
                         selectedLabelColor = Color.White,
-                        containerColor = SoftBlueContainer,
-                        labelColor = ElectricBlue,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     ),
                     border = null,
                 )
@@ -104,8 +102,8 @@ fun ReviewSetupSheet(stackId: StackId, onDismiss: () -> Unit, onStart: (attemptI
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = ElectricBlue,
                         selectedLabelColor = Color.White,
-                        containerColor = SoftBlueContainer,
-                        labelColor = ElectricBlue,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     ),
                     border = null,
                 )
@@ -159,7 +157,7 @@ private fun Option(label: String, checked: Boolean, onChange: (Boolean) -> Unit)
                 checkedThumbColor = Color.White,
                 checkedTrackColor = ElectricBlue,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = SwitchTrackOff,
+                uncheckedTrackColor = MaterialTheme.hiveColors.switchTrackOff,
             ),
         )
     }

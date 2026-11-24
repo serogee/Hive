@@ -51,8 +51,6 @@ import io.github.serogee.hive.ui.common.userMessage
 import io.github.serogee.hive.ui.home.JoinCard
 import io.github.serogee.hive.ui.theme.DangerRed
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -177,14 +175,14 @@ fun QuizRoomScreen(
                     Text(
                         "Sign in to host and join online rooms over the internet. Nearby phone rooms require no account.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Button(
                         onClick = onSignIn,
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SoftBlueContainer,
-                            contentColor = ElectricBlue,
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         ),
                     ) {
                         Text("Sign in", fontWeight = FontWeight.Bold)
@@ -193,10 +191,10 @@ fun QuizRoomScreen(
             }
             return@Page
         }
-        if (hosted.loading) CircularProgressIndicator(color = ElectricBlue)
+        if (hosted.loading) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         ErrorText(hosted.error)
         if (!hosted.loading && hosted.rooms.isEmpty() && hosted.error == null) {
-            Text("No online rooms yet.", color = MutedSlate, style = MaterialTheme.typography.bodyMedium)
+            Text("No online rooms yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         }
         hosted.rooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
     }
@@ -224,7 +222,7 @@ private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
                 Text(
                     "Code ${room.code} · ${room.mode.label()} · ${room.status.label()}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

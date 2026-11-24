@@ -43,9 +43,6 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.review.ReviewSetupSheet
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.launch
 
 /** Why the stack list is open. A picker returns the chosen stack to the action that opened it. */
@@ -95,9 +92,9 @@ fun MyStacksScreen(
             OutlinedButton(
                 onClick = onImport,
                 shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, ElectricBlue),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = ElectricBlue,
+                    contentColor = MaterialTheme.colorScheme.primary,
                 ),
                 modifier = Modifier.weight(1f),
             ) {
@@ -109,18 +106,18 @@ fun MyStacksScreen(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Search stacks...", color = MutedSlate) },
+            placeholder = { Text("Search stacks...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Outlined.Search,
                     contentDescription = "Search",
-                    tint = MutedSlate,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
             singleLine = true,
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = ElectricBlue,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -172,7 +169,7 @@ fun MyStacksScreen(
                     Text(
                         text = "Create your own stack or add the built-in sample stack to get started.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Button(
                         onClick = { scope.launch { open(container.stacks.addSample()) } },
@@ -189,7 +186,7 @@ fun MyStacksScreen(
         } else if (filteredList.isEmpty()) {
             Text(
                 text = "No stacks match \"$searchQuery\"",
-                color = MutedSlate,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 12.dp),
             )
@@ -250,7 +247,7 @@ fun StackCard(
                 Text(
                     text = if (stack.questionCount == 1) "1 question" else "${stack.questionCount} questions",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MutedSlate,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
                 if (onHost != null || onPractice != null) {
@@ -261,8 +258,8 @@ fun StackCard(
                                 onClick = it,
                                 shape = RoundedCornerShape(50),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = MidnightNavy,
-                                    contentColor = Color.White,
+                                    containerColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = MaterialTheme.colorScheme.onSecondary,
                                 ),
                                 contentPadding = ButtonDefaults.TextButtonContentPadding,
                                 modifier = Modifier.height(34.dp),
@@ -275,8 +272,8 @@ fun StackCard(
                                 onClick = it,
                                 shape = RoundedCornerShape(50),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = SoftBlueContainer,
-                                    contentColor = ElectricBlue,
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 ),
                                 contentPadding = ButtonDefaults.TextButtonContentPadding,
                                 modifier = Modifier.height(34.dp),

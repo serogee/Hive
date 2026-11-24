@@ -56,9 +56,6 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
 import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.MidnightNavy
-import io.github.serogee.hive.ui.theme.MutedSlate
-import io.github.serogee.hive.ui.theme.SoftBlueContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -180,7 +177,7 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
     ) {
         val room = state.room
         when {
-            state.loading -> CircularProgressIndicator(color = ElectricBlue)
+            state.loading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             room == null -> {
                 ErrorText(state.error)
                 Button(
@@ -192,19 +189,19 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
             else -> {
                 RoomSummaryCard(room)
                 if (room.status == RoomStatus.ENDED) {
-                    Text("This room has ended.", color = MutedSlate, style = MaterialTheme.typography.bodyLarge)
+                    Text("This room has ended.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
                     return@Page
                 }
 
                 val guestsAllowed = room.admission != AdmissionPolicy.SIGNED_IN_ONLY
                 val accountsAllowed = room.admission != AdmissionPolicy.GUESTS_ONLY && room.acceptsAccounts
                 if (!room.acceptsAccounts) {
-                    Text("This room is hosted on a phone, so everyone joins as a guest.", color = MutedSlate, style = MaterialTheme.typography.bodySmall)
+                    Text("This room is hosted on a phone, so everyone joins as a guest.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
 
                 if (guestsAllowed) {
                     SleekCard {
-                        Text("JOIN AS GUEST", style = MaterialTheme.typography.labelSmall, color = MutedSlate, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Text("JOIN AS GUEST", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                         OutlinedTextField(
                             value = name ?: preferredName.orEmpty(),
                             onValueChange = { name = it },
@@ -212,7 +209,7 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = ElectricBlue,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                             ),
                             modifier = Modifier.fillMaxWidth(),
@@ -240,8 +237,8 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
                             enabled = !state.joining,
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MidnightNavy,
-                                contentColor = Color.White,
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                contentColor = MaterialTheme.colorScheme.onSecondary,
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -251,15 +248,15 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
                         OutlinedButton(
                             onClick = onSignIn,
                             shape = RoundedCornerShape(50),
-                            border = BorderStroke(1.5.dp, ElectricBlue),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ElectricBlue),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(if (guestsAllowed) "Sign in to join with your account" else "Sign in to join", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-                if (state.joining) CircularProgressIndicator(color = ElectricBlue)
+                if (state.joining) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 ErrorText(state.error)
             }
         }
