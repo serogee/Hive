@@ -296,15 +296,19 @@ val HiveTypography = Typography(
 )
 
 @Composable
+@ReadOnlyComposable
+fun ThemePreference.isDark(): Boolean = when (this) {
+    ThemePreference.SYSTEM -> isSystemInDarkTheme()
+    ThemePreference.SOFT_LIGHT -> false
+    ThemePreference.SOFT_DARK -> true
+}
+
+@Composable
 fun HiveTheme(
     preference: ThemePreference = ThemePreference.SYSTEM,
     content: @Composable () -> Unit,
 ) {
-    val dark = when (preference) {
-        ThemePreference.SYSTEM -> isSystemInDarkTheme()
-        ThemePreference.SOFT_LIGHT -> false
-        ThemePreference.SOFT_DARK -> true
-    }
+    val dark = preference.isDark()
     CompositionLocalProvider(LocalHiveColors provides if (dark) DarkHiveColors else LightHiveColors) {
         MaterialTheme(
             colorScheme = if (dark) SoftDark else SoftLight,
