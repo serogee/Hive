@@ -9,19 +9,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,21 +28,23 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.data.remote.ApiException
-import io.github.serogee.hive.ui.theme.BadgeBlue
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.ElectricBlueLight
-import io.github.serogee.hive.ui.theme.MidnightNavy
-import io.github.serogee.hive.ui.theme.MidnightNavyLight
+import io.github.serogee.hive.ui.theme.HEXAGON_RATIO
+import io.github.serogee.hive.ui.theme.HexagonShape
+import io.github.serogee.hive.ui.theme.Honey
+import io.github.serogee.hive.ui.theme.hiveColors
+import io.github.serogee.hive.ui.theme.honeyShadow
 import kotlin.coroutines.cancellation.CancellationException
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("No AppContainer") }
@@ -73,55 +73,94 @@ fun RoomStatus.label() = when (this) {
     RoomStatus.ENDED -> "Ended"
 }
 
-/** A scrolling page with a title, an optional subtitle, and an optional action beside them. */
+/** The bar at the top of a screen, with a caps title and an optional action. */
+@Composable
+fun HiveTopBar(
+    title: String,
+    modifier: Modifier = Modifier,
+    leading: @Composable (() -> Unit)? = null,
+    action: @Composable (() -> Unit)? = null,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 64.dp)
+                .padding(horizontal = 20.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading?.invoke()
+            Text(
+                text = title.uppercase(),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            action?.invoke()
+        }
+        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.ink)
+    }
+}
+
+/** A page with a top bar, an optional subtitle, and scrolling content. */
 @Composable
 fun Page(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    leading: @Composable (() -> Unit)? = null,
     action: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .background(MaterialTheme.colorScheme.background),
     ) {
-        Row(
+        HiveTopBar(title, leading = leading, action = action)
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Column(modifier = Modifier.weight(1f, fill = false)) {
+            if (subtitle != null) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold,
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
-            if (action != null) {
-                action()
-            }
+            content()
+            Spacer(Modifier.height(16.dp))
         }
-        content()
-        Spacer(Modifier.height(16.dp))
     }
 }
 
-/** Section header with small all-caps bold label and optional right-aligned action (e.g. "Show All") */
+/** A small caps label above a group of fields or a value. */
+@Composable
+fun Caption(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    Text(
+        text = text.uppercase(),
+        modifier = modifier,
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+    )
+}
+
+/** Section header with a small caps label and an optional right-aligned action (e.g. "Show All") */
 @Composable
 fun SectionHeader(
     title: String,
@@ -134,57 +173,110 @@ fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = title.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            letterSpacing = 1.2.sp,
-        )
+        Caption(title, modifier = Modifier.weight(1f, fill = false))
         if (actionText != null && onActionClick != null) {
-            Text(
+            Caption(
                 text = actionText,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable(onClick = onActionClick),
+                modifier = Modifier
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable(onClick = onActionClick)
+                    .padding(6.dp),
             )
         }
     }
 }
 
-/** Dark royal blue rounded badge with a value above a short label, such as a question count. */
+/** Badge with a value above a short label, such as a question count. */
 @Composable
-fun BlueBadge(
+fun CountBadge(
     topText: String,
     bottomText: String,
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
-            .size(width = 46.dp, height = 48.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(BadgeBlue),
+            .size(width = 52.dp, height = 48.dp)
+            .clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.hiveColors.solid),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = topText,
-                color = Color.White,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 15.sp,
-                lineHeight = 16.sp,
+                color = Honey,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
             )
             Text(
                 text = bottomText.uppercase(),
-                color = Color.White.copy(alpha = 0.85f),
-                fontWeight = FontWeight.Bold,
-                fontSize = 9.sp,
-                letterSpacing = 0.5.sp,
-                lineHeight = 10.sp,
+                color = MaterialTheme.hiveColors.onSolid,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/** A hexagon that holds a number, a letter, or an icon. */
+@Composable
+fun HexBadge(
+    modifier: Modifier = Modifier,
+    size: Dp = 36.dp,
+    color: Color = MaterialTheme.colorScheme.primaryContainer,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .size(width = size * HEXAGON_RATIO, height = size)
+            .clip(HexagonShape)
+            .background(color),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
+/** A hexagon with a number or a letter. */
+@Composable
+fun HexBadge(
+    text: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 36.dp,
+    color: Color = MaterialTheme.colorScheme.primaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+) {
+    HexBadge(modifier, size, color) {
+        Text(text = text, color = contentColor, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+    }
+}
+
+private const val MAX_CELLS = 12
+
+/** Progress as a row of hexagons. With more than [MAX_CELLS] steps, each cell stands for several steps. */
+@Composable
+fun ProgressCells(
+    done: Int,
+    total: Int,
+    modifier: Modifier = Modifier,
+) {
+    if (total <= 0) return
+    val cells = minOf(total, MAX_CELLS)
+    val filled = done * cells / total
+    Row(
+        modifier = modifier.semantics {
+            progressBarRangeInfo = ProgressBarRangeInfo(done.toFloat(), 0f..total.toFloat())
+        },
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        repeat(cells) { index ->
+            Box(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .widthIn(max = 20.dp * HEXAGON_RATIO)
+                    .aspectRatio(HEXAGON_RATIO)
+                    .clip(HexagonShape)
+                    .background(if (index < filled) Honey else MaterialTheme.hiveColors.emptyCell),
             )
         }
     }
@@ -197,22 +289,16 @@ fun MetricStatChip(
     label: String,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.Center,
-        ) {
+        Column(Modifier.padding(12.dp)) {
             Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
+                text = value.uppercase(),
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(2.dp))
@@ -220,175 +306,163 @@ fun MetricStatChip(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 14.sp,
             )
         }
     }
 }
 
-/** The prominent Midnight Navy hero card with a gradient and a level bars graphic. */
+/** A graphite card with an ink border. The [main] one on a screen has the honey shadow. */
 @Composable
-fun HeroNavyCard(
+fun SolidCard(
+    modifier: Modifier = Modifier,
+    main: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val shape = MaterialTheme.shapes.medium
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (main) Modifier.honeyShadow(shape) else Modifier),
+        shape = shape,
+        color = MaterialTheme.hiveColors.solid,
+        contentColor = MaterialTheme.hiveColors.onSolid,
+        border = BorderStroke(2.dp, MaterialTheme.hiveColors.ink),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            content = content,
+        )
+    }
+}
+
+/** The main card of a screen, with a honeycomb graphic. */
+@Composable
+fun HeroCard(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
     badgeText: String? = null,
     buttonText: String? = null,
     onButtonClick: (() -> Unit)? = null,
+    /** Off when another card is the main one on the screen. */
+    main: Boolean = true,
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(MidnightNavy, MidnightNavyLight)
-                    )
-                )
-                .padding(20.dp),
+    SolidCard(modifier, main) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        if (badgeText != null) {
-                            Text(
-                                text = badgeText.uppercase(),
-                                color = ElectricBlueLight,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                            )
-                            Spacer(Modifier.height(4.dp))
-                        }
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                        )
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.7f),
-                        )
-                    }
-
-                    // Decorative level graphic
-                    LevelBarsGraphic()
+            Column(modifier = Modifier.weight(1f)) {
+                if (badgeText != null) {
+                    Caption(badgeText, color = Honey)
+                    Spacer(Modifier.height(4.dp))
                 }
+                Text(
+                    text = title.uppercase(),
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            HoneycombGraphic()
+        }
 
-                if (content != null) {
-                    content()
-                }
+        if (content != null) {
+            content()
+        }
 
-                if (buttonText != null && onButtonClick != null) {
-                    Button(
-                        onClick = onButtonClick,
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = MidnightNavy,
-                        ),
-                        modifier = Modifier.align(Alignment.End),
-                    ) {
-                        Text(
-                            text = buttonText,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            letterSpacing = 0.5.sp,
-                        )
-                    }
+        if (buttonText != null && onButtonClick != null) {
+            HiveButton(
+                text = buttonText,
+                onClick = onButtonClick,
+                onSolid = true,
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
+    }
+}
+
+/** Five honeycomb cells that decorate a hero card. */
+@Composable
+private fun HoneycombGraphic() {
+    val rows = listOf(listOf(true, false), listOf(true, true, true))
+    val cell = 18.dp
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy((-2).dp),
+    ) {
+        rows.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                row.forEach { full ->
+                    Box(
+                        modifier = Modifier
+                            .size(width = cell * HEXAGON_RATIO, height = cell)
+                            .clip(HexagonShape)
+                            .background(if (full) Honey else Honey.copy(alpha = 0.35f)),
+                    )
                 }
             }
         }
     }
 }
 
-/** Five vertical blue bars that decorate a hero card. */
-@Composable
-fun LevelBarsGraphic(modifier: Modifier = Modifier) {
-    val barHeights = listOf(14.dp, 22.dp, 30.dp, 38.dp, 44.dp)
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        barHeights.forEachIndexed { index, height ->
-            Box(
-                modifier = Modifier
-                    .width(7.dp)
-                    .height(height)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(
-                        if (index >= 2) ElectricBlue else ElectricBlue.copy(alpha = 0.5f)
-                    ),
-            )
-        }
-    }
-}
-
-/** Tag pill for a status, a filter, or a short label. */
+/** Tag for a status or a short label. */
 @Composable
 fun TagPill(
     text: String,
     selected: Boolean = true,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
 ) {
-    val bg = if (selected) ElectricBlue else MaterialTheme.colorScheme.primaryContainer
-    val contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
     Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(50))
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = RoundedCornerShape(50),
-        color = bg,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.small,
+        color = if (selected) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.primaryContainer,
+        contentColor = if (selected) Honey else MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Text(
-            text = text,
-            color = contentColor,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            text = text.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
         )
     }
 }
 
-/** Standard rounded card with crisp background and subtle border. */
+/** Standard card. The [active] one on a screen has an ink border and the honey shadow. */
 @Composable
 fun SleekCard(
     modifier: Modifier = Modifier,
+    active: Boolean = false,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
+    val shape = MaterialTheme.shapes.medium
+    Surface(
         modifier = modifier
             .fillMaxWidth()
+            .then(if (active) Modifier.honeyShadow(shape) else Modifier)
+            .clip(shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface,
+        border = if (active) {
+            BorderStroke(2.dp, MaterialTheme.hiveColors.ink)
+        } else {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        },
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            content()
-        }
+            content = content,
+        )
     }
 }
 
@@ -399,7 +473,6 @@ fun ErrorText(message: String?) {
             message,
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
         )
     }
 }

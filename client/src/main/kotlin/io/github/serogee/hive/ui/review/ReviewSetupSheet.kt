@@ -1,6 +1,5 @@
 package io.github.serogee.hive.ui.review
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,17 +7,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,21 +18,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.core.review.ReviewSettings
+import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.ErrorText
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveSegment
 import io.github.serogee.hive.ui.common.LocalAppContainer
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.hiveColors
+import io.github.serogee.hive.ui.common.ToggleRow
+import io.github.serogee.hive.ui.theme.SheetShape
 import kotlinx.coroutines.launch
 
 /** Review Setup: choose a mode, Prefer typing, and the order, or continue an unfinished review. */
@@ -58,62 +49,43 @@ fun ReviewSetupSheet(stackId: StackId, onDismiss: () -> Unit, onStart: (attemptI
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = SheetShape,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Review Setup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("REVIEW SETUP", style = MaterialTheme.typography.headlineSmall)
 
             unfinished?.let { attempt ->
-                OutlinedButton(
+                HiveButton(
+                    text = "Continue review · card ${attempt.position + 1} of ${attempt.order.size}",
                     onClick = { onStart(attempt.id) },
-                    shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        "Continue review · card ${attempt.position + 1} of ${attempt.order.size}",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                    style = HiveButtonStyle.SECONDARY,
+                )
             }
 
-            Text("REVIEW MODE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Caption("Review mode")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterChip(
+                HiveSegment(
+                    text = "Quiz Review",
                     selected = mode == ReviewMode.QUIZ,
                     onClick = { mode = ReviewMode.QUIZ },
-                    label = { Text("Quiz Review", fontWeight = FontWeight.Bold) },
-                    shape = RoundedCornerShape(50),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = ElectricBlue,
-                        selectedLabelColor = Color.White,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                    border = null,
+                    modifier = Modifier.weight(1f),
                 )
-                FilterChip(
+                HiveSegment(
+                    text = "Flashcard Review",
                     selected = mode == ReviewMode.FLASHCARD,
                     onClick = { mode = ReviewMode.FLASHCARD },
-                    label = { Text("Flashcard Review", fontWeight = FontWeight.Bold) },
-                    shape = RoundedCornerShape(50),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = ElectricBlue,
-                        selectedLabelColor = Color.White,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                    border = null,
+                    modifier = Modifier.weight(1.4f),
                 )
             }
 
-            Option("Prefer typing", preferTyping) { preferTyping = it }
-            Option("Shuffle question order", shuffled) { shuffled = it }
+            ToggleRow("Prefer typing", preferTyping) { preferTyping = it }
+            ToggleRow("Shuffle question order", shuffled) { shuffled = it }
 
             Spacer(Modifier.height(4.dp))
-            Button(
+            HiveButton(
+                text = "Start Review",
                 onClick = {
                     scope.launch {
                         val draft = container.stacks.draft(stackId)
@@ -125,40 +97,10 @@ fun ReviewSetupSheet(stackId: StackId, onDismiss: () -> Unit, onStart: (attemptI
                         }
                     }
                 },
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                Text("Start Review", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
             ErrorText(error)
             Spacer(Modifier.height(16.dp))
         }
-    }
-}
-
-@Composable
-private fun Option(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = ElectricBlue,
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = MaterialTheme.hiveColors.switchTrackOff,
-            ),
-        )
     }
 }

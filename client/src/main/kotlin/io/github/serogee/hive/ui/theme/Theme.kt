@@ -1,9 +1,7 @@
 package io.github.serogee.hive.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -14,10 +12,11 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.serogee.hive.R
 
 /** Appearance choices offered in Accounts. */
 enum class ThemePreference {
@@ -26,76 +25,58 @@ enum class ThemePreference {
     SOFT_DARK,
 }
 
-// Design system palette
-val MidnightNavy = Color(0xFF0C1838) // Deep midnight navy for hero cards & headers
-val MidnightNavyDark = Color(0xFF070E22)
-val MidnightNavyLight = Color(0xFF14244E)
-val ElectricBlue = Color(0xFF2558E8) // Vibrant royal blue accent
-val ElectricBlueLight = Color(0xFF4A7BFF)
-val ElectricBlueDark = Color(0xFF1742BC)
-val SoftBlueContainer = Color(0xFFEEF3FF) // Soft blue tint for secondary pills
-val OnSoftBlueContainer = Color(0xFF2558E8)
+// Wax and Graphite, light
+val Wax = Color(0xFFE4E6E0) // Background, and text on graphite
+val WaxCard = Color(0xFFFBFBF8)
+val Graphite = Color(0xFF202327) // Text, borders, and solid areas. Also the text on honey, in light and dark
+val WaxMuted = Color(0xFF555B62)
+val WaxLine = Color(0xFFCDD0C8)
+val Honey = Color(0xFFF2A900) // The same in light and dark
+val HoneyInk = Color(0xFF5C3D00) // Text on soft honey, links, and icons
+val HoneySoft = Color(0xFFFFF1C7)
+val Bad = Color(0xFFA3301B) // Wrong answers, errors, leave, delete, and end
+val BadSoft = Color(0xFFF8DDD6)
+val EmptyCell = Color(0xFFD9CFA8) // Progress cells that are not filled yet
 
-val LightBackground = Color(0xFFF5F7FB) // Clean cool off-white background
-val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFEFF2F8)
-val DarkSlate = Color(0xFF0D1730)
-val MutedSlate = Color(0xFF75839C)
-val BorderSubtle = Color(0xFFE8EEF8)
-
-val BadgeBlue = Color(0xFF1B3882) // Number and code badges
-val Amber = Color(0xFFFBBF24) // Create Stack on the join card
-val AmberInk = Color(0xFF78350F) // Text on amber
-val AmberInkSoft = Color(0xFF92400E) // Secondary text on amber
-val AmberSoft = Color(0xFFFEF3C7) // Highlighted history card
-val AmberBorder = Color(0xFFFCD34D)
-val AmberStrong = Color(0xFFF59E0B)
-val Orange = Color(0xFFF97316) // Host Quiz on the join card
-
-val SuccessGreen = Color(0xFF22C55E) // Correct answers
-val SuccessGreenText = Color(0xFF16A34A)
-val DangerRed = Color(0xFFE53E3E) // Leave, delete, end, and wrong answers
-val DangerRedText = Color(0xFFDC2626)
-val SwitchTrackOff = Color(0xFFD6DFEC)
-val NeutralBorder = Color(0xFFE2E8F0)
-
-/** Colors that stacks take turns using on Home. */
-val StackAccentColors = listOf(
-    Color(0xFF6366F1),
-    ElectricBlue,
-    Color(0xFF0EA5E9),
-    Color(0xFF10B981),
-    AmberStrong,
-    Color(0xFF8B5CF6),
-)
-
-val DarkBackground = Color(0xFF090E1D)
-val DarkSurface = Color(0xFF0E162D)
-val DarkSurfaceVariant = Color(0xFF16203D)
-val DarkBorderSubtle = Color(0xFF1F2B4D)
-val DarkOutlineVariant = Color(0xFF2D3C5E)
+// Wax and Graphite, dark
+val Night = Color(0xFF16181B)
+val NightCard = Color(0xFF202327)
+val NightInk = Color(0xFFECEDE8)
+val NightMuted = Color(0xFFA9AEA5)
+val NightLine = Color(0xFF363A40)
+val NightSolid = Color(0xFF2B2E33)
+val NightHoneyInk = Color(0xFFFFD66B)
+val NightHoneySoft = Color(0xFF3A2F12)
+val NightBad = Color(0xFFFF9B85)
+val NightBadSoft = Color(0xFF45201A)
+val NightEmptyCell = Color(0xFF4A4430)
 
 /** Colors that differ between light and dark but have no Material role. */
 @Immutable
 data class HiveColors(
-    val successText: Color,
-    val dangerText: Color,
-    val switchTrackOff: Color,
-    val neutralBorder: Color,
+    val isDark: Boolean,
+    /** Borders of buttons, bars, and the main cards. */
+    val ink: Color,
+    /** Hero cards, secondary buttons, and the selected segment or tab. Its accent is [Honey]. */
+    val solid: Color,
+    val onSolid: Color,
+    val emptyCell: Color,
 )
 
-private val LightHiveColors = HiveColors(
-    successText = SuccessGreenText,
-    dangerText = DangerRedText,
-    switchTrackOff = SwitchTrackOff,
-    neutralBorder = NeutralBorder,
+internal val LightHiveColors = HiveColors(
+    isDark = false,
+    ink = Graphite,
+    solid = Graphite,
+    onSolid = Wax,
+    emptyCell = EmptyCell,
 )
 
-private val DarkHiveColors = HiveColors(
-    successText = SuccessGreen,
-    dangerText = DangerRed,
-    switchTrackOff = DarkOutlineVariant,
-    neutralBorder = DarkOutlineVariant,
+internal val DarkHiveColors = HiveColors(
+    isDark = true,
+    ink = NightInk,
+    solid = NightSolid,
+    onSolid = Wax,
+    emptyCell = NightEmptyCell,
 )
 
 private val LocalHiveColors = staticCompositionLocalOf { LightHiveColors }
@@ -103,146 +84,195 @@ private val LocalHiveColors = staticCompositionLocalOf { LightHiveColors }
 val MaterialTheme.hiveColors: HiveColors
     @Composable @ReadOnlyComposable get() = LocalHiveColors.current
 
-private val SoftLight = lightColorScheme(
-    primary = ElectricBlue,
-    onPrimary = Color.White,
-    primaryContainer = SoftBlueContainer,
-    onPrimaryContainer = OnSoftBlueContainer,
-    secondary = MidnightNavy,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE3EAFA),
-    onSecondaryContainer = MidnightNavy,
-    tertiary = Color(0xFF3B82F6),
-    onTertiary = Color.White,
-    background = LightBackground,
-    onBackground = DarkSlate,
-    surface = LightSurface,
-    onSurface = DarkSlate,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = MutedSlate,
-    outline = BorderSubtle,
-    outlineVariant = Color(0xFFE0E6F0),
+internal val SoftLight = lightColorScheme(
+    primary = HoneyInk,
+    onPrimary = HoneySoft,
+    primaryContainer = HoneySoft,
+    onPrimaryContainer = HoneyInk,
+    secondary = Graphite,
+    onSecondary = Honey,
+    secondaryContainer = Graphite,
+    onSecondaryContainer = Honey,
+    tertiary = Honey,
+    onTertiary = Graphite,
+    tertiaryContainer = HoneySoft,
+    onTertiaryContainer = HoneyInk,
+    background = Wax,
+    onBackground = Graphite,
+    surface = WaxCard,
+    onSurface = Graphite,
+    surfaceVariant = Wax,
+    onSurfaceVariant = WaxMuted,
+    surfaceTint = WaxCard,
+    inverseSurface = Graphite,
+    inverseOnSurface = Wax,
+    inversePrimary = Honey,
+    error = Bad,
+    onError = WaxCard,
+    errorContainer = BadSoft,
+    onErrorContainer = Bad,
+    outline = WaxLine,
+    outlineVariant = WaxLine,
+    surfaceBright = WaxCard,
+    surfaceDim = Wax,
+    surfaceContainerLowest = WaxCard,
+    surfaceContainerLow = WaxCard,
+    surfaceContainer = WaxCard,
+    surfaceContainerHigh = WaxCard,
+    surfaceContainerHighest = WaxCard,
 )
 
-private val SoftDark = darkColorScheme(
-    primary = ElectricBlueLight,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFF152A5E),
-    onPrimaryContainer = Color(0xFFD6E3FF),
-    secondary = Color(0xFF8BA5EE),
-    onSecondary = Color(0xFF001B54),
-    secondaryContainer = MidnightNavyLight,
-    onSecondaryContainer = Color.White,
-    tertiary = Color(0xFF60A5FA),
-    onTertiary = Color.White,
-    background = DarkBackground,
-    onBackground = Color(0xFFE2E8F0),
-    surface = DarkSurface,
-    onSurface = Color(0xFFE2E8F0),
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = Color(0xFF94A3B8),
-    outline = DarkBorderSubtle,
-    outlineVariant = DarkOutlineVariant,
+internal val SoftDark = darkColorScheme(
+    primary = NightHoneyInk,
+    onPrimary = Graphite,
+    primaryContainer = NightHoneySoft,
+    onPrimaryContainer = NightHoneyInk,
+    secondary = NightSolid,
+    onSecondary = Honey,
+    secondaryContainer = NightSolid,
+    onSecondaryContainer = Honey,
+    tertiary = Honey,
+    onTertiary = Graphite,
+    tertiaryContainer = NightHoneySoft,
+    onTertiaryContainer = NightHoneyInk,
+    background = Night,
+    onBackground = NightInk,
+    surface = NightCard,
+    onSurface = NightInk,
+    surfaceVariant = Night,
+    onSurfaceVariant = NightMuted,
+    surfaceTint = NightCard,
+    inverseSurface = NightSolid,
+    inverseOnSurface = Wax,
+    inversePrimary = Honey,
+    error = NightBad,
+    onError = Night,
+    errorContainer = NightBadSoft,
+    onErrorContainer = NightBad,
+    outline = NightLine,
+    outlineVariant = NightLine,
+    surfaceBright = NightCard,
+    surfaceDim = Night,
+    surfaceContainerLowest = NightCard,
+    surfaceContainerLow = NightCard,
+    surfaceContainer = NightCard,
+    surfaceContainerHigh = NightCard,
+    surfaceContainerHighest = NightCard,
 )
 
-val HiveShapes = Shapes(
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(22.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+/** Archivo at 75% width, for headings, captions, buttons, and numbers. Text in it is all caps. */
+val ArchivoCondensed = FontFamily(
+    Font(R.font.archivo_condensed_extrabold, FontWeight.ExtraBold),
+    Font(R.font.archivo_condensed_black, FontWeight.Black),
 )
 
+/** For body text, and for the questions, answers, and names that people write. */
+val AtkinsonHyperlegible = FontFamily(
+    Font(R.font.atkinson_hyperlegible_regular, FontWeight.Normal),
+    Font(R.font.atkinson_hyperlegible_bold, FontWeight.Bold),
+)
+
+/** Headline and label styles are Archivo. Title and body styles are Atkinson Hyperlegible. */
 val HiveTypography = Typography(
     headlineLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
+        fontFamily = ArchivoCondensed,
+        fontWeight = FontWeight.Black,
         fontSize = 30.sp,
-        lineHeight = 36.sp,
-        letterSpacing = (-0.5).sp,
+        lineHeight = 34.sp,
+        letterSpacing = 1.sp,
     ),
     headlineMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
+        fontFamily = ArchivoCondensed,
+        fontWeight = FontWeight.Black,
         fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = (-0.3).sp,
+        lineHeight = 28.sp,
+        letterSpacing = 1.sp,
     ),
     headlineSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = ArchivoCondensed,
+        fontWeight = FontWeight.Black,
         fontSize = 20.sp,
-        lineHeight = 26.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 1.sp,
     ),
     titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AtkinsonHyperlegible,
         fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
+        fontSize = 19.sp,
+        lineHeight = 25.sp,
     ),
     titleMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = AtkinsonHyperlegible,
+        fontWeight = FontWeight.Bold,
         fontSize = 16.sp,
         lineHeight = 22.sp,
     ),
     titleSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = AtkinsonHyperlegible,
+        fontWeight = FontWeight.Bold,
         fontSize = 14.sp,
         lineHeight = 20.sp,
     ),
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AtkinsonHyperlegible,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontSize = 16.sp,
+        lineHeight = 23.sp,
     ),
     bodyMedium = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AtkinsonHyperlegible,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontSize = 15.sp,
+        lineHeight = 21.sp,
     ),
     bodySmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AtkinsonHyperlegible,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-    ),
-    labelLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
         fontSize = 13.sp,
         lineHeight = 18.sp,
-        letterSpacing = 0.5.sp,
+    ),
+    labelLarge = TextStyle(
+        fontFamily = ArchivoCondensed,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 1.sp,
     ),
     labelMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.8.sp,
+        fontFamily = ArchivoCondensed,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 13.sp,
+        lineHeight = 17.sp,
+        letterSpacing = 1.sp,
     ),
     labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 10.sp,
-        lineHeight = 14.sp,
+        fontFamily = ArchivoCondensed,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
         letterSpacing = 1.sp,
     ),
 )
 
 @Composable
+@ReadOnlyComposable
+fun ThemePreference.isDark(): Boolean = when (this) {
+    ThemePreference.SYSTEM -> isSystemInDarkTheme()
+    ThemePreference.SOFT_LIGHT -> false
+    ThemePreference.SOFT_DARK -> true
+}
+
+@Composable
 fun HiveTheme(
     preference: ThemePreference = ThemePreference.SYSTEM,
+    answerColors: AnswerColorChoice = AnswerColorChoice.APP_HONEY,
     content: @Composable () -> Unit,
 ) {
-    val dark = when (preference) {
-        ThemePreference.SYSTEM -> isSystemInDarkTheme()
-        ThemePreference.SOFT_LIGHT -> false
-        ThemePreference.SOFT_DARK -> true
-    }
-    CompositionLocalProvider(LocalHiveColors provides if (dark) DarkHiveColors else LightHiveColors) {
+    val dark = preference.isDark()
+    CompositionLocalProvider(
+        LocalHiveColors provides if (dark) DarkHiveColors else LightHiveColors,
+        LocalAnswerColors provides answerColors.colors,
+    ) {
         MaterialTheme(
             colorScheme = if (dark) SoftDark else SoftLight,
             shapes = HiveShapes,

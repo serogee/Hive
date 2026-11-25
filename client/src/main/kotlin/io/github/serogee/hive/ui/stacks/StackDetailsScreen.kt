@@ -1,34 +1,15 @@
 package io.github.serogee.hive.ui.stacks
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,17 +18,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.StackId
-import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HexBadge
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveDialog
+import io.github.serogee.hive.ui.common.HiveIconButton
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.Page
@@ -55,9 +36,6 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.review.ReviewSetupSheet
-import io.github.serogee.hive.ui.theme.DangerRed
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -86,8 +64,8 @@ fun StackDetailsScreen(
         val totalPoints = stack.questions.sumOf { it.points }
         val estMinutes = maxOf(1, stack.questions.size * 45 / 60)
 
-        // Hero Navy Summary Card
-        HeroNavyCard(
+        // Hero summary card
+        HeroCard(
             badgeText = "KEY STATS",
             title = "${stack.questions.size} Questions",
             subtitle = if (issues.isEmpty()) "Ready for practice and multiplayer quiz" else "${issues.size} issues to fix before hosting",
@@ -100,55 +78,31 @@ fun StackDetailsScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Button(
+            HiveButton(
+                text = "Host",
                 onClick = onHost,
                 enabled = issues.isEmpty(),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
-                ),
                 modifier = Modifier.weight(1f),
-            ) {
-                Text("Host", fontWeight = FontWeight.Bold)
-            }
-            Button(
+                style = HiveButtonStyle.SECONDARY,
+            )
+            HiveButton(
+                text = "Review",
                 onClick = { reviewSetup = true },
                 enabled = issues.isEmpty(),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
                 modifier = Modifier.weight(1f),
-            ) {
-                Text("Review", fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
+            )
+            HiveButton(
+                text = "Edit",
                 onClick = onEdit,
-                shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ),
                 modifier = Modifier.weight(1f),
-            ) {
-                Text("Edit", fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
+                style = HiveButtonStyle.SECONDARY,
+            )
+            HiveIconButton(
+                icon = Icons.Outlined.Delete,
+                contentDescription = "Delete",
                 onClick = { confirmDelete = true },
-                shape = RoundedCornerShape(50),
-                border = BorderStroke(1.dp, MaterialTheme.hiveColors.neutralBorder),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = DangerRed,
-                ),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = "Delete",
-                    modifier = Modifier.size(18.dp),
-                )
-            }
+                style = HiveButtonStyle.DANGER,
+            )
         }
 
         if (issues.isNotEmpty()) {
@@ -157,7 +111,6 @@ fun StackDetailsScreen(
                     text = "Fix these before hosting:",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold,
                 )
                 issues.forEach { ErrorText(it.message) }
             }
@@ -166,9 +119,10 @@ fun StackDetailsScreen(
         // Section: "QUESTION TYPES"
         if (typesPresent.isNotEmpty()) {
             SectionHeader(title = "Question Types")
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 typesPresent.forEachIndexed { index, typeLabel ->
                     TagPill(
@@ -207,20 +161,7 @@ fun StackDetailsScreen(
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "${index + 1}",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp,
-                        )
-                    }
+                    HexBadge("${index + 1}")
 
                     Column(
                         modifier = Modifier.weight(1f),
@@ -229,7 +170,6 @@ fun StackDetailsScreen(
                         Text(
                             text = question.prompt.ifBlank { "(No prompt yet)" },
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
@@ -251,23 +191,20 @@ fun StackDetailsScreen(
     }
 
     if (confirmDelete && stack != null) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete ${stack.title.ifBlank { "this stack" }}?", fontWeight = FontWeight.Bold) },
-            text = { Text("This removes the stack and its ${stack.questions.size} questions from this phone.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        confirmDelete = false
-                        scope.launch {
-                            container.stacks.delete(stackId)
-                            onDeleted()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
-                ) { Text("Delete") }
+        HiveDialog(
+            title = "Delete ${stack.title.ifBlank { "this stack" }}?",
+            message = "This removes the stack and its ${stack.questions.size} questions from this phone.",
+            confirmText = "Delete",
+            onConfirm = {
+                confirmDelete = false
+                scope.launch {
+                    container.stacks.delete(stackId)
+                    onDeleted()
+                }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Keep") } },
+            dismissText = "Keep",
+            onDismiss = { confirmDelete = false },
+            danger = true,
         )
     }
 }

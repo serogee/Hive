@@ -1,36 +1,27 @@
 package io.github.serogee.hive.ui.rooms
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.engine.SpeedBonus
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HexBadge
 import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.SuccessGreen
-import io.github.serogee.hive.ui.theme.hiveColors
+import io.github.serogee.hive.ui.common.VerdictTag
+import io.github.serogee.hive.ui.theme.Graphite
+import io.github.serogee.hive.ui.theme.Honey
 
 /** Host Results or Player Result, depending on [isHost]. */
 @Composable
@@ -42,7 +33,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
         val correct = results.yourAnswers.count { it.correct }
         val scoreFormatted = SpeedBonus.format(points * 10 + bonus)
 
-        HeroNavyCard(
+        HeroCard(
             badgeText = "QUIZ COMPLETED",
             title = "$scoreFormatted PTS",
             subtitle = "$correct of $total correct" + if (bonus > 0) " · +${SpeedBonus.format(bonus)} speed bonus" else "",
@@ -88,25 +79,16 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isFirst) ElectricBlue else MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "#${entry.rank}",
-                            color = if (isFirst) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                        )
-                    }
+                    HexBadge(
+                        text = "${entry.rank}",
+                        size = 40.dp,
+                        color = if (isFirst) Honey else MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = if (isFirst) Graphite else MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
                     Column {
                         Text(
                             entry.displayName + if (entry.isGuest) " (guest)" else "",
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         if (entry.speedBonusTenths > 0) {
@@ -137,23 +119,9 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                 Text(
                     "${question.number}. ${question.prompt}",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                 )
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(SuccessGreen.copy(alpha = 0.1f))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                ) {
-                    Text(
-                        "Correct: ${question.correctAnswerText}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.hiveColors.successText,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
+                VerdictTag(right = true, text = "Correct: ${question.correctAnswerText}")
 
                 if (isHost) {
                     Text(
@@ -168,12 +136,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                         own.correct -> "Correct (+${own.points})"
                         else -> "Incorrect"
                     }
-                    Text(
-                        "Your answer: ${own?.answerText ?: "none"} · $verdict",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isCorrect) MaterialTheme.hiveColors.successText else MaterialTheme.hiveColors.dangerText,
-                        fontWeight = FontWeight.Medium,
-                    )
+                    VerdictTag(right = isCorrect, text = "Your answer: ${own?.answerText ?: "none"} · $verdict")
                 }
                 question.explanation?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

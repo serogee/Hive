@@ -1,22 +1,11 @@
 package io.github.serogee.hive.ui.rooms
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,11 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -39,9 +25,11 @@ import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.localhost.HostingService
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
@@ -49,8 +37,6 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
 import io.github.serogee.hive.ui.home.JoinCard
-import io.github.serogee.hive.ui.theme.DangerRed
-import io.github.serogee.hive.ui.theme.ElectricBlue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -118,12 +104,13 @@ fun QuizRoomScreen(
 
         joined?.let { membership ->
             SectionHeader(title = "Active Room")
-            HeroNavyCard(
+            HeroCard(
                 badgeText = "JOINED ROOM",
                 title = membership.roomTitle,
                 subtitle = "Code ${membership.roomCode} · as ${membership.displayName}",
                 buttonText = "RECONNECT",
                 onButtonClick = { onOpenRoom(membership.roomId.value) },
+                main = false,
             )
         }
 
@@ -133,38 +120,27 @@ fun QuizRoomScreen(
             onActionClick = onCreateRoom,
         )
 
-        Button(
+        HiveButton(
+            text = "Create Room",
             onClick = onCreateRoom,
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ElectricBlue,
-                contentColor = Color.White,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-        ) {
-            Text("Create Room", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        }
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         if (localRooms.isNotEmpty()) {
             SectionHeader(title = "Hosted on this phone")
             localRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
             if (hostingHere) {
-                OutlinedButton(
+                HiveButton(
+                    text = "Stop hosting on this phone",
                     onClick = {
                         scope.launch {
                             container.rooms.stopLocalHosting()
                             HostingService.stop(context)
                         }
                     },
-                    shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, DangerRed),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
                     modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Stop hosting on this phone", fontWeight = FontWeight.Bold)
-                }
+                    style = HiveButtonStyle.DANGER,
+                )
             }
         }
 
@@ -177,16 +153,11 @@ fun QuizRoomScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Button(
+                    HiveButton(
+                        text = "Sign in",
                         onClick = onSignIn,
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    ) {
-                        Text("Sign in", fontWeight = FontWeight.Bold)
-                    }
+                        style = HiveButtonStyle.SECONDARY,
+                    )
                 }
             }
             return@Page
@@ -208,7 +179,7 @@ private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            BlueBadge(
+            CountBadge(
                 topText = room.code.take(4),
                 bottomText = "ROOM",
             )
@@ -216,7 +187,6 @@ private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
                 Text(
                     room.title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(

@@ -1,16 +1,11 @@
 package io.github.serogee.hive.ui.home
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,97 +13,71 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
-import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Analytics
-import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.engine.RoomCodes
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.localhost.LocalHost
-import io.github.serogee.hive.ui.common.BlueBadge
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.Caption
+import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HexBadge
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.common.ProgressCells
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
-import io.github.serogee.hive.ui.theme.Amber
-import io.github.serogee.hive.ui.theme.AmberInk
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.ElectricBlueLight
-import io.github.serogee.hive.ui.theme.MidnightNavy
-import io.github.serogee.hive.ui.theme.MidnightNavyLight
-import io.github.serogee.hive.ui.theme.Orange
-import io.github.serogee.hive.ui.theme.StackAccentColors
+import io.github.serogee.hive.ui.common.SolidCard
+import io.github.serogee.hive.ui.common.ToggleRow
+import io.github.serogee.hive.ui.theme.Honey
+import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.launch
 
-/** The icon and color that a stack shows on Home, chosen by its position. */
-private data class StackAccent(
-    val icon: ImageVector,
-    val color: Color,
-)
-
-private val StackAccents = listOf(
-    StackAccent(Icons.Outlined.Psychology, StackAccentColors[0]),
-    StackAccent(Icons.Outlined.Code, StackAccentColors[1]),
-    StackAccent(Icons.Outlined.Analytics, StackAccentColors[2]),
-    StackAccent(Icons.Outlined.Hub, StackAccentColors[3]),
-    StackAccent(Icons.Outlined.Devices, StackAccentColors[4]),
-    StackAccent(Icons.Outlined.School, StackAccentColors[5]),
+/** The icons that stacks take turns using on Home. */
+private val StackIcons = listOf(
+    Icons.Outlined.Psychology,
+    Icons.Outlined.Code,
+    Icons.Outlined.Analytics,
+    Icons.Outlined.Hub,
+    Icons.Outlined.Devices,
+    Icons.Outlined.School,
 )
 
 enum class SortMode(val label: String) {
@@ -143,97 +112,47 @@ fun HomeScreen(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var sortMode by rememberSaveable { mutableStateOf(SortMode.RECENT) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+    Page(
+        title = displayName,
+        subtitle = "Ready to test your knowledge?",
+        leading = {
+            HexBadge(
+                text = displayName.take(1).uppercase(),
+                size = 48.dp,
+                color = MaterialTheme.hiveColors.solid,
+                contentColor = Honey,
+            )
+        },
     ) {
-        // 1. TOP HEADER: Avatar Circle + User's Name
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(54.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(ElectricBlue, MidnightNavyLight)
-                        )
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = displayName.take(1).uppercase(),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = "Ready to test your knowledge?",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
         // Active Joined Room Banner (if any)
         joined?.let { membership ->
-            HeroNavyCard(
+            HeroCard(
                 badgeText = "ACTIVE QUIZ ROOM",
                 title = membership.roomTitle,
                 subtitle = "Joined as ${membership.displayName} · Code ${membership.roomCode}",
                 buttonText = "RETURN TO ROOM",
                 onButtonClick = { onReturnToRoom(membership) },
+                main = false,
             )
         }
 
         // Continue Review in Progress (if any)
         review?.let { attempt ->
-            val progress = if (attempt.order.isNotEmpty()) {
-                attempt.position.toFloat() / attempt.order.size.toFloat()
-            } else 0f
-
             SleekCard(onClick = { onContinueReview(attempt.id) }) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    BlueBadge(
+                    CountBadge(
                         topText = "${attempt.position + 1}",
                         bottomText = "CARD",
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "CONTINUE REVIEW",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
-                        )
+                        Caption("Continue review", color = MaterialTheme.colorScheme.primary)
                         Text(
                             text = attempt.stack.title.ifBlank { "Untitled stack" },
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -244,15 +163,7 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(6.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp)),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.primaryContainer,
-                        )
+                        ProgressCells(done = attempt.position, total = attempt.order.size)
                     }
                     Icon(
                         imageVector = Icons.Outlined.ChevronRight,
@@ -273,7 +184,6 @@ fun HomeScreen(
         // Review entry
         HomeCard(
             icon = Icons.Outlined.School,
-            tint = MaterialTheme.colorScheme.primary,
             title = "Review",
             subtitle = "Practice a stack on your own",
             onClick = onReview,
@@ -285,30 +195,17 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            OutlinedTextField(
+            HiveTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Search,
-                        contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                ),
+                placeholder = "Search",
+                leadingIcon = Icons.Outlined.Search,
                 modifier = Modifier.weight(1f),
             )
 
             // Sort button
-            OutlinedButton(
+            HiveButton(
+                text = sortMode.label,
                 onClick = {
                     sortMode = when (sortMode) {
                         SortMode.RECENT -> SortMode.TITLE
@@ -316,28 +213,10 @@ fun HomeScreen(
                         SortMode.QUESTIONS -> SortMode.RECENT
                     }
                 },
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.Sort,
-                    contentDescription = "Sort",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = sortMode.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+                style = HiveButtonStyle.SECONDARY,
+                icon = Icons.AutoMirrored.Outlined.Sort,
+                iconDescription = "Sort",
+            )
         }
 
         // 4. MY STACKS ROW: [see all] action + Horizontal row of icon boxes with label underneath
@@ -354,25 +233,19 @@ fun HomeScreen(
                 contentPadding = PaddingValues(horizontal = 2.dp),
             ) {
                 itemsIndexed(stacks.take(6)) { index, stack ->
-                    val accent = StackAccents[index % StackAccents.size]
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .width(72.dp)
-                            .clickable { onOpenStack(stack.id) },
+                            .width(76.dp)
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable { onOpenStack(stack.id) }
+                            .padding(vertical = 4.dp),
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(68.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .background(accent.color.copy(alpha = 0.08f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
+                        HexBadge(size = 72.dp) {
                             Icon(
-                                imageVector = accent.icon,
+                                imageVector = StackIcons[index % StackIcons.size],
                                 contentDescription = null,
-                                tint = accent.color,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(30.dp),
                             )
                         }
@@ -382,7 +255,6 @@ fun HomeScreen(
                         Text(
                             text = stack.title.ifBlank { "Untitled stack" },
                             style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
@@ -420,25 +292,16 @@ fun HomeScreen(
                     Text(
                         text = "No stacks yet",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
                     )
                     Text(
                         text = "Create a stack, or add the built-in sample to host it or review it.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(
-                            onClick = { scope.launch { onOpenStack(container.stacks.addSample()) } },
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ElectricBlue,
-                                contentColor = Color.White,
-                            ),
-                        ) {
-                            Text("Add Sample Stack", fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    HiveButton(
+                        text = "Add Sample Stack",
+                        onClick = { scope.launch { onOpenStack(container.stacks.addSample()) } },
+                    )
                 }
             }
         } else if (filteredStacks.isEmpty()) {
@@ -450,21 +313,17 @@ fun HomeScreen(
             )
         } else {
             // Render recent stacks as cards:
-            // [Square icon box]  Title
-            //                    X Questions
-            filteredStacks.forEachIndexed { index, stack ->
-                val fallbackColor = StackAccents[index % StackAccents.size].color
+            // [Icon]  Title
+            //         X Questions
+            filteredStacks.forEach { stack ->
                 HomeCard(
                     icon = Icons.Outlined.Layers,
-                    tint = fallbackColor,
                     title = stack.title.ifBlank { "Untitled stack" },
                     subtitle = if (stack.questionCount == 1) "1 Question" else "${stack.questionCount} Questions",
                     onClick = { onOpenStack(stack.id) },
                 )
             }
         }
-
-        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -487,194 +346,81 @@ fun JoinCard(
     val ready = normalized.length == RoomCodes.LENGTH && (!nearby || hostAddress != null)
     val submit = { if (ready) onJoinCode(normalized, hostAddress) }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(MidnightNavy, MidnightNavyLight)
-                    )
-                )
-                .padding(20.dp),
+    SolidCard {
+        // Top row: Room Code Field + Join Button
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                // Top row: Room Code Field + Join Button
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    OutlinedTextField(
-                        value = code,
-                        onValueChange = { code = it.take(RoomCodes.LENGTH + 2) },
-                        placeholder = {
-                            Text(
-                                "Room Code",
-                                color = Color.White.copy(alpha = 0.5f),
-                            )
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ElectricBlueLight,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
-                            focusedContainerColor = Color.White.copy(alpha = 0.10f),
-                            unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
-                            cursorColor = Color.White,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Characters,
-                            imeAction = ImeAction.Go,
-                        ),
-                        keyboardActions = KeyboardActions(onGo = { submit() }),
-                        modifier = Modifier.weight(1f),
-                    )
+            HiveTextField(
+                value = code,
+                onValueChange = { code = it.take(RoomCodes.LENGTH + 2) },
+                placeholder = "Room Code",
+                onSolid = true,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Characters,
+                    imeAction = ImeAction.Go,
+                ),
+                keyboardActions = KeyboardActions(onGo = { submit() }),
+                modifier = Modifier.weight(1f),
+            )
+            HiveButton(
+                text = "Join",
+                onClick = submit,
+                enabled = ready,
+                onSolid = true,
+            )
+        }
 
-                    Button(
-                        onClick = submit,
-                        enabled = ready,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = MidnightNavy,
-                            disabledContainerColor = Color.White.copy(alpha = 0.3f),
-                            disabledContentColor = Color.White.copy(alpha = 0.5f),
-                        ),
-                        modifier = Modifier.height(54.dp),
-                    ) {
-                        Text(
-                            "Join",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                        )
-                    }
-                }
+        // Bottom row: [Create Stack], until QR scanning exists, and [Host Quiz]
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            HiveButton(
+                text = "Create Stack",
+                onClick = onCreateStack,
+                style = HiveButtonStyle.SECONDARY,
+                onSolid = true,
+                icon = Icons.Outlined.Add,
+                modifier = Modifier.weight(1.3f),
+            )
+            HiveButton(
+                text = "Host Quiz",
+                onClick = onHostQuiz,
+                onSolid = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
 
-                // Bottom row: [Create Stack] (warm accent / pill) + [Host Quiz] (primary)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    // Create Stack button (warm gold/amber accent), until QR scanning exists
-                    Button(
-                        onClick = onCreateStack,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Amber,
-                            contentColor = AmberInk,
-                        ),
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Create Stack",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                        )
-                    }
+        // Local nearby phone toggle
+        ToggleRow("Nearby offline room", nearby, onSolid = true) { nearby = it }
 
-                    // Host Quiz button (orange / vibrant accent button)
-                    Button(
-                        onClick = onHostQuiz,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Orange,
-                            contentColor = Color.White,
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp),
-                    ) {
-                        Text(
-                            text = "Host Quiz",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                        )
-                    }
-                }
-
-                // Local nearby phone toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { nearby = !nearby }
-                        .padding(top = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "Nearby offline room",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.75f),
-                    )
-                    Switch(
-                        checked = nearby,
-                        onCheckedChange = { nearby = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = ElectricBlueLight,
-                            uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
-                            uncheckedTrackColor = Color.White.copy(alpha = 0.2f),
-                        ),
-                    )
-                }
-
-                if (nearby) {
-                    OutlinedTextField(
-                        value = address,
-                        onValueChange = { address = it.take(60) },
-                        label = { Text("Host address (e.g. 192.168.43.1:8090)", color = Color.White.copy(alpha = 0.7f)) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ElectricBlueLight,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                        ),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(
-                        text = "Connect to the Host's Wi-Fi or hotspot first. The Host's lobby shows the address.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.75f),
-                    )
-                }
-            }
+        if (nearby) {
+            HiveTextField(
+                value = address,
+                onValueChange = { address = it.take(60) },
+                label = "Host address (e.g. 192.168.43.1:8090)",
+                onSolid = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            )
+            Text(
+                text = "Connect to the Host's Wi-Fi or hotspot first. The Host's lobby shows the address.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }
 
 /**
  * A card on Home, used for stacks and for Review:
- * [Square icon]  Title
- *                Subtitle
+ * [Icon]  Title
+ *         Subtitle
  */
 @Composable
 private fun HomeCard(
     icon: ImageVector,
-    tint: Color,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
@@ -685,18 +431,11 @@ private fun HomeCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Rounded square icon box (left)
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(tint.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
+            HexBadge(size = 46.dp) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = tint,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(22.dp),
                 )
             }
@@ -709,7 +448,6 @@ private fun HomeCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

@@ -1,33 +1,15 @@
 package io.github.serogee.hive.ui.rooms
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,29 +20,29 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.LiveQuestion
 import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.describe
 import io.github.serogee.hive.core.model.Answer
-import io.github.serogee.hive.ui.common.BlueBadge
+import io.github.serogee.hive.ui.common.AnswerTile
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveDialog
+import io.github.serogee.hive.ui.common.HiveTextField
+import io.github.serogee.hive.ui.common.NoteBox
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
-import io.github.serogee.hive.ui.theme.DangerRed
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.SuccessGreen
-import io.github.serogee.hive.ui.theme.hiveColors
+import io.github.serogee.hive.ui.common.VerdictBox
+import io.github.serogee.hive.ui.common.answerTileState
+import io.github.serogee.hive.ui.common.choiceLetter
 import kotlinx.coroutines.delay
 
 @Composable
 private fun QuestionHeader(live: LiveQuestion, onTimeUp: () -> Unit) {
     val question = live.question
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TagPill(text = "QUESTION ${question.number} OF ${live.questionCount}", selected = true)
         TagPill(text = question.typeLabel(), selected = false)
         TagPill(text = if (question.points == 1) "1 pt" else "${question.points} pts", selected = false)
@@ -69,7 +51,6 @@ private fun QuestionHeader(live: LiveQuestion, onTimeUp: () -> Unit) {
     Text(
         question.prompt,
         style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurface,
     )
 }
@@ -93,40 +74,26 @@ private fun Countdown(live: LiveQuestion, onTimeUp: () -> Unit) {
     LaunchedEffect(left <= 0) { if (left <= 0) onTimeUp() }
     val seconds = ((left + 999) / 1000).coerceAtLeast(0)
     Text(
-        if (seconds > 0) "Time left: $seconds s" else "Time is up",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold,
-        color = if (seconds <= 5) DangerRed else MaterialTheme.colorScheme.primary,
+        (if (seconds > 0) "Time left: $seconds s" else "Time is up").uppercase(),
+        style = MaterialTheme.typography.headlineSmall,
+        color = if (seconds <= 5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
     )
 }
 
 @Composable
 private fun RevealedAnswer(live: LiveQuestion) {
     val correct = live.correctAnswer ?: return
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(SuccessGreen.copy(alpha = 0.1f))
-            .padding(14.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                "CORRECT ANSWER",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.hiveColors.successText,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.sp,
-            )
-            Text(
-                live.question.describe(correct),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            live.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
+    VerdictBox(right = true, title = "Correct answer") {
+        Text(
+            live.question.describe(correct),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        live.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     }
 }
+
+/** Whether [answer] is the correct one, or null until the room shows the correct answer. */
+private fun LiveQuestion.isCorrect(answer: Answer): Boolean? = correctAnswer?.let { it == answer }
 
 @Composable
 fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) -> Unit, onTimeUp: () -> Unit) {
@@ -134,105 +101,85 @@ fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) 
     val isLast = live.question.number == live.questionCount
     val waiting = live.playerCount - live.answeredCount
 
-    SleekCard {
+    SleekCard(active = true) {
         QuestionHeader(live, onTimeUp)
-        (live.question as? PlayerQuestion.MultipleChoice)?.choices?.forEach {
-            Text("• ${it.text}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        (live.question as? PlayerQuestion.MultipleChoice)?.choices?.forEachIndexed { index, option ->
+            AnswerTile(
+                letter = choiceLetter(index),
+                text = option.text,
+                state = answerTileState(selected = false, correct = live.isCorrect(Answer.SelectedChoice(option.id))),
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         Text(
             "${live.answeredCount} of ${live.playerCount} Players answered",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
         )
         RevealedAnswer(live)
 
         Spacer(Modifier.height(4.dp))
         if (live.isOpen) {
-            Button(
+            HiveButton(
+                text = "Close Question",
                 onClick = { if (waiting > 0) confirm = CLOSE else onCommand(HostCommand.CloseQuestion) },
                 enabled = !busy,
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-            ) { Text("Close Question", fontWeight = FontWeight.Bold) }
+                modifier = Modifier.fillMaxWidth(),
+            )
         } else {
             Text("Answers are locked. Discuss, then continue.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             if (isLast) {
-                Button(
+                HiveButton(
+                    text = "End Quiz and Show Results",
                     onClick = { onCommand(HostCommand.EndRoom) },
                     enabled = !busy,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ElectricBlue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                ) { Text("End Quiz and Show Results", fontWeight = FontWeight.Bold) }
+                    modifier = Modifier.fillMaxWidth(),
+                )
             } else {
-                Button(
+                HiveButton(
+                    text = "Next Question",
                     onClick = { onCommand(HostCommand.NextQuestion) },
                     enabled = !busy,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ElectricBlue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                ) { Text("Next Question", fontWeight = FontWeight.Bold) }
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
         if (!(isLast && !live.isOpen)) {
-            OutlinedButton(
+            HiveButton(
+                text = "End Quiz for Everyone",
                 onClick = { confirm = END },
                 enabled = !busy,
-                shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, DangerRed),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("End Quiz for Everyone", fontWeight = FontWeight.Bold) }
+                style = HiveButtonStyle.DANGER,
+            )
         }
     }
 
     when (confirm) {
-        CLOSE -> AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text("Close this question?", fontWeight = FontWeight.Bold) },
-            text = { Text(if (waiting == 1) "1 Player has not answered yet." else "$waiting Players have not answered yet.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        confirm = null
-                        onCommand(HostCommand.CloseQuestion)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                ) { Text("Close Question") }
+        CLOSE -> HiveDialog(
+            title = "Close this question?",
+            message = if (waiting == 1) "1 Player has not answered yet." else "$waiting Players have not answered yet.",
+            confirmText = "Close Question",
+            onConfirm = {
+                confirm = null
+                onCommand(HostCommand.CloseQuestion)
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Keep Open") } },
+            dismissText = "Keep Open",
+            onDismiss = { confirm = null },
         )
-        END -> AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text("End the quiz for everyone?", fontWeight = FontWeight.Bold) },
-            text = { Text("Players can no longer answer. Answers already received are kept.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        confirm = null
-                        onCommand(HostCommand.EndRoom)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
-                ) { Text("End for Everyone") }
+        END -> HiveDialog(
+            title = "End the quiz for everyone?",
+            message = "Players can no longer answer. Answers already received are kept.",
+            confirmText = "End for Everyone",
+            onConfirm = {
+                confirm = null
+                onCommand(HostCommand.EndRoom)
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Continue Quiz") } },
+            dismissText = "Continue Quiz",
+            onDismiss = { confirm = null },
+            danger = true,
         )
     }
 }
@@ -255,78 +202,45 @@ fun PlayerLiveContent(
     val sendingThis = pending?.takeIf { it.questionId == question.id }
     val locked = received != null || sendingThis != null || !live.isOpen
 
-    SleekCard {
+    SleekCard(active = true) {
         QuestionHeader(live, onTimeUp)
 
         when (question) {
-            is PlayerQuestion.MultipleChoice -> question.choices.forEach { option ->
+            is PlayerQuestion.MultipleChoice -> question.choices.forEachIndexed { index, option ->
                 val selected = (received?.answer as? Answer.SelectedChoice)?.choiceId?.value ?: choice
-                val isSelected = selected == option.id.value
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable(enabled = !locked) { choice = option.id.value },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                AnswerTile(
+                    letter = choiceLetter(index),
+                    text = option.text,
+                    state = answerTileState(
+                        selected = selected == option.id.value,
+                        correct = live.isCorrect(Answer.SelectedChoice(option.id)),
                     ),
-                    border = BorderStroke(
-                        1.5.dp,
-                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                    ),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(12.dp),
-                    ) {
-                        RadioButton(
-                            selected = isSelected,
-                            onClick = null,
-                            enabled = !locked,
-                            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary),
-                        )
-                        Spacer(Modifier.size(8.dp))
-                        Text(
-                            option.text,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
+                    onClick = { choice = option.id.value },
+                    enabled = !locked,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             is PlayerQuestion.TrueFalse -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 val selected = (received?.answer as? Answer.TrueFalse)?.value ?: truth
                 listOf(true, false).forEach { value ->
-                    val isSelected = selected == value
-                    val label = if (value) "True" else "False"
-                    Button(
+                    AnswerTile(
+                        letter = if (value) "T" else "F",
+                        text = if (value) "True" else "False",
+                        state = answerTileState(
+                            selected = selected == value,
+                            correct = live.isCorrect(Answer.TrueFalse(value)),
+                        ),
                         onClick = { truth = value },
                         enabled = !locked,
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
                         modifier = Modifier.weight(1f),
-                    ) {
-                        Text(label, fontWeight = FontWeight.Bold)
-                    }
+                    )
                 }
             }
-            is PlayerQuestion.Identification -> OutlinedTextField(
+            is PlayerQuestion.Identification -> HiveTextField(
                 value = (received?.answer as? Answer.Text)?.text ?: text,
                 onValueChange = { text = it.take(200) },
-                label = { Text("Your answer") },
-                singleLine = true,
+                label = "Your answer",
                 enabled = !locked,
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                ),
-                modifier = Modifier.fillMaxWidth(),
             )
         }
 
@@ -339,45 +253,27 @@ fun PlayerLiveContent(
 
         Spacer(Modifier.height(4.dp))
         when {
-            received != null -> Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(SuccessGreen.copy(alpha = 0.1f))
-                    .padding(12.dp),
-            ) {
-                Text(
-                    "✓ Answer received by server",
-                    color = MaterialTheme.hiveColors.successText,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
+            received != null -> NoteBox {
+                Text("✓ Answer received by server", style = MaterialTheme.typography.titleMedium)
             }
             sendingThis?.failed == true -> {
                 Text("Not sent yet. Check your connection.", color = MaterialTheme.colorScheme.error)
-                Button(
+                HiveButton(
+                    text = "Send again",
                     onClick = onRetry,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                ) { Text("Send again", fontWeight = FontWeight.Bold) }
+                )
             }
             sendingThis != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Text("Sending answer...", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            !live.isOpen -> Text("This question is closed.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
-            else -> Button(
+            !live.isOpen -> Text("This question is closed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> HiveButton(
+                text = "Submit Answer",
                 onClick = { answer?.let(onSubmit) },
                 enabled = answer != null,
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-            ) { Text("Submit Answer", fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
 
         if (!live.isOpen) {

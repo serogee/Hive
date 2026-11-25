@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The bee in flight in one color, for themed icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.62"
+        android:scaleY="0.62"
+        android:translateX="26.10"
+        android:translateY="20.02">
+        <path
+            android:pathData="M10.00,86.00L10.88,86.47M17.59,86.03L18.44,85.51M23.78,81.00L24.51,80.31M29.93,75.90L30.79,75.39M37.52,73.93L38.00,74.00"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="3.5"
+            android:strokeLineCap="round" />
+        <group
+            android:pivotX="44"
+            android:pivotY="30"
+            android:rotation="-20">
+            <path
+                android:pathData="M44.00,17.75L54.61,23.88L54.61,36.12L44.00,42.25L33.39,36.12L33.39,23.88Z"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="3.5"
+                android:strokeLineJoin="round" />
+        </group>
+        <group
+            android:pivotX="73"
+            android:pivotY="34"
+            android:rotation="-20">
+            <path
+                android:pathData="M73.00,21.75L83.61,27.88L83.61,40.12L73.00,46.25L62.39,40.12L62.39,27.88Z"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="3.5"
+                android:strokeLineJoin="round" />
+        </group>
+        <group
+            android:pivotX="57"
+            android:pivotY="57"
+            android:rotation="-20">
+            <group>
+                <clip-path android:pathData="M57.00,32.00L78.65,44.50L78.65,69.50L57.00,82.00L35.35,69.50L35.35,44.50Z" />
+                <path
+                    android:pathData="M32,32H82V52H32Z"
+                    android:fillColor="#FFFFFF" />
+                <path
+                    android:pathData="M32,60H82V67H32Z"
+                    android:fillColor="#FFFFFF" />
+                <path
+                    android:pathData="M32,75H82V82H32Z"
+                    android:fillColor="#FFFFFF" />
+            </group>
+            <path
+                android:pathData="M57.00,33.50L77.35,45.25L77.35,68.75L57.00,80.50L36.65,68.75L36.65,45.25Z"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="3" />
+        </group>
+    </group>
+</vector>

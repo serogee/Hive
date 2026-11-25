@@ -17,6 +17,9 @@ interface AuthProvider {
     /** Whether to show the fictional demo accounts on the sign-in form. */
     val showsDemoHint: Boolean
 
+    /** How the user signed in, shown on the Account page. */
+    val signedInLabel: String get() = "Signed in with Google"
+
     suspend fun signIn(username: String, password: String): AuthSession
 
     suspend fun signOut(session: AuthSession)
@@ -27,6 +30,7 @@ interface AuthProvider {
 
 class DemoAuthProvider(private val api: HiveApi) : AuthProvider {
     override val showsDemoHint = true
+    override val signedInLabel = "Signed in with a demo account"
 
     override suspend fun signIn(username: String, password: String) = api.demoLogin(username, password)
 
@@ -41,6 +45,7 @@ class AuthRepository(
 ) {
     val session: Flow<AuthSession?> = preferences.session
     val showsDemoHint: Boolean get() = provider.showsDemoHint
+    val signedInLabel: String get() = provider.signedInLabel
 
     suspend fun signIn(username: String, password: String): AuthSession =
         provider.signIn(username, password).also { preferences.setSession(it) }

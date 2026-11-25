@@ -1,32 +1,17 @@
 package io.github.serogee.hive.ui.review
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,11 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -53,18 +34,26 @@ import io.github.serogee.hive.core.review.Review
 import io.github.serogee.hive.core.review.ReviewAttempt
 import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.data.review.ReviewRepository
-import io.github.serogee.hive.ui.common.BlueBadge
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.AnswerTile
+import io.github.serogee.hive.ui.common.Caption
+import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HexBadge
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveTextButton
+import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.MetricStatChip
+import io.github.serogee.hive.ui.common.NoteBox
 import io.github.serogee.hive.ui.common.Page
+import io.github.serogee.hive.ui.common.ProgressCells
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
-import io.github.serogee.hive.ui.theme.DangerRed
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.SuccessGreen
-import io.github.serogee.hive.ui.theme.hiveColors
+import io.github.serogee.hive.ui.common.VerdictBox
+import io.github.serogee.hive.ui.common.VerdictTag
+import io.github.serogee.hive.ui.common.answerTileState
+import io.github.serogee.hive.ui.common.choiceLetter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -125,9 +114,7 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
         title = current.stack.title,
         subtitle = mode,
         action = {
-            TextButton(onClick = onExit) {
-                Text("Pause", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            }
+            HiveTextButton("Pause", onClick = onExit)
         },
     ) {
         val question = current.current
@@ -136,36 +123,18 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
             return@Page
         }
 
-        // Progress bar and counter
+        // Progress cells and counter
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "${if (current.settings.mode == ReviewMode.QUIZ) "QUESTION" else "CARD"} ${current.position + 1} OF ${current.order.size}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                )
-                Text(
-                    text = "${(progress * 100).toInt()}%",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold,
-                )
+                val step = if (current.settings.mode == ReviewMode.QUIZ) "Question" else "Card"
+                Caption("$step ${current.position + 1} of ${current.order.size}", color = MaterialTheme.colorScheme.primary)
+                Caption("${(progress * 100).toInt()}%")
             }
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.primaryContainer,
-            )
+            ProgressCells(done = current.position, total = current.order.size)
         }
 
         if (current.settings.mode == ReviewMode.QUIZ) {
@@ -182,7 +151,6 @@ private fun Prompt(question: Question) {
     Text(
         question.prompt,
         style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurface,
     )
 }
@@ -202,83 +170,48 @@ private fun QuizCard(
     var showChoices by rememberSaveable(key) { mutableStateOf(false) }
     val checked = outcome != null
 
-    SleekCard {
+    SleekCard(active = true) {
         Prompt(question)
         val typing = preferTyping || question is Question.Identification
         if (typing) {
             if (question is Question.MultipleChoice) {
-                TextButton(onClick = { showChoices = !showChoices }) {
-                    Text(if (showChoices) "Hide choices" else "Show choices", color = MaterialTheme.colorScheme.primary)
-                }
+                HiveTextButton(if (showChoices) "Hide choices" else "Show choices", onClick = { showChoices = !showChoices })
                 if (showChoices) question.choices.forEach { Text("• ${it.text}", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            OutlinedTextField(
+            HiveTextField(
                 value = typed,
                 onValueChange = { typed = it.take(200) },
-                label = { Text("Type your answer") },
-                singleLine = true,
+                label = "Type your answer",
                 enabled = !checked,
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                ),
-                modifier = Modifier.fillMaxWidth(),
             )
         } else {
             when (question) {
-                is Question.MultipleChoice -> question.choices.forEach { option ->
-                    val isSelected = choice == option.id.value
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable(enabled = !checked) { choice = option.id.value },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                is Question.MultipleChoice -> question.choices.forEachIndexed { index, option ->
+                    AnswerTile(
+                        letter = choiceLetter(index),
+                        text = option.text,
+                        state = answerTileState(
+                            selected = choice == option.id.value,
+                            correct = if (checked) option.id == question.correctChoiceId else null,
                         ),
-                        border = BorderStroke(
-                            1.5.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        ),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(12.dp),
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = null,
-                                enabled = !checked,
-                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary),
-                            )
-                            Spacer(Modifier.size(8.dp))
-                            Text(
-                                option.text,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
+                        onClick = { choice = option.id.value },
+                        enabled = !checked,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
                 is Question.TrueFalse -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf(true, false).forEach { value ->
-                        val isSelected = truth == value
-                        val label = if (value) "True" else "False"
-                        Button(
+                        AnswerTile(
+                            letter = if (value) "T" else "F",
+                            text = if (value) "True" else "False",
+                            state = answerTileState(
+                                selected = truth == value,
+                                correct = if (checked) value == question.answer else null,
+                            ),
                             onClick = { truth = value },
                             enabled = !checked,
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) ElectricBlue else MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
                             modifier = Modifier.weight(1f),
-                        ) {
-                            Text(label, fontWeight = FontWeight.Bold)
-                        }
+                        )
                     }
                 }
                 is Question.Identification -> Unit
@@ -294,35 +227,19 @@ private fun QuizCard(
 
         Spacer(Modifier.height(4.dp))
         if (!checked) {
-            Button(
+            HiveButton(
+                text = "Check Answer",
                 onClick = { answer?.let(onCheck) },
                 enabled = answer != null,
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-            ) {
-                Text("Check Answer", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
         } else {
             AnswerFeedback(question, correct = outcome == Outcome.CORRECT)
-            Button(
+            HiveButton(
+                text = "Next Question",
                 onClick = onNext,
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-            ) {
-                Text("Next Question", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -333,37 +250,22 @@ private fun FlashCard(question: Question, preferTyping: Boolean, onMark: (Boolea
     var revealed by rememberSaveable(key) { mutableStateOf(false) }
     var guess by rememberSaveable(key) { mutableStateOf("") }
 
-    SleekCard {
+    SleekCard(active = true) {
         Prompt(question)
         if (preferTyping) {
-            OutlinedTextField(
+            HiveTextField(
                 value = guess,
                 onValueChange = { guess = it.take(200) },
-                label = { Text("Type a guess (optional)") },
-                singleLine = true,
+                label = "Type a guess (optional)",
                 enabled = !revealed,
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                ),
-                modifier = Modifier.fillMaxWidth(),
             )
         }
         if (!revealed) {
-            Button(
+            HiveButton(
+                text = "Reveal Answer",
                 onClick = { revealed = true },
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-            ) {
-                Text("Reveal Answer", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
             return@SleekCard
         }
         AnswerFeedback(question, correct = null)
@@ -371,70 +273,40 @@ private fun FlashCard(question: Question, preferTyping: Boolean, onMark: (Boolea
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Button(
+            HiveButton(
+                text = "Got It",
                 onClick = { onMark(true) },
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White,
-                ),
                 modifier = Modifier.weight(1f),
-            ) {
-                Text("Got It", fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
+                icon = Icons.Outlined.Check,
+            )
+            HiveButton(
+                text = "Review Again",
                 onClick = { onMark(false) },
-                shape = RoundedCornerShape(50),
-                border = BorderStroke(1.5.dp, DangerRed),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = DangerRed,
-                ),
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Review Again", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.weight(1.5f),
+                style = HiveButtonStyle.SECONDARY,
+                icon = Icons.Outlined.Close,
+            )
         }
     }
 }
 
-/** Shows the correct answer and explanation. */
+/** Shows the correct answer and explanation. [correct] is null on flashcards, which have no verdict. */
 @Composable
 private fun AnswerFeedback(question: Question, correct: Boolean?) {
-    val isCorrect = correct == true
-    val isIncorrect = correct == false
-    val bannerColor = when {
-        isCorrect -> SuccessGreen
-        isIncorrect -> DangerRed
-        else -> MaterialTheme.colorScheme.primary
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(bannerColor.copy(alpha = 0.1f))
-            .padding(14.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            correct?.let {
-                Text(
-                    if (it) "CORRECT" else "INCORRECT",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = bannerColor,
-                    letterSpacing = 1.sp,
-                )
-            }
-            Text(
-                "Answer: ${question.describe(question.correctAnswer())}",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            (question as? Question.Identification)?.acceptedAlternatives?.takeIf { it.isNotEmpty() }?.let {
-                Text("Also accepted: ${it.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            question.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    val details: @Composable ColumnScope.() -> Unit = {
+        Text(
+            "Answer: ${question.describe(question.correctAnswer())}",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        (question as? Question.Identification)?.acceptedAlternatives?.takeIf { it.isNotEmpty() }?.let {
+            Text("Also accepted: ${it.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
         }
+        question.explanation?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
+    if (correct == null) {
+        NoteBox(content = details)
+    } else {
+        VerdictBox(right = correct, title = if (correct) "Correct" else "Incorrect", content = details)
     }
 }
 
@@ -446,8 +318,8 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
     val correct = attempt.correctCount
     val percent = if (total > 0) (correct * 100 / total) else 0
 
-    // Hero Navy card with the overall result
-    HeroNavyCard(
+    // Hero card with the overall result
+    HeroCard(
         badgeText = "REVIEW COMPLETED",
         title = "$percent% Mastery",
         subtitle = if (quiz) "$correct of $total questions answered correctly" else "$correct cards mastered, $retry to review",
@@ -481,28 +353,17 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Button(
+        HiveButton(
+            text = "Repeat Stack",
             onClick = onRepeat,
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ElectricBlue,
-                contentColor = Color.White,
-            ),
             modifier = Modifier.weight(1f),
-        ) {
-            Text("Repeat Stack", fontWeight = FontWeight.Bold)
-        }
-        OutlinedButton(
+        )
+        HiveButton(
+            text = "Back to Stack",
             onClick = onExit,
-            shape = RoundedCornerShape(50),
-            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.primary,
-            ),
             modifier = Modifier.weight(1f),
-        ) {
-            Text("Back to Stack", fontWeight = FontWeight.Bold)
-        }
+            style = HiveButtonStyle.SECONDARY,
+        )
     }
 
     SectionHeader(title = "Breakdown")
@@ -525,32 +386,16 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isGood) SuccessGreen.copy(alpha = 0.15f) else DangerRed.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center,
+                HexBadge("${index + 1}")
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        text = "${index + 1}",
-                        color = if (isGood) MaterialTheme.hiveColors.successText else MaterialTheme.hiveColors.dangerText,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         question.prompt,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
                     )
-                    Text(
-                        mark,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isGood) MaterialTheme.hiveColors.successText else MaterialTheme.hiveColors.dangerText,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    VerdictTag(right = isGood, text = mark)
                 }
             }
         }

@@ -4,9 +4,6 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,19 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,12 +26,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -56,17 +43,18 @@ import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.rooms.RoomOptions
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.localhost.HostingService
-import io.github.serogee.hive.ui.common.BlueBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroNavyCard
+import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
+import io.github.serogee.hive.ui.common.ToggleRow
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
-import io.github.serogee.hive.ui.theme.ElectricBlue
-import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -131,7 +119,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         val current = draft ?: return@Page
         val stack = StackValidation.toSnapshot(current)
 
-        HeroNavyCard(
+        HeroCard(
             badgeText = "STACK SELECTED",
             title = current.title.ifBlank { "Untitled stack" },
             subtitle = "${current.questions.size} questions included in this room",
@@ -141,11 +129,10 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             SleekCard {
                 Text("Fix these before hosting:", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
                 StackValidation.validate(current).forEach { ErrorText(it.message) }
-                Button(
+                HiveButton(
+                    text = "Edit stack",
                     onClick = onEdit,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                ) { Text("Edit stack", fontWeight = FontWeight.Bold) }
+                )
             }
             return@Page
         }
@@ -164,27 +151,19 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
             if (onPhone) {
                 Spacer(Modifier.height(4.dp))
-                OutlinedTextField(
+                HiveTextField(
                     value = name,
                     onValueChange = { hostName = it.take(30) },
-                    label = { Text("Your name as Host") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
+                    label = "Your name as Host",
                 )
             } else if (session == null) {
                 Spacer(Modifier.height(4.dp))
                 Text("Sign in to host online.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(
+                HiveButton(
+                    text = "Sign in",
                     onClick = onSignIn,
-                    shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                ) { Text("Sign in", fontWeight = FontWeight.Bold) }
+                    style = HiveButtonStyle.SECONDARY,
+                )
             }
         }
 
@@ -214,7 +193,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         val tiebreak = timeTiebreak ?: (mode == RoomMode.DISCUSSION)
         SectionHeader(title = "Scoring & Rules")
         SleekCard {
-            Toggle("Speed bonus for timed questions", speedScoring) { speedScoring = it }
+            ToggleRow("Speed bonus for timed questions", speedScoring) { speedScoring = it }
             if (speedScoring) {
                 Text(
                     "A correct answer earns up to 50% extra points, shrinking to zero as its timer runs out. Scores show one decimal.",
@@ -222,22 +201,15 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Toggle("Order equal scores by answer time", tiebreak) { timeTiebreak = it }
+            ToggleRow("Order equal scores by answer time", tiebreak) { timeTiebreak = it }
 
             Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
+            HiveTextField(
                 value = deadlineMinutes,
                 onValueChange = { deadlineMinutes = it.filter(Char::isDigit).take(4) },
-                label = { Text("Close room after (minutes)") },
-                placeholder = { Text("No deadline", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                label = "Close room after (minutes)",
+                placeholder = "No deadline",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                ),
-                modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 "Question time limits still apply. When both apply, the earlier one ends answering.",
@@ -249,7 +221,8 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
         val effectiveAdmission = if (onPhone && admission == AdmissionPolicy.SIGNED_IN_ONLY) AdmissionPolicy.EVERYONE else admission
 
-        Button(
+        HiveButton(
+            text = "Create Room",
             onClick = {
                 if (onPhone && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -258,42 +231,10 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 viewModel.create(stack, RoomOptions(mode, effectiveAdmission, speedScoring, tiebreak, deadline), onPhone, name.trim())
             },
             enabled = !state.creating && (if (onPhone) name.isNotBlank() else session != null),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ElectricBlue,
-                contentColor = Color.White,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-        ) {
-            Text("Create Room", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        }
+            modifier = Modifier.fillMaxWidth(),
+        )
         if (state.creating) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         ErrorText(state.error)
-    }
-}
-
-@Composable
-private fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = ElectricBlue,
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = MaterialTheme.hiveColors.switchTrackOff,
-            ),
-        )
     }
 }
 

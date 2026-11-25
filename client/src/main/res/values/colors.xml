@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="wax">#E4E6E0</color>
+    <color name="graphite">#202327</color>
+    <color name="honey">#F2A900</color>
+    <!-- Behind the app until its first screen draws. -->
+    <color name="window_background">@color/wax</color>
+</resources>
