@@ -66,7 +66,11 @@ hive.serverUrl=https://your-hive-server.example
 
 `hive.serverUrl` is the server that the app uses at first. Without it, a release app has no server, and a debug app looks for a demo server on the computer of the emulator. Never put the Google client secret or a Supabase secret key in the app.
 
-On the server, set `HIVE_MODE=production` and `SUPABASE_URL` in `server\.env`. Without `SUPABASE_URL`, the server starts and guests can join rooms, but nobody can sign in. Production rooms are kept in memory and end when the server stops.
+On the server, set `HIVE_MODE=production` and `SUPABASE_URL` in `server\.env`. Without `SUPABASE_URL`, the server starts and guests can join rooms, but nobody can sign in.
+
+Set `DATABASE_URL` to the session pooler address of the Supabase project to keep rooms in Postgres. The server makes and updates its tables when it starts, in a schema that the publishable key cannot read. Without `DATABASE_URL`, rooms are kept in memory and end when the server stops.
+
+`render.yaml` deploys the server to Render from `server/Dockerfile`. Create a blueprint from the repository in the Render dashboard, and enter `SUPABASE_URL` and `DATABASE_URL` there.
 
 | Situation                                    | What users see                                                                                              |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
