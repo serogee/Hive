@@ -52,7 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.engine.RoomCodes
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.SavedMembership
-import io.github.serogee.hive.localhost.LocalHost
+import io.github.serogee.hive.data.rooms.HostAddress
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.HeroCard
@@ -67,6 +67,7 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.SolidCard
 import io.github.serogee.hive.ui.common.ToggleRow
+import io.github.serogee.hive.ui.rooms.NEARBY_HELP
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.launch
@@ -369,11 +370,11 @@ fun JoinCard(
     onHostQuiz: () -> Unit,
 ) {
     var code by rememberSaveable { mutableStateOf("") }
-    var nearby by rememberSaveable { mutableStateOf(false) }
+    var typeAddress by rememberSaveable { mutableStateOf(false) }
     var address by rememberSaveable { mutableStateOf("") }
     val normalized = RoomCodes.normalize(code)
-    val hostAddress = address.trim().takeIf { nearby && it.isNotEmpty() }?.let(::normalizeAddress)
-    val ready = normalized.length == RoomCodes.LENGTH && (!nearby || hostAddress != null)
+    val hostAddress = if (typeAddress) HostAddress.normalize(address) else null
+    val ready = normalized.length == RoomCodes.LENGTH && (!typeAddress || hostAddress != null)
     val submit = { if (ready) onJoinCode(normalized, hostAddress) }
 
     SolidCard {
@@ -424,10 +425,10 @@ fun JoinCard(
             )
         }
 
-        // Local nearby phone toggle
-        ToggleRow("Nearby offline room", nearby, onSolid = true) { nearby = it }
+        // Rooms nearby are found by their code. The address is for networks that block the search.
+        ToggleRow("Enter the Host's address", typeAddress, onSolid = true) { typeAddress = it }
 
-        if (nearby) {
+        if (typeAddress) {
             HiveTextField(
                 value = address,
                 onValueChange = { address = it.take(60) },
@@ -436,7 +437,7 @@ fun JoinCard(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             )
             Text(
-                text = "Connect to the Host's Wi-Fi or hotspot first. The Host's lobby shows the address.",
+                text = NEARBY_HELP,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -508,11 +509,4 @@ private fun HomeCard(
             )
         }
     }
-}
-
-/** Accepts "192.168.43.1", "192.168.43.1:8090", or a full URL. */
-private fun normalizeAddress(raw: String): String {
-    val withScheme = if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "http://$raw"
-    val hostPart = withScheme.substringAfter("://").substringBefore('/')
-    return if (':' in hostPart) withScheme.trimEnd('/') else "${withScheme.trimEnd('/')}:${LocalHost.PORT}"
 }

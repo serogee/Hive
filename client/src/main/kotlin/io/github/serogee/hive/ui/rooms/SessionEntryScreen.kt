@@ -3,6 +3,7 @@ package io.github.serogee.hive.ui.rooms
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -25,6 +27,7 @@ import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.remote.ApiException
+import io.github.serogee.hive.data.rooms.HostAddress
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.ErrorText
@@ -32,6 +35,7 @@ import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveDialog
+import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.NameField
 import io.github.serogee.hive.ui.common.Page
@@ -60,8 +64,8 @@ data class SessionEntryUiState(
 
 class SessionEntryViewModel(
     private val code: String,
-    /** The Host phone's address, or null for the configured server. */
-    private val hostAddress: String?,
+    /** The Host phone's address, when the Player typed it. */
+    private var hostAddress: String?,
     private val rooms: RoomRepository,
     auth: AuthRepository,
 ) : ViewModel() {
@@ -75,11 +79,13 @@ class SessionEntryViewModel(
         load()
     }
 
-    fun load() = viewModelScope.launch {
+    /** Looks at [address] when the Player typed one, or nearby and online. */
+    fun load(address: String? = hostAddress) = viewModelScope.launch {
         _state.update { it.copy(loading = true, error = null) }
         try {
-            val room = rooms.lookup(code, hostAddress)
-            _state.update { it.copy(room = room, loading = false) }
+            val found = rooms.find(code, address)
+            hostAddress = found.hostAddress
+            _state.update { it.copy(room = found.room, loading = false) }
         } catch (e: Exception) {
             _state.update { it.copy(loading = false, error = e.userMessage()) }
         }
@@ -157,14 +163,15 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
     ) {
         val room = state.room
         when {
-            state.loading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            room == null -> {
-                ErrorText(state.error)
-                HiveButton(
-                    text = "Try again",
-                    onClick = { viewModel.load() },
+            state.loading -> {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Looking for the room nearby and online...",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
+            room == null -> NotFound(state.error, onRetry = { viewModel.load(it) })
             else -> {
                 RoomSummaryCard(room)
                 if (room.status == RoomStatus.ENDED) {
@@ -218,6 +225,39 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
         }
     }
 }
+
+/** Offers the Host's address, for networks where the room is not found by its code alone. */
+@Composable
+private fun NotFound(error: String?, onRetry: (address: String?) -> Unit) {
+    var address by rememberSaveable { mutableStateOf("") }
+    ErrorText(error)
+    HiveButton("Try again", onClick = { onRetry(null) }, modifier = Modifier.fillMaxWidth())
+    SleekCard {
+        Caption("Is the room on a phone nearby?")
+        Text(
+            NEARBY_HELP,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        HiveTextField(
+            value = address,
+            onValueChange = { address = it.take(60) },
+            label = "Host address (e.g. 192.168.43.1:8090)",
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        )
+        HiveButton(
+            text = "Join with this address",
+            onClick = { onRetry(HostAddress.normalize(address)) },
+            enabled = address.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+            style = HiveButtonStyle.SECONDARY,
+        )
+    }
+}
+
+/** Why a room on a phone may need its address. */
+const val NEARBY_HELP = "Connect to the Host's Wi-Fi or hotspot first. Some school, office, and guest networks keep phones from " +
+    "finding each other. If the room is still not found, enter the address from the Host's lobby."
 
 @Composable
 fun RoomSummaryCard(room: RoomSummary) {
