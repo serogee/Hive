@@ -4,12 +4,12 @@ Hive is an offline-first Android app for creating question stacks, reviewing the
 
 ## Repository layout
 
-| Directory      | Contents                                                                              |
-| -------------- | ------------------------------------------------------------------------------------- |
-| `client/`      | Android app: Compose screens, ViewModels, local storage, networking, embedded host    |
-| `server/`      | Standalone Ktor server. Only the demo configuration runs so far.                      |
-| `shared/core/` | Plain Kotlin models, API contracts, and quiz rules with no Android or Ktor dependency |
-| `shared/host/` | Reusable room service and Ktor room handlers for the server and the embedded host     |
+| Directory      | Contents                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `client/`      | Android app: Compose screens, ViewModels, local storage, networking, embedded host        |
+| `server/`      | Standalone Ktor server, for demos with local data or for production with Supabase sign-in |
+| `shared/core/` | Plain Kotlin models, API contracts, and quiz rules with no Android or Ktor dependency     |
+| `shared/host/` | Reusable room service and Ktor room handlers for the server and the embedded host         |
 
 ## Requirements
 
@@ -52,6 +52,30 @@ Build and install the debug app on a connected phone:
 ```powershell
 .\gradlew.bat :client:installDebug
 ```
+
+## Sign-in and the online server
+
+Stacks, reviews, hosting on a phone, and joining nearby phones work without any of this. Google sign-in turns itself on when the app is built with three values. Put them in `%USERPROFILE%\.gradle\gradle.properties`, outside the repository:
+
+```properties
+hive.supabaseUrl=https://your-project.supabase.co
+hive.supabaseKey=your-publishable-key
+hive.googleWebClientId=your-web-client-id.apps.googleusercontent.com
+hive.serverUrl=https://your-hive-server.example
+```
+
+`hive.serverUrl` is the server that the app uses at first. Without it, a release app has no server, and a debug app looks for a demo server on the computer of the emulator. Never put the Google client secret or a Supabase secret key in the app.
+
+On the server, set `HIVE_MODE=production` and `SUPABASE_URL` in `server\.env`. Without `SUPABASE_URL`, the server starts and guests can join rooms, but nobody can sign in. Production rooms are kept in memory and end when the server stops.
+
+| Situation                                    | What users see                                                                                              |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| A value is missing                           | Continue with Google is greyed out with a lock and "Sign-in is down right now"                              |
+| Signed out, and the server cannot be reached | Online features are greyed out with a lock and "The server is down right now" or "The server is not set up" |
+| Signed in, and the server cannot be reached  | Online features have a dashed outline and "Connection is currently unavailable". Users stay signed in.      |
+| The server runs without `SUPABASE_URL`       | Features that need an account are greyed out with "Sign-in is down right now"                               |
+
+Account shows the state of the server, with Retry when it is down. Debug apps also have the demo accounts for the demo server. Release apps do not.
 
 ## Two-phone demo with the demo server
 

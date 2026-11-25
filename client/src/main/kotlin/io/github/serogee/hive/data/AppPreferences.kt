@@ -7,9 +7,10 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.serogee.hive.BuildConfig
-import io.github.serogee.hive.core.api.AuthSession
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.model.RoomId
+import io.github.serogee.hive.data.auth.SessionStore
+import io.github.serogee.hive.data.auth.UserSession
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.theme.AnswerColorChoice
 import io.github.serogee.hive.ui.theme.ThemePreference
@@ -38,7 +39,7 @@ data class SavedMembership(
 )
 
 /** Small settings and credentials stored on this device. */
-class AppPreferences(context: Context) {
+class AppPreferences(context: Context) : SessionStore {
     private val store = context.applicationContext.dataStore
 
     val serverUrl: Flow<String> = store.data.map { it[SERVER_URL] ?: BuildConfig.DEFAULT_SERVER_URL }
@@ -47,7 +48,7 @@ class AppPreferences(context: Context) {
     }
     val answerColors: Flow<AnswerColorChoice> = store.data.map { AnswerColorChoice.of(it[ANSWER_COLORS]) }
     val answerInput: Flow<AnswerInput> = store.data.map { AnswerInput.of(it[ANSWER_INPUT]) }
-    val session: Flow<AuthSession?> = store.data.map { it.decode(SESSION, AuthSession.serializer()) }
+    override val session: Flow<UserSession?> = store.data.map { it.decode(SESSION, UserSession.serializer()) }
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
 
@@ -61,7 +62,7 @@ class AppPreferences(context: Context) {
 
     suspend fun currentServerUrl(): String = serverUrl.first()
 
-    suspend fun currentSession(): AuthSession? = session.first()
+    override suspend fun currentSession(): UserSession? = session.first()
 
     suspend fun setServerUrl(url: String) = store.edit { it[SERVER_URL] = url }
 
@@ -82,8 +83,10 @@ class AppPreferences(context: Context) {
 
     suspend fun setAnswerInput(input: AnswerInput) = store.edit { it[ANSWER_INPUT] = input.name }
 
-    suspend fun setSession(session: AuthSession?) = store.edit { prefs ->
-        if (session == null) prefs.remove(SESSION) else prefs[SESSION] = HiveJson.encodeToString(AuthSession.serializer(), session)
+    override suspend fun setSession(session: UserSession?) {
+        store.edit { prefs ->
+            if (session == null) prefs.remove(SESSION) else prefs[SESSION] = HiveJson.encodeToString(UserSession.serializer(), session)
+        }
     }
 
     suspend fun setJoinedRoom(membership: SavedMembership?) = store.edit { prefs ->

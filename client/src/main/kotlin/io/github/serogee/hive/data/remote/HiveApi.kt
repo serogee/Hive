@@ -47,6 +47,17 @@ import kotlinx.coroutines.flow.channelFlow
 /** A failure that the server described with an [ApiError]. */
 class ApiException(val error: ApiError) : Exception(error.message)
 
+/** A client that reads and writes JSON, and gives up on a server that does not answer. */
+fun jsonHttpClient(): HttpClient = HttpClient(OkHttp) {
+    expectSuccess = false
+    install(ContentNegotiation) { json(HiveJson) }
+    install(WebSockets) { pingIntervalMillis = 15.seconds.inWholeMilliseconds }
+    install(HttpTimeout) {
+        connectTimeoutMillis = 5_000
+        requestTimeoutMillis = 10_000
+    }
+}
+
 /**
  * HTTP and WebSocket client for any Hive server: demo, production, or a Host phone.
  *
@@ -57,15 +68,7 @@ class HiveApi(
     private val accessToken: suspend () -> String?,
     private val onSessionExpired: suspend () -> Unit,
 ) {
-    private val http = HttpClient(OkHttp) {
-        expectSuccess = false
-        install(ContentNegotiation) { json(HiveJson) }
-        install(WebSockets) { pingIntervalMillis = 15.seconds.inWholeMilliseconds }
-        install(HttpTimeout) {
-            connectTimeoutMillis = 5_000
-            requestTimeoutMillis = 10_000
-        }
-    }
+    private val http = jsonHttpClient()
 
     suspend fun health(url: String): HealthResponse =
         http.get(url.trimEnd('/') + ApiPaths.HEALTH).unwrap()

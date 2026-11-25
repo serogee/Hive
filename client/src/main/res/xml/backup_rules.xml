@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Before Android 12. The excluded file holds the sign-in and the credentials for rooms. -->
+<full-backup-content>
+    <exclude
+        domain="file"
+        path="datastore/hive.preferences_pb" />
+</full-backup-content>

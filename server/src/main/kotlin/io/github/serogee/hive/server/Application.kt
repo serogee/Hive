@@ -1,5 +1,6 @@
 package io.github.serogee.hive.server
 
+import io.github.serogee.hive.core.api.HealthMode
 import io.github.serogee.hive.host.AccountVerifier
 import io.github.serogee.hive.host.RoomService
 import io.github.serogee.hive.host.RoomStore
@@ -21,6 +22,7 @@ import io.ktor.server.routing.routing
 class Backend(
     val rooms: RoomStore,
     val accounts: AccountVerifier,
+    val mode: HealthMode = HealthMode.DEMO,
     /** Routes that exist only in this configuration, such as demo login. */
     val extraRoutes: Route.() -> Unit = {},
 )
@@ -33,7 +35,7 @@ fun Application.hiveModule(backend: Backend) {
 
     routing {
         route("/v1") {
-            healthRoutes()
+            healthRoutes(backend.mode, backend.accounts)
             accountRoutes(backend.accounts)
             roomRoutes(roomService, backend.accounts)
             backend.extraRoutes(this)

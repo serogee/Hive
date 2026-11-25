@@ -2,14 +2,22 @@ package io.github.serogee.hive
 
 import android.app.Application
 import io.github.serogee.hive.data.AppPreferences
-import io.github.serogee.hive.data.auth.AuthProvider
+import io.github.serogee.hive.data.auth.ApiDemoAuth
+import io.github.serogee.hive.data.auth.AuthConfig
 import io.github.serogee.hive.data.auth.AuthRepository
-import io.github.serogee.hive.data.auth.DemoAuthProvider
+import io.github.serogee.hive.data.auth.GoogleIdTokens
+import io.github.serogee.hive.data.auth.SupabaseAuth
 import io.github.serogee.hive.data.local.HiveDatabase
 import io.github.serogee.hive.data.local.LocalRoomStore
 import io.github.serogee.hive.data.remote.HiveApi
+import io.github.serogee.hive.data.remote.jsonHttpClient
 import io.github.serogee.hive.data.review.ReviewRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
+import io.github.serogee.hive.data.server.OnlineFacts
+import io.github.serogee.hive.data.server.ServerMonitor
+import io.github.serogee.hive.data.server.ServerState
+import io.github.serogee.hive.data.server.ServerStatus
+import io.github.serogee.hive.data.server.ServerTriggers
 import io.github.serogee.hive.data.stacks.StackRepository
 import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.localhost.LocalHost
@@ -20,6 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -28,18 +37,23 @@ class AppContainer(application: Application) {
     val appScope = CoroutineScope(SupervisorJob())
     val preferences = AppPreferences(application)
 
-    val api = HiveApi(
+    val api: HiveApi = HiveApi(
         serverUrl = { preferences.currentServerUrl() },
-        accessToken = { preferences.currentSession()?.accessToken },
-        onSessionExpired = { preferences.setSession(null) },
+        accessToken = { auth.accessToken() },
+        onSessionExpired = { auth.sessionRefused() },
     )
 
-    private val authProvider: AuthProvider = when (BuildConfig.AUTH_PROVIDER) {
-        "demo" -> DemoAuthProvider(api)
-        else -> error("Unknown auth provider ${BuildConfig.AUTH_PROVIDER}")
-    }
+    private val authConfig = AuthConfig.of(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_KEY, BuildConfig.GOOGLE_WEB_CLIENT_ID)
 
-    val auth = AuthRepository(preferences, authProvider)
+    /** Null when Google sign-in is not set up. */
+    val googleIdTokens: GoogleIdTokens? = authConfig?.let { GoogleIdTokens(it.googleWebClientId) }
+
+    val auth: AuthRepository = AuthRepository(
+        sessions = preferences,
+        supabase = authConfig?.let { SupabaseAuth(jsonHttpClient(), it) },
+        demo = if (BuildConfig.DEBUG) ApiDemoAuth(api) else null,
+    )
+    val server = ServerMonitor(preferences.serverUrl, api::health, appScope)
     val database = HiveDatabase.create(application)
     private val localRoomStore = LocalRoomStore(database.localRooms())
     val localHost = LocalHost(localRoomStore)
@@ -57,6 +71,15 @@ class AppContainer(application: Application) {
     val stackList = stacks.stacks.kept()
     val latestUnfinishedReview = reviews.latestUnfinished.kept()
     val finishedReviews = reviews.finished.kept()
+
+    val serverUrl = preferences.serverUrl.kept()
+
+    /** Decides which online features work now. */
+    val online: StateFlow<OnlineFacts> = combine(auth.session, server.status) { session, status -> facts(session != null, status) }
+        .stateIn(appScope, SharingStarted.WhileSubscribed(KEEP_MILLIS), facts(signedIn = false, ServerStatus(ServerState.CHECKING)))
+
+    private fun facts(signedIn: Boolean, status: ServerStatus) =
+        OnlineFacts(auth.googleAvailable, auth.demoAvailable, signedIn, status)
 
     private fun <T> Flow<T>.kept(): StateFlow<T?> = stateIn(appScope, SharingStarted.WhileSubscribed(KEEP_MILLIS), null)
 
@@ -80,6 +103,7 @@ class HiveApplication : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.appScope.launch { container.auth.restore() }
+        ServerTriggers(this, container.server)
         // Keeps the app running while the embedded server runs, and lets it close afterwards.
         container.appScope.launch {
             container.rooms.localHostRunning.collect { running ->

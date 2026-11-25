@@ -42,6 +42,8 @@ import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.rooms.RoomOptions
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.ui.common.ErrorText
+import io.github.serogee.hive.ui.common.GateNote
+import io.github.serogee.hive.ui.common.Gated
 import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
@@ -54,6 +56,7 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.ToggleRow
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.common.watchOnline
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -105,6 +108,8 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
 
     val draft by remember(stackId) { container.stacks.observeDraft(stackId) }.collectAsStateWithLifecycle(null)
 
+    val gate = watchOnline().accountGate()
+
     LaunchedEffect(state.created) {
         val created = state.created ?: return@LaunchedEffect
         onCreated(created)
@@ -142,15 +147,18 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 label = "On this phone (Wi-Fi or hotspot, no internet needed)",
                 selected = onPhone,
             ) { onPhone = true }
-            Choice(
-                label = "Online (on the Hive server over the internet)",
-                selected = !onPhone,
-            ) { onPhone = false }
+            Gated(gate) { enabled ->
+                Choice(
+                    label = "Online (on the Hive server over the internet)",
+                    selected = !onPhone,
+                    enabled = enabled,
+                ) { onPhone = false }
+            }
 
             if (onPhone) {
                 Spacer(Modifier.height(4.dp))
                 NameField("Your name as Host", hostName, { hostName = it }, myName, useMyName) { useMyName = it }
-            } else if (session == null) {
+            } else if (session == null && gate == null) {
                 Spacer(Modifier.height(4.dp))
                 Text("Sign in to host online.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 HiveButton(
@@ -171,9 +179,10 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         SectionHeader(title = "Who can join")
         SleekCard {
             AdmissionPolicy.entries.forEach { option ->
-                val unavailable = onPhone && option == AdmissionPolicy.SIGNED_IN_ONLY
+                val unavailable = option == AdmissionPolicy.SIGNED_IN_ONLY && (onPhone || gate != null)
                 Choice(option.label(), selected = admission == option && !unavailable, enabled = !unavailable) { admission = option }
             }
+            if (!onPhone && gate != null) GateNote(gate)
             if (onPhone) {
                 Text(
                     "Rooms on this phone admit Players as guests. Signed-in Players only needs a way to check accounts " +
@@ -224,7 +233,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 val deadline = deadlineMinutes.toLongOrNull()?.takeIf { it > 0 }?.let { System.currentTimeMillis() + it * 60_000 }
                 viewModel.create(stack, RoomOptions(mode, effectiveAdmission, speedScoring, tiebreak, deadline), onPhone, name.trim())
             },
-            enabled = !state.creating && (if (onPhone) name.isNotBlank() else session != null),
+            enabled = !state.creating && (if (onPhone) name.isNotBlank() else session != null && gate == null),
             modifier = Modifier.fillMaxWidth(),
         )
         if (state.creating) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)

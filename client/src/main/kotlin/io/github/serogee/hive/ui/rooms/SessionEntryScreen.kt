@@ -29,8 +29,11 @@ import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.remote.ApiException
 import io.github.serogee.hive.data.rooms.HostAddress
 import io.github.serogee.hive.data.rooms.RoomRepository
+import io.github.serogee.hive.data.server.Gate
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.ErrorText
+import io.github.serogee.hive.ui.common.GateNote
+import io.github.serogee.hive.ui.common.Gated
 import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
@@ -42,6 +45,7 @@ import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.common.watchOnline
 import io.github.serogee.hive.ui.theme.Honey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -141,6 +145,7 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
     val state by viewModel.state.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
     val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
+    val online = watchOnline()
     var typedName by rememberSaveable { mutableStateOf("") }
     var useMyName by rememberSaveable { mutableStateOf(true) }
 
@@ -171,7 +176,7 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            room == null -> NotFound(state.error, onRetry = { viewModel.load(it) })
+            room == null -> NotFound(state.error, online.serverGate(), onRetry = { viewModel.load(it) })
             else -> {
                 RoomSummaryCard(room)
                 if (room.status == RoomStatus.ENDED) {
@@ -202,21 +207,24 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
 
                 if (accountsAllowed) {
                     val signedIn = account
-                    if (signedIn != null) {
-                        HiveButton(
-                            text = "Join as ${signedIn.displayName}",
-                            onClick = { viewModel.join(null, asGuest = false) },
-                            enabled = !state.joining,
-                            modifier = Modifier.fillMaxWidth(),
-                            style = HiveButtonStyle.SECONDARY,
-                        )
-                    } else {
-                        HiveButton(
-                            text = if (guestsAllowed) "Sign in to join with your account" else "Sign in to join",
-                            onClick = onSignIn,
-                            modifier = Modifier.fillMaxWidth(),
-                            style = HiveButtonStyle.SECONDARY,
-                        )
+                    Gated(online.accountGate()) { enabled ->
+                        if (signedIn != null) {
+                            HiveButton(
+                                text = "Join as ${signedIn.displayName}",
+                                onClick = { viewModel.join(null, asGuest = false) },
+                                enabled = enabled && !state.joining,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = HiveButtonStyle.SECONDARY,
+                            )
+                        } else {
+                            HiveButton(
+                                text = if (guestsAllowed) "Sign in to join with your account" else "Sign in to join",
+                                onClick = onSignIn,
+                                enabled = enabled,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = HiveButtonStyle.SECONDARY,
+                            )
+                        }
                     }
                 }
                 if (state.joining) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -228,9 +236,13 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
 
 /** Offers the Host's address, for networks where the room is not found by its code alone. */
 @Composable
-private fun NotFound(error: String?, onRetry: (address: String?) -> Unit) {
+private fun NotFound(error: String?, onlineGate: Gate?, onRetry: (address: String?) -> Unit) {
     var address by rememberSaveable { mutableStateOf("") }
-    ErrorText(error)
+    ErrorText(error.takeIf { onlineGate == null })
+    if (onlineGate != null) {
+        Text("No phone nearby hosts this code, and online rooms cannot be joined now.", style = MaterialTheme.typography.bodyMedium)
+        GateNote(onlineGate)
+    }
     HiveButton("Try again", onClick = { onRetry(null) }, modifier = Modifier.fillMaxWidth())
     SleekCard {
         Caption("Is the room on a phone nearby?")

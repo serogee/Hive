@@ -55,6 +55,7 @@ import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.rooms.HostAddress
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.CountBadge
+import io.github.serogee.hive.ui.common.GateNote
 import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HexBadge
 import io.github.serogee.hive.ui.common.HiveButton
@@ -67,6 +68,7 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.SolidCard
 import io.github.serogee.hive.ui.common.ToggleRow
+import io.github.serogee.hive.ui.common.watchOnline
 import io.github.serogee.hive.ui.rooms.NEARBY_HELP
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
@@ -147,16 +149,7 @@ fun HomeScreen(
 
         // Active Joined Room Banner (if any)
         joined?.let { membership ->
-            item {
-                HeroCard(
-                    badgeText = "ACTIVE QUIZ ROOM",
-                    title = membership.roomTitle,
-                    subtitle = "Joined as ${membership.displayName}\nCode ${membership.roomCode}",
-                    buttonText = "RETURN TO ROOM",
-                    onButtonClick = { onReturnToRoom(membership) },
-                    main = false,
-                )
-            }
+            item { JoinedRoomCard(membership, "Active quiz room", "Return to room") { onReturnToRoom(membership) } }
         }
 
         // Continue Review in Progress (if any)
@@ -356,6 +349,24 @@ fun HomeScreen(
             }
         }
     }
+}
+
+/** The room that the user is in. An online room cannot be opened while the server cannot be reached. */
+@Composable
+fun JoinedRoomCard(membership: SavedMembership, badge: String, buttonText: String, onOpen: () -> Unit) {
+    val container = LocalAppContainer.current
+    val online = watchOnline()
+    val serverUrl by container.serverUrl.collectAsStateWithLifecycle()
+    val gate = if (membership.serverUrl == serverUrl) online.serverGate() else null
+    HeroCard(
+        badgeText = badge,
+        title = membership.roomTitle,
+        subtitle = "Joined as ${membership.displayName}\nCode ${membership.roomCode}",
+        buttonText = buttonText.takeIf { gate == null },
+        onButtonClick = onOpen,
+        main = false,
+        content = gate?.let { { GateNote(it) } },
+    )
 }
 
 /**

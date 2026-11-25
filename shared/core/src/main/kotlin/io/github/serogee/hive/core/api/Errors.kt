@@ -49,6 +49,14 @@ enum class ErrorCode {
 
     @SerialName("already_in_room")
     ALREADY_IN_ROOM,
+
+    /** The server was started without its sign-in settings. */
+    @SerialName("auth_not_configured")
+    AUTH_NOT_CONFIGURED,
+
+    /** The server cannot check sign-ins now. The session can still be valid. */
+    @SerialName("auth_unavailable")
+    AUTH_UNAVAILABLE,
 }
 
 /** The body of every unsuccessful response. */

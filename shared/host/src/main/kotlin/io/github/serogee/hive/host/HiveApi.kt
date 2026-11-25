@@ -55,4 +55,7 @@ fun ErrorCode.httpStatus(): HttpStatusCode = when (this) {
     ErrorCode.RESULTS_NOT_READY,
     ErrorCode.ALREADY_IN_ROOM,
     -> HttpStatusCode.Conflict
+    ErrorCode.AUTH_NOT_CONFIGURED,
+    ErrorCode.AUTH_UNAVAILABLE,
+    -> HttpStatusCode.ServiceUnavailable
 }
