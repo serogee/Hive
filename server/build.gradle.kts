@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.ktor.server.call.logging)
     implementation(libs.logback.classic)
     implementation(libs.sqlite.jdbc)
+    implementation(libs.nimbus.jose.jwt)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.kotlinx.coroutines.test)

@@ -1,10 +1,14 @@
 package io.github.serogee.hive.server
 
+import io.github.serogee.hive.core.api.HealthMode
+import io.github.serogee.hive.host.AccountVerifier
+import io.github.serogee.hive.host.InMemoryRoomStore
 import io.github.serogee.hive.server.demo.DemoAccounts
 import io.github.serogee.hive.server.demo.DemoDatabase
 import io.github.serogee.hive.server.demo.DemoSeed
 import io.github.serogee.hive.server.demo.SqliteRoomStore
 import io.github.serogee.hive.server.demo.demoAuthRoutes
+import io.github.serogee.hive.server.supabase.SupabaseAccounts
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import java.net.Inet4Address
@@ -12,10 +16,13 @@ import java.net.NetworkInterface
 
 fun main(args: Array<String>) {
     val config = ServerConfig.from(args)
-    check(config.mode == ServerMode.DEMO) {
-        "Production mode needs Supabase settings, which are not available yet."
+    when (config.mode) {
+        ServerMode.DEMO -> runDemo(config)
+        ServerMode.PRODUCTION -> runProduction(config)
     }
+}
 
+private fun runDemo(config: ServerConfig) {
     val db = DemoDatabase.open(config.demoDatabase)
     if (config.resetDemo) {
         DemoSeed.reset(db, System.currentTimeMillis())
@@ -26,9 +33,26 @@ fun main(args: Array<String>) {
     DemoSeed.seedIfEmpty(db, System.currentTimeMillis())
 
     val accounts = DemoAccounts(db)
-    val backend = Backend(SqliteRoomStore(db), accounts) { demoAuthRoutes(accounts) }
-
     printAddresses(config.port)
+    serve(config, Backend(SqliteRoomStore(db), accounts, HealthMode.DEMO) { demoAuthRoutes(accounts) })
+}
+
+private fun runProduction(config: ServerConfig) {
+    val accounts = productionAccounts(config.supabaseUrl)
+    if (!accounts.configured) {
+        println("SUPABASE_URL is missing or is not a web address, so nobody can sign in. Guests can still join rooms.")
+    }
+    println("Rooms are kept in memory and end when the server stops.")
+    serve(config, Backend(InMemoryRoomStore(), accounts, HealthMode.PRODUCTION))
+}
+
+/** Checks Supabase tokens, or accepts nobody without a usable [supabaseUrl], so that the server always starts. */
+internal fun productionAccounts(supabaseUrl: String?): AccountVerifier {
+    val url = supabaseUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") } ?: return AccountVerifier.NotConfigured
+    return runCatching { SupabaseAccounts(url) }.getOrDefault(AccountVerifier.NotConfigured)
+}
+
+private fun serve(config: ServerConfig, backend: Backend) {
     embeddedServer(CIO, host = config.host, port = config.port) {
         hiveModule(backend)
     }.start(wait = true)

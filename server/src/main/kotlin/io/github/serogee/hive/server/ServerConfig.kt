@@ -17,6 +17,8 @@ data class ServerConfig(
     val host: String,
     val port: Int,
     val demoDatabase: Path = Path.of("data", "hive-demo.db"),
+    /** The Supabase project that signs users in, or null when it is not set up. Used in production. */
+    val supabaseUrl: String? = null,
     /** Replace the demo data with fresh seed data, then exit. */
     val resetDemo: Boolean = false,
 ) {
@@ -38,6 +40,7 @@ data class ServerConfig(
                 host = value("host", "HIVE_HOST") ?: "0.0.0.0",
                 port = value("port", "HIVE_PORT")?.toInt() ?: 8080,
                 demoDatabase = value("demo-db", "HIVE_DEMO_DB")?.let(Path::of) ?: Path.of("data", "hive-demo.db"),
+                supabaseUrl = value("supabase-url", "SUPABASE_URL")?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() },
                 resetDemo = "--reset-demo" in args,
             )
         }
