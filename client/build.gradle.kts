@@ -6,8 +6,16 @@ plugins {
     alias(libs.plugins.androidx.room)
 }
 
-/** Server used until the user enters another address in Accounts. Set with -Phive.serverUrl=... */
-val defaultServerUrl = providers.gradleProperty("hive.serverUrl").getOrElse("http://10.0.2.2:8080")
+/**
+ * Server used until the user enters another address in Accounts. Set with -Phive.serverUrl=... Without it,
+ * a debug app looks for a demo server on the computer of the emulator, and a release app has no server.
+ */
+val serverUrl = providers.gradleProperty("hive.serverUrl").orNull?.trim()
+
+/** Turn Google sign-in on when all three are set. See the README. */
+val supabaseUrl = providers.gradleProperty("hive.supabaseUrl").getOrElse("").trim()
+val supabaseKey = providers.gradleProperty("hive.supabaseKey").getOrElse("").trim()
+val googleWebClientId = providers.gradleProperty("hive.googleWebClientId").getOrElse("").trim()
 
 /** Set by app-release.cmd, which takes the version from its argument. */
 val appVersionName = providers.gradleProperty("hive.versionName").getOrElse("0.1.0")
@@ -27,8 +35,9 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
 
-        buildConfigField("String", "DEFAULT_SERVER_URL", "\"$defaultServerUrl\"")
-        buildConfigField("String", "AUTH_PROVIDER", "\"demo\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"$supabaseKey\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     signingConfigs {
@@ -43,7 +52,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "DEFAULT_SERVER_URL", "\"${serverUrl ?: "http://10.0.2.2:8080"}\"")
+        }
         release {
+            buildConfigField("String", "DEFAULT_SERVER_URL", "\"${serverUrl.orEmpty()}\"")
             signingConfig = signingConfigs.findByName("release")
         }
     }
@@ -84,6 +97,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.google.id)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
@@ -104,4 +120,5 @@ dependencies {
 
     testImplementation(kotlin("test-junit"))
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
 }

@@ -48,6 +48,8 @@ import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomStatus
+import io.github.serogee.hive.data.auth.SessionEndedException
+import io.github.serogee.hive.data.auth.SignInException
 import io.github.serogee.hive.data.remote.ApiException
 import io.github.serogee.hive.ui.theme.HEXAGON_RATIO
 import io.github.serogee.hive.ui.theme.HexagonShape
@@ -62,6 +64,8 @@ val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("No AppCo
 fun Throwable.userMessage(): String = when (this) {
     is CancellationException -> throw this
     is ApiException -> error.message
+    is SignInException -> message ?: "Sign-in did not work."
+    is SessionEndedException -> "Sign in again."
     else -> "Can't reach the Hive server. Check your Wi-Fi and the server address in Accounts."
 }
 
