@@ -13,6 +13,7 @@ import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.data.stacks.StackRepository
 import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.localhost.LocalHost
+import io.github.serogee.hive.localhost.NsdNearbyRooms
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -42,7 +43,8 @@ class AppContainer(application: Application) {
     val database = HiveDatabase.create(application)
     private val localRoomStore = LocalRoomStore(database.localRooms())
     val localHost = LocalHost(localRoomStore)
-    val rooms = RoomRepository(api, preferences, localHost, localRoomStore)
+    val nearbyRooms = NsdNearbyRooms(application)
+    val rooms = RoomRepository(api, preferences, localHost, localRoomStore, nearbyRooms)
     val stacks = StackRepository(database.stacks())
     val reviews = ReviewRepository(database.reviews())
 
@@ -85,5 +87,6 @@ class HiveApplication : Application() {
                 runCatching { if (running) HostingService.start(this@HiveApplication) else HostingService.stop(this@HiveApplication) }
             }
         }
+        container.appScope.launch { container.rooms.joinableCodes.collect(container.nearbyRooms::announce) }
     }
 }

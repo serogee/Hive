@@ -155,6 +155,17 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
             }
             _state.update { it.copy(connection = Connection.RECONNECTING) }
             delay(backoff)
+            val moved = try {
+                rooms.followMovedHost(roomId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                false
+            }
+            if (moved) {
+                backoff = 1_000L
+                continue
+            }
             backoff = (backoff * 2).coerceAtMost(10_000L)
         }
     }

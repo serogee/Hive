@@ -63,6 +63,6 @@ This checks that a fresh phone can create, review, and host a stack with no inte
 1. Turn off mobile data on both phones. On the Host phone, turn on the hotspot. Connect the Player phone to that hotspot.
 2. On both phones, tap Use Hive without an account on the Welcome screen. On the Host phone, tap Create Stack on Home and write a few questions. Tap Save.
 3. On Home, tap Review, choose the stack, choose Quiz Review or Flashcard Review, and answer the questions.
-4. On Home, tap Host Quiz and choose the stack. Keep On this phone selected, turn on Use my name or enter a name, and tap Create Room. The lobby shows the room code and the address for Players, such as `192.168.43.1:8090`.
-5. On the Player phone, enter the code on Home, turn on Nearby offline room, enter the address, tap Join, enter a name, and join as a guest.
+4. On Home, tap Host Quiz and choose the stack. Keep On this phone selected, turn on Use my name or enter a name, and tap Create Room. The lobby shows the room code, and an address such as `192.168.43.1:8090`.
+5. On the Player phone, enter the code on Home, tap Join, enter a name, and join as a guest. If the room is not found, enter the address from the lobby.
 6. Run the quiz as in the demo above. After the quiz ends, the phone stops serving rooms by itself. To end a room early, open it in Quiz Room and tap End room for everyone.

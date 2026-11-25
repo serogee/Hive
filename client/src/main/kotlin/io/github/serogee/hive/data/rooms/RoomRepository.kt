@@ -14,13 +14,17 @@ import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
+import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.AppPreferences
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.local.LocalRoomStore
 import io.github.serogee.hive.data.remote.HiveApi
 import io.github.serogee.hive.localhost.LocalHost
+import io.github.serogee.hive.localhost.NearbyRooms
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -53,7 +57,10 @@ class RoomRepository(
     private val preferences: AppPreferences,
     private val localHost: LocalHost,
     private val localRooms: LocalRoomStore,
+    nearby: NearbyRooms,
 ) {
+    private val finder = RoomFinder(api::lookupRoom, nearby)
+
     /** The room this device is in as a Player. A room that ended does not count. */
     val joinedRoom: Flow<SavedMembership?> = preferences.joinedRoom.map { it?.takeUnless(SavedMembership::ended) }
     val preferredName: Flow<String?> = preferences.preferredName
@@ -65,8 +72,26 @@ class RoomRepository(
     }
     val localHostRunning = localHost.running
 
-    /** Looks up a code on the configured server, or on a Host phone at [hostAddress]. */
-    suspend fun lookup(code: String, hostAddress: String? = null): RoomSummary = api.lookupRoom(code, hostAddress)
+    /** Codes of this phone's rooms that others can join now. */
+    val joinableCodes: Flow<Set<String>> = combine(localHost.running, localHostedRooms) { running, rooms ->
+        if (running) rooms.filter { it.status != RoomStatus.ENDED }.map { it.code }.toSet() else emptySet()
+    }.distinctUntilChanged()
+
+    /** Finds a code nearby or on the configured server, or on a Host phone at [hostAddress]. */
+    suspend fun find(code: String, hostAddress: String? = null): FoundRoom = finder.find(code, hostAddress)
+
+    /**
+     * Looks for the joined room nearby again, because a Host phone that changes networks gets another
+     * address. Returns whether the address changed.
+     */
+    suspend fun followMovedHost(roomId: RoomId): Boolean {
+        val joined = preferences.joinedRoom.first()?.takeIf { it.roomId == roomId } ?: return false
+        if (joined.serverUrl == preferences.currentServerUrl()) return false
+        val found = finder.findNearby(joined.roomCode)?.takeIf { it.room.id == roomId } ?: return false
+        val address = found.hostAddress?.takeIf { it != joined.serverUrl } ?: return false
+        preferences.setJoinedRoom(joined.copy(serverUrl = address))
+        return true
+    }
 
     suspend fun hostedRooms(): List<RoomSummary> = api.hostedRooms()
 
