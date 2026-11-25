@@ -18,6 +18,13 @@ data class Choice(
     val text: String,
 )
 
+/** The question with another time limit. Null means no limit. */
+fun Question.withDuration(seconds: Int?): Question = when (this) {
+    is Question.MultipleChoice -> copy(durationSeconds = seconds)
+    is Question.TrueFalse -> copy(durationSeconds = seconds)
+    is Question.Identification -> copy(durationSeconds = seconds)
+}
+
 /** How many typos in a typed answer still count as correct. Longer answers allow more. */
 @Serializable
 enum class TypoTolerance {

@@ -37,6 +37,21 @@ class InMemoryRoomStore : RoomStore {
         Unit
     }
 
+    override suspend fun updateSettings(room: RoomRecord) = mutex.withLock {
+        rooms.computeIfPresent(room.id) { _, current ->
+            current.copy(
+                title = room.title,
+                admission = room.admission,
+                stack = room.stack,
+                deadlineAt = room.deadlineAt,
+                speedScoring = room.speedScoring,
+                timeTiebreak = room.timeTiebreak,
+                revision = room.revision,
+            )
+        }
+        Unit
+    }
+
     override suspend fun insertParticipant(participant: ParticipantRecord, revision: Long) = mutex.withLock {
         participants += participant
         rooms.computeIfPresent(participant.roomId) { _, room -> room.copy(revision = revision) }

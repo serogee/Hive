@@ -1,5 +1,6 @@
 package io.github.serogee.hive.core.api
 
+import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.Choice
 import io.github.serogee.hive.core.model.ParticipantId
@@ -97,6 +98,20 @@ sealed interface HostCommand {
     @Serializable
     @SerialName("next_question")
     data object NextQuestion : HostCommand
+
+    /** Changes the room before the quiz starts. */
+    @Serializable
+    @SerialName("update_settings")
+    data class UpdateSettings(
+        val title: String,
+        val admission: AdmissionPolicy,
+        val speedScoring: Boolean,
+        val timeTiebreak: Boolean,
+        /** Epoch milliseconds after which the room accepts no answers, or null for no deadline. */
+        val deadlineAt: Long? = null,
+        /** Seconds for every question, 0 for no time limits, or null to keep the limit of each question. */
+        val questionSeconds: Int? = null,
+    ) : HostCommand
 
     /** Ends the room for everyone. Accepted answers are kept. */
     @Serializable

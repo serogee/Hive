@@ -144,6 +144,9 @@ interface RoomStore {
     /** Stores the room's new progress and revision. */
     suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long)
 
+    /** Stores the settings of [room] that the Host can change, its stack, and its revision. */
+    suspend fun updateSettings(room: RoomRecord)
+
     /** Adds [participant] and stores [revision] as the room's new revision. */
     suspend fun insertParticipant(participant: ParticipantRecord, revision: Long)
 

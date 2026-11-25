@@ -49,6 +49,8 @@ object RoomProgression {
             }
         }
 
+        is HostCommand.UpdateSettings -> Transition.Rejected("Settings do not move the quiz.")
+
         HostCommand.EndRoom -> when (current.status) {
             RoomStatus.ENDED -> Transition.Rejected("The quiz has already ended.")
             else -> Transition.Accepted(current.copy(status = RoomStatus.ENDED, questionOpen = false))
