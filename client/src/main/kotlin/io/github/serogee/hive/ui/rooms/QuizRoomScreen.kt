@@ -94,7 +94,7 @@ fun QuizRoomScreen(
 
     Page(
         title = "Quiz Room",
-        subtitle = "Multiplayer quiz lobbies & live sessions",
+        subtitle = "Multiplayer quiz lobbies and live sessions",
     ) {
         JoinCard(
             onJoinCode = onJoinCode,
@@ -107,7 +107,7 @@ fun QuizRoomScreen(
             HeroCard(
                 badgeText = "JOINED ROOM",
                 title = membership.roomTitle,
-                subtitle = "Code ${membership.roomCode} · as ${membership.displayName}",
+                subtitle = "Code ${membership.roomCode}, joined as ${membership.displayName}",
                 buttonText = "RECONNECT",
                 onButtonClick = { onOpenRoom(membership.roomId.value) },
                 main = false,
@@ -190,7 +190,7 @@ private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    "Code ${room.code} · ${room.mode.label()} · ${room.status.label()}",
+                    "Code ${room.code}\n${room.mode.label()}, ${room.status.label()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

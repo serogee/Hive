@@ -294,7 +294,7 @@ fun AccountsScreen(
             val mode = if (review.attempt.settings.mode == ReviewMode.QUIZ) "Quiz Review" else "Flashcard Review"
             QuizHistoryCard(
                 title = review.attempt.stack.title.ifBlank { "Untitled stack" },
-                date = "${historyDate(review.finishedAt)} · $mode",
+                date = "${historyDate(review.finishedAt)}, $mode",
                 score = review.score,
                 isHighlight = index == 0,
                 onClick = { onOpenReview(review.attempt.id) },

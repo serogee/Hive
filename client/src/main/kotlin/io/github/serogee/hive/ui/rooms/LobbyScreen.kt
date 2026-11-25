@@ -51,7 +51,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     val room = state.room
     Page(
         title = room?.room?.title ?: "Quiz Room",
-        subtitle = room?.let { "${it.room.mode.label()} · ${it.room.questionCount} questions" },
+        subtitle = room?.let { "${it.room.mode.label()}, ${it.room.questionCount} questions" },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TagPill(
@@ -144,7 +144,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
         HeroCard(
             badgeText = "ROOM CODE",
             title = room.room.code,
-            subtitle = "Players enter this code in Quiz Room · Admission: ${room.room.admission.label()}",
+            subtitle = "Players enter this code in Quiz Room.\nAdmission: ${room.room.admission.label()}",
         ) {
             if (!room.room.acceptsAccounts) {
                 val addresses = LocalAppContainer.current.rooms.playerAddresses()

@@ -57,7 +57,7 @@ fun ReviewSetupSheet(stackId: StackId, onDismiss: () -> Unit, onStart: (attemptI
 
             unfinished?.let { attempt ->
                 HiveButton(
-                    text = "Continue review · card ${attempt.position + 1} of ${attempt.order.size}",
+                    text = "Continue review, card ${attempt.position + 1} of ${attempt.order.size}",
                     onClick = { onStart(attempt.id) },
                     modifier = Modifier.fillMaxWidth(),
                     style = HiveButtonStyle.SECONDARY,

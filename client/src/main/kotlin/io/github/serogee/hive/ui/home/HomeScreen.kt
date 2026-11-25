@@ -150,7 +150,7 @@ fun HomeScreen(
                 HeroCard(
                     badgeText = "ACTIVE QUIZ ROOM",
                     title = membership.roomTitle,
-                    subtitle = "Joined as ${membership.displayName} · Code ${membership.roomCode}",
+                    subtitle = "Joined as ${membership.displayName}\nCode ${membership.roomCode}",
                     buttonText = "RETURN TO ROOM",
                     onButtonClick = { onReturnToRoom(membership) },
                     main = false,
@@ -213,6 +213,7 @@ fun HomeScreen(
                 icon = Icons.Outlined.School,
                 title = "Review",
                 subtitle = "Practice a stack on your own",
+                standaloneIcon = true,
                 onClick = onReview,
             )
         }
@@ -452,6 +453,8 @@ private fun HomeCard(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    /** Shows the icon by itself, without a hexagon behind it. */
+    standaloneIcon: Boolean = false,
     onClick: () -> Unit,
 ) {
     SleekCard(onClick = onClick) {
@@ -460,13 +463,22 @@ private fun HomeCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            HexBadge(size = 46.dp) {
+            if (standaloneIcon) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(34.dp),
                 )
+            } else {
+                HexBadge(size = 46.dp) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
             }
 
             // Title and subtitle (center)

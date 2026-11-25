@@ -225,14 +225,14 @@ fun RoomSummaryCard(room: RoomSummary) {
     HeroCard(
         badgeText = "ROOM FOUND",
         title = room.title,
-        subtitle = "Host: ${room.hostName} · ${room.questionCount} questions",
+        subtitle = "Host: ${room.hostName}\n${room.questionCount} questions",
     ) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                "${room.mode.label()} · ${room.status.label()}",
+                "${room.mode.label()}, ${room.status.label()}",
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(

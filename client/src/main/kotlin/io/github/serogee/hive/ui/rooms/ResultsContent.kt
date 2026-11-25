@@ -36,7 +36,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
         HeroCard(
             badgeText = "QUIZ COMPLETED",
             title = "$scoreFormatted PTS",
-            subtitle = "$correct of $total correct" + if (bonus > 0) " · +${SpeedBonus.format(bonus)} speed bonus" else "",
+            subtitle = "$correct of $total correct" + if (bonus > 0) ", +${SpeedBonus.format(bonus)} speed bonus" else "",
         )
 
         Row(
@@ -136,7 +136,7 @@ fun ResultsContent(results: RoomResults, isHost: Boolean) {
                         own.correct -> "Correct (+${own.points})"
                         else -> "Incorrect"
                     }
-                    VerdictTag(right = isCorrect, text = "Your answer: ${own?.answerText ?: "none"} · $verdict")
+                    VerdictTag(right = isCorrect, text = "Your answer: ${own?.answerText ?: "none"}\n$verdict")
                 }
                 question.explanation?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
