@@ -9,6 +9,13 @@ plugins {
 /** Server used until the user enters another address in Accounts. Set with -Phive.serverUrl=... */
 val defaultServerUrl = providers.gradleProperty("hive.serverUrl").getOrElse("http://10.0.2.2:8080")
 
+/** Set by app-release.cmd, which takes the version from its argument. */
+val appVersionName = providers.gradleProperty("hive.versionName").getOrElse("0.1.0")
+val appVersionCode = providers.gradleProperty("hive.versionCode").map(String::toInt).getOrElse(1)
+
+/** The release key, from the user's own gradle.properties. Without it, the release app is not signed. */
+val signingStoreFile = providers.gradleProperty("hive.signing.storeFile").orNull
+
 android {
     namespace = "io.github.serogee.hive"
     compileSdk = 37
@@ -17,11 +24,28 @@ android {
         applicationId = "io.github.serogee.hive"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         buildConfigField("String", "DEFAULT_SERVER_URL", "\"$defaultServerUrl\"")
         buildConfigField("String", "AUTH_PROVIDER", "\"demo\"")
+    }
+
+    signingConfigs {
+        if (signingStoreFile != null) {
+            create("release") {
+                storeFile = file(signingStoreFile)
+                storePassword = providers.gradleProperty("hive.signing.storePassword").get()
+                keyAlias = providers.gradleProperty("hive.signing.keyAlias").get()
+                keyPassword = providers.gradleProperty("hive.signing.keyPassword").get()
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.findByName("release")
+        }
     }
 
     buildFeatures {

@@ -14,3 +14,8 @@ local.properties
 
 # Demo server data
 server/data/
+
+# Server settings and signing keys
+server/.env
+*.jks
+*.keystore

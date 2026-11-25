@@ -16,6 +16,17 @@ Hive is an offline-first Android app for creating question stacks, reviewing the
 - JDK 17 or later
 - Android SDK with platform 37 (set `sdk.dir` in `local.properties`)
 
+## Scripts
+
+Run these from the repository root on Windows, or double-click the files.
+
+- `.\app-build.cmd` runs the JVM tests, builds the debug app, and prints where it is.
+- `.\app-dev.cmd [server URL]` installs the debug app on the connected phone or emulator and opens it.
+- `.\server-dev.cmd [--reset]` starts the demo server on port 8080, with fresh demo data after `--reset`.
+- `.\server-run.cmd` builds the server and runs it with the settings in `server\.env`. Copy `server\.env.example` to make that file.
+- `.\app-release.cmd --setup-key` makes the signing key for releases, one time. Back up the key and the settings file that it prints.
+- `.\app-release.cmd 0.1.0` tests and builds a signed app from `main`, asks, then publishes the tag and the app as a GitHub release. The notes come from `releases\0.1.0.md`, or from the merges on `main` when there is no such file.
+
 ## Common commands
 
 Run all JVM tests:
