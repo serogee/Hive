@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,6 +17,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Palette
@@ -51,17 +54,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
-import io.github.serogee.hive.core.api.AuthSession
 import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.core.review.ReviewMode
+import io.github.serogee.hive.data.auth.UserSession
+import io.github.serogee.hive.data.server.OnlineFacts
+import io.github.serogee.hive.data.server.ServerState
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.ErrorText
+import io.github.serogee.hive.ui.common.GateNote
+import io.github.serogee.hive.ui.common.GoogleSignIn
 import io.github.serogee.hive.ui.common.HexBadge
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveDialog
 import io.github.serogee.hive.ui.common.HiveSegment
+import io.github.serogee.hive.ui.common.HiveTextButton
 import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.MetricStatChip
@@ -71,6 +79,7 @@ import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.SolidCard
 import io.github.serogee.hive.ui.common.TagPill
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.common.watchOnline
 import io.github.serogee.hive.ui.theme.AnswerColorChoice
 import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
@@ -91,29 +100,26 @@ data class AccountsUiState(
     val busy: Boolean = false,
     val signInError: String? = null,
     val serverStatus: String? = null,
-    /** Set after a sign-in requested by another screen succeeds. */
-    val signedIn: Boolean = false,
 )
 
 class AccountsViewModel(private val container: AppContainer) : ViewModel() {
-    val session: StateFlow<AuthSession?> = container.session
+    val session: StateFlow<UserSession?> = container.session
     val serverUrl = container.preferences.serverUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val theme = container.preferences.theme.stateIn(viewModelScope, SharingStarted.Eagerly, ThemePreference.SYSTEM)
     val answerColors = container.preferences.answerColors
         .stateIn(viewModelScope, SharingStarted.Eagerly, AnswerColorChoice.APP_HONEY)
     val answerInput = container.preferences.answerInput.stateIn(viewModelScope, SharingStarted.Eagerly, AnswerInput.CONFIRM)
     val preferredName = container.preferredName
-    val showsDemoHint = container.auth.showsDemoHint
-    val signedInLabel = container.auth.signedInLabel
+    val demoAvailable = container.auth.demoAvailable
 
     private val _state = MutableStateFlow(AccountsUiState())
     val state: StateFlow<AccountsUiState> = _state.asStateFlow()
 
-    fun signIn(username: String, password: String) = viewModelScope.launch {
+    fun signInWithDemo(username: String, password: String) = viewModelScope.launch {
         _state.update { it.copy(busy = true, signInError = null) }
         try {
-            container.auth.signIn(username, password)
-            _state.update { it.copy(busy = false, signedIn = true) }
+            container.auth.signInWithDemo(username, password)
+            _state.update { it.copy(busy = false) }
         } catch (e: Exception) {
             _state.update { it.copy(busy = false, signInError = e.userMessage()) }
         }
@@ -186,7 +192,9 @@ fun AccountsScreen(
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     var showAllHistory by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(state.signedIn) { if (state.signedIn) onSignedIn() }
+    val online = watchOnline()
+
+    LaunchedEffect(session != null) { if (signInRequested && session != null) onSignedIn() }
 
     Page(title = "Account") {
         // 1. PROFILE HERO SECTION: Initial, name, how the user signed in, and Edit Name
@@ -211,9 +219,7 @@ fun AccountsScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (session != null) {
-                        Text(viewModel.signedInLabel, style = MaterialTheme.typography.bodyMedium)
-                    }
+                    session?.let { Text(it.provider.label, style = MaterialTheme.typography.bodyMedium) }
 
                     // Edit Name Clickable Link
                     Row(
@@ -238,15 +244,10 @@ fun AccountsScreen(
 
         if (signInRequested && session == null) {
             SectionHeader(title = "Account sign in")
-            SleekCard {
-                SignInForm(
-                    busy = state.busy,
-                    showDemoHint = viewModel.showsDemoHint,
-                    onSignIn = viewModel::signIn,
-                )
-                ErrorText(state.signInError)
-            }
+            SleekCard { SignInOptions(state, viewModel.demoAvailable, viewModel::signInWithDemo) }
         }
+
+        ServerStatusLine(online, onRetry = container.server::retry)
 
         // 2. STAT CHIPS ROW: [stacks saved] [reviews finished] [rooms hosted], all from this phone
         Row(
@@ -528,12 +529,7 @@ fun AccountsScreen(
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Caption("Account sign in")
-                        SignInForm(
-                            busy = state.busy,
-                            showDemoHint = viewModel.showsDemoHint,
-                            onSignIn = viewModel::signIn,
-                        )
-                        ErrorText(state.signInError)
+                        SignInOptions(state, viewModel.demoAvailable, viewModel::signInWithDemo)
                     }
                 }
 
@@ -624,14 +620,65 @@ private fun SettingRow(icon: ImageVector, title: String, value: String?, onClick
     }
 }
 
+/** Says whether the server can be used. Signed-in users see a lost connection in its own look. */
 @Composable
-private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, String) -> Unit) {
+private fun ServerStatusLine(online: OnlineFacts, onRetry: () -> Unit) {
+    val state = online.server.state
+    val label = when (state) {
+        ServerState.ONLINE -> "Server: online"
+        ServerState.UNREACHABLE -> "Server: down"
+        ServerState.NOT_CONFIGURED -> "Server: not set up"
+        ServerState.CHECKING -> "Server: checking"
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = if (state == ServerState.ONLINE) Icons.Outlined.CloudDone else Icons.Outlined.CloudOff,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (state == ServerState.UNREACHABLE) HiveTextButton("Retry", onClick = onRetry)
+        }
+        if (online.signedIn) online.serverGate()?.let { GateNote(it) }
+    }
+}
+
+/** Google, and the demo accounts in a debug app. */
+@Composable
+private fun SignInOptions(state: AccountsUiState, demoAvailable: Boolean, onDemoSignIn: (String, String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        GoogleSignIn(onSignedIn = {})
+        if (demoAvailable) {
+            DemoSignInForm(state.busy, onDemoSignIn)
+            ErrorText(state.signInError)
+        }
+    }
+}
+
+@Composable
+private fun DemoSignInForm(busy: Boolean, onSignIn: (String, String) -> Unit) {
     var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
-    if (showDemoHint) {
-        Text("Demo server accounts: alex or sam, password hive-demo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    Caption("Demo server")
+    Text(
+        "Demo server accounts: alex or sam, password hive-demo",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     HiveTextField(
         value = username,
         onValueChange = { username = it },
@@ -649,5 +696,6 @@ private fun SignInForm(busy: Boolean, showDemoHint: Boolean, onSignIn: (String, 
         onClick = { onSignIn(username, password) },
         enabled = !busy && username.isNotBlank() && password.isNotEmpty(),
         modifier = Modifier.fillMaxWidth(),
+        style = HiveButtonStyle.SECONDARY,
     )
 }
