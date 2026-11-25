@@ -1,0 +1,18 @@
+# The server image needs only the Gradle build, the shared modules, and the server.
+.git
+.gradle
+.kotlin
+.idea
+.vscode
+.local
+**/build
+client
+releases
+scripts
+*.cmd
+*.md
+local.properties
+server/data
+server/.env
+*.jks
+*.keystore
