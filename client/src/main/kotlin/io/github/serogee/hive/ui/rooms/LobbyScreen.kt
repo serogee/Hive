@@ -215,8 +215,8 @@ private fun UnreachableRoom(hostedHere: Boolean, onBack: () -> Unit, onLeave: ()
         if (hostedHere) {
             "This phone could not open the room. Trying again."
         } else {
-            "The room cannot be reached. Trying again. Check that you are on the Host's network and that the Host is still hosting. " +
-                "If the Host's address changed, join again with the code."
+            "The room cannot be reached. Trying again, also in case the Host's address changed. Check that you are on the Host's " +
+                "network and that the Host is still hosting."
         },
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -239,7 +239,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
                 val addresses = LocalAppContainer.current.rooms.playerAddresses()
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Players on this phone's Wi-Fi or hotspot also enter this address:",
+                    "Players on this phone's Wi-Fi or hotspot need only the code. If their phone does not find the room, they also enter this address:",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (addresses.isEmpty()) {
