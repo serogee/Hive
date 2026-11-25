@@ -1,5 +1,6 @@
 package io.github.serogee.hive.server
 
+import io.github.serogee.hive.server.postgres.DatabaseSettings
 import java.nio.file.Path
 
 enum class ServerMode {
@@ -19,6 +20,8 @@ data class ServerConfig(
     val demoDatabase: Path = Path.of("data", "hive-demo.db"),
     /** The Supabase project that signs users in, or null when it is not set up. Used in production. */
     val supabaseUrl: String? = null,
+    /** Where production keeps rooms, or null to keep them in memory. */
+    val database: DatabaseSettings? = null,
     /** Replace the demo data with fresh seed data, then exit. */
     val resetDemo: Boolean = false,
 ) {
@@ -38,9 +41,12 @@ data class ServerConfig(
             return ServerConfig(
                 mode = mode,
                 host = value("host", "HIVE_HOST") ?: "0.0.0.0",
-                port = value("port", "HIVE_PORT")?.toInt() ?: 8080,
+                // Hosting services choose the port and pass it in PORT.
+                port = (options["port"] ?: env["PORT"] ?: env["HIVE_PORT"])?.toInt() ?: 8080,
                 demoDatabase = value("demo-db", "HIVE_DEMO_DB")?.let(Path::of) ?: Path.of("data", "hive-demo.db"),
                 supabaseUrl = value("supabase-url", "SUPABASE_URL")?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() },
+                // Only from the environment, because other users of a computer can see command lines.
+                database = env["DATABASE_URL"]?.takeIf { it.isNotBlank() }?.let(DatabaseSettings::parse),
                 resetDemo = "--reset-demo" in args,
             )
         }

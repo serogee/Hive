@@ -25,4 +25,5 @@ rootProject.name = "hive"
 include(":shared:core")
 include(":shared:host")
 include(":server")
-include(":client")
+// The server image is built without the app, because the app needs the Android SDK.
+if (file("client").isDirectory) include(":client")

@@ -1,0 +1,17 @@
+# Render blueprint for the production server. Enter the values that say "sync: false" in the Render dashboard.
+services:
+    - type: web
+      name: hive-server
+      runtime: docker
+      region: singapore
+      plan: starter
+      dockerfilePath: ./server/Dockerfile
+      dockerContext: .
+      healthCheckPath: /v1/health
+      envVars:
+          - key: HIVE_MODE
+            value: production
+          - key: SUPABASE_URL
+            sync: false
+          - key: DATABASE_URL
+            sync: false

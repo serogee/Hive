@@ -53,6 +53,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlin.random.asKotlinRandom
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -61,6 +62,12 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
+/**
+ * A timer can fail when storage is out of reach. Late answers are still refused, because every answer is
+ * checked against the clock, so the failure only delays the message to the Players.
+ */
+private val IgnoreLateTimers = CoroutineExceptionHandler { _, _ -> }
 
 /**
  * Room behavior shared by every hosting mode.
@@ -78,7 +85,7 @@ class RoomService(
     /** False on a server that cannot verify accounts. Players then join as guests. */
     private val accountsSupported: Boolean = true,
     /** Runs question timers. Each timer closes its question when time runs out. */
-    private val timers: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val timers: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + IgnoreLateTimers),
 ) {
     private val createLock = Mutex()
     private val roomLocks = ConcurrentHashMap<RoomId, Mutex>()
