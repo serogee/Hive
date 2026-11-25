@@ -53,7 +53,7 @@ The demo server stores its data in `server/data/hive-demo.db`. It has two fictio
 5. On the Player phone, stay signed out, enter `NETDSC` as the room code on Home, tap Join, enter a name, and join as a guest.
 6. Both lobbies now list Alex Rivera as Host and the guest's name below.
 7. On the Host phone, tap Start quiz. The Player phone shows the first question.
-8. On the Player phone, choose an answer and tap Submit answer. It shows Answer received after the server saves it, and the Host phone counts the answer.
+8. On the Player phone, choose an answer and tap Confirm. It shows Answer received after the server saves it, and the Host phone counts the answer.
 9. On the Host phone, close the question, then tap Next question or end the quiz. After the quiz ends, both phones show the results.
 
 ## Offline demo without a server
@@ -61,8 +61,8 @@ The demo server stores its data in `server/data/hive-demo.db`. It has two fictio
 This checks that a fresh phone can create, review, and host a stack with no internet and no demo server.
 
 1. Turn off mobile data on both phones. On the Host phone, turn on the hotspot. Connect the Player phone to that hotspot.
-2. On both phones, tap Use Hive without an account on the Welcome screen. On the Host phone, tap Create Stack on Home and write a few questions. Tap Done.
+2. On both phones, tap Use Hive without an account on the Welcome screen. On the Host phone, tap Create Stack on Home and write a few questions. Tap Save.
 3. On Home, tap Review, choose the stack, choose Quiz Review or Flashcard Review, and answer the questions.
-4. On Home, tap Host Quiz and choose the stack. Keep On this phone selected, enter your name, and tap Create Room. The lobby shows the room code and the address for Players, such as `192.168.43.1:8090`.
+4. On Home, tap Host Quiz and choose the stack. Keep On this phone selected, turn on Use my name or enter a name, and tap Create Room. The lobby shows the room code and the address for Players, such as `192.168.43.1:8090`.
 5. On the Player phone, enter the code on Home, turn on Nearby offline room, enter the address, tap Join, enter a name, and join as a guest.
-6. Run the quiz as in the demo above. To stop serving rooms, tap Stop hosting on this phone in Quiz Room.
+6. Run the quiz as in the demo above. After the quiz ends, the phone stops serving rooms by itself. To end a room early, open it in Quiz Room and tap End room for everyone.
