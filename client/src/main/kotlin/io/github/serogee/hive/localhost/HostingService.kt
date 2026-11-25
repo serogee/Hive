@@ -12,7 +12,9 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import io.github.serogee.hive.HiveApplication
 import io.github.serogee.hive.MainActivity
+import kotlinx.coroutines.launch
 
 /**
  * Keeps the app running while this phone hosts a room, so Players stay connected when the Host
@@ -35,12 +37,18 @@ class HostingService : Service() {
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_upload_done)
             .setContentTitle("Hosting a Hive room")
-            .setContentText("Players on this network can join. Stop hosting in Quiz Room.")
+            .setContentText("Players on this network can join. End the room in Quiz Room when you finish.")
             .setContentIntent(open)
             .setOngoing(true)
             .build()
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
+        // Android can restart this service in a new process, where the server is not running yet.
+        val container = (application as HiveApplication).container
+        container.appScope.launch {
+            val hosting = runCatching { container.rooms.resumeLocalHosting() }.getOrDefault(false)
+            if (!hosting && !container.rooms.localHostRunning.value) stopSelf()
+        }
         return START_STICKY
     }
 

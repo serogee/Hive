@@ -141,6 +141,21 @@ interface LocalRoomDao {
     )
     suspend fun setProgress(id: String, status: String, questionIndex: Int?, questionOpen: Boolean, openedAt: Long?, revision: Long)
 
+    @Query(
+        "UPDATE local_rooms SET title = :title, admission = :admission, stackJson = :stackJson, deadlineAt = :deadlineAt, " +
+            "speedScoring = :speedScoring, timeTiebreak = :timeTiebreak, revision = :revision WHERE id = :id",
+    )
+    suspend fun setSettings(
+        id: String,
+        title: String,
+        admission: String,
+        stackJson: String,
+        deadlineAt: Long?,
+        speedScoring: Boolean,
+        timeTiebreak: Boolean,
+        revision: Long,
+    )
+
     @Query("UPDATE local_participants SET leftAt = :leftAt WHERE id = :id")
     suspend fun setLeftAt(id: String, leftAt: Long?)
 
@@ -214,6 +229,27 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
     val rooms: Flow<List<RoomRecord>> = dao.observeRooms().map { list -> list.map { it.toRecord() } }
 
     suspend fun hasActiveRooms(): Boolean = dao.activeRooms().isNotEmpty()
+
+    /**
+     * Ends rooms that nobody can end any more: rooms whose deadline passed while the app was closed, and
+     * rooms that this phone has no Host credential for.
+     */
+    suspend fun endAbandonedRooms(hostedIds: Set<String>, now: Long) {
+        dao.activeRooms().map { it.toRecord() }
+            .filter { it.id.value !in hostedIds || it.effectiveStatus(now) == RoomStatus.ENDED }
+            .forEach { updateProgress(it.id, Progress(RoomStatus.ENDED, null, false), it.revision + 1) }
+    }
+
+    override suspend fun updateSettings(room: RoomRecord) = dao.setSettings(
+        id = room.id.value,
+        title = room.title,
+        admission = room.admission.name,
+        stackJson = HiveJson.encodeToString(StackSnapshot.serializer(), room.stack),
+        deadlineAt = room.deadlineAt,
+        speedScoring = room.speedScoring,
+        timeTiebreak = room.timeTiebreak,
+        revision = room.revision,
+    )
 
     override suspend fun findRoom(id: RoomId) = dao.room(id.value)?.toRecord()
 

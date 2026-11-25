@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -53,6 +54,7 @@ import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.api.AuthSession
 import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.core.review.ReviewMode
+import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HexBadge
@@ -82,7 +84,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** How many finished reviews show before Show All, so that Settings stays within reach. */
+/** How many finished reviews show before Show All. */
 private const val HISTORY_PREVIEW = 5
 
 data class AccountsUiState(
@@ -94,14 +96,13 @@ data class AccountsUiState(
 )
 
 class AccountsViewModel(private val container: AppContainer) : ViewModel() {
-    val session: StateFlow<AuthSession?> = container.auth.session
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val session: StateFlow<AuthSession?> = container.session
     val serverUrl = container.preferences.serverUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val theme = container.preferences.theme.stateIn(viewModelScope, SharingStarted.Eagerly, ThemePreference.SYSTEM)
     val answerColors = container.preferences.answerColors
         .stateIn(viewModelScope, SharingStarted.Eagerly, AnswerColorChoice.APP_HONEY)
-    val preferredName = container.preferences.preferredName
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val answerInput = container.preferences.answerInput.stateIn(viewModelScope, SharingStarted.Eagerly, AnswerInput.CONFIRM)
+    val preferredName = container.preferredName
     val showsDemoHint = container.auth.showsDemoHint
     val signedInLabel = container.auth.signedInLabel
 
@@ -123,6 +124,8 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
     fun setTheme(theme: ThemePreference) = viewModelScope.launch { container.preferences.setTheme(theme) }
 
     fun setAnswerColors(choice: AnswerColorChoice) = viewModelScope.launch { container.preferences.setAnswerColors(choice) }
+
+    fun setAnswerInput(input: AnswerInput) = viewModelScope.launch { container.preferences.setAnswerInput(input) }
 
     fun setPreferredName(name: String) = viewModelScope.launch {
         container.preferences.setPreferredName(name)
@@ -164,10 +167,11 @@ fun AccountsScreen(
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val answerColors by viewModel.answerColors.collectAsStateWithLifecycle()
+    val answerInput by viewModel.answerInput.collectAsStateWithLifecycle()
     val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
-    val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
-    val hostedRooms by container.rooms.localHostedRooms.collectAsStateWithLifecycle(emptyList())
-    val finishedReviews by container.reviews.finished.collectAsStateWithLifecycle(null)
+    val stacks by container.stackList.collectAsStateWithLifecycle()
+    val hostedRooms by container.hostedRooms.collectAsStateWithLifecycle()
+    val finishedReviews by container.finishedReviews.collectAsStateWithLifecycle()
 
     val displayName = session?.account?.displayName
         ?: preferredName?.takeIf { it.isNotBlank() }
@@ -178,6 +182,7 @@ fun AccountsScreen(
     var showEditNameDialog by rememberSaveable { mutableStateOf(false) }
     var showSettingsSheet by rememberSaveable { mutableStateOf(false) }
     var showAnswerColors by rememberSaveable { mutableStateOf(false) }
+    var showAnswerInput by rememberSaveable { mutableStateOf(false) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     var showAllHistory by rememberSaveable { mutableStateOf(false) }
 
@@ -249,7 +254,7 @@ fun AccountsScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             MetricStatChip(
-                value = "${stacks.size}",
+                value = "${stacks.orEmpty().size}",
                 label = "stacks\nsaved",
                 modifier = Modifier.weight(1f),
             )
@@ -259,13 +264,33 @@ fun AccountsScreen(
                 modifier = Modifier.weight(1f),
             )
             MetricStatChip(
-                value = "${hostedRooms.size}",
+                value = "${hostedRooms.orEmpty().size}",
                 label = "rooms\nhosted",
                 modifier = Modifier.weight(1f),
             )
         }
 
-        // 3. REVIEW HISTORY SECTION: Cards with date and score
+        // 3. SETTINGS ROWS: Each opens its bottom sheet
+        SettingRow(
+            icon = Icons.Outlined.Palette,
+            title = "Answer colours",
+            value = answerColors.label,
+            onClick = { showAnswerColors = true },
+        )
+        SettingRow(
+            icon = Icons.Outlined.TouchApp,
+            title = "Answering",
+            value = answerInput.label,
+            onClick = { showAnswerInput = true },
+        )
+        SettingRow(
+            icon = Icons.Outlined.Settings,
+            title = "Settings",
+            value = null,
+            onClick = { showSettingsSheet = true },
+        )
+
+        // 4. REVIEW HISTORY SECTION: Cards with date and score
         val finished = finishedReviews.orEmpty()
         val hasMore = finished.size > HISTORY_PREVIEW
         SectionHeader(
@@ -296,27 +321,12 @@ fun AccountsScreen(
             val mode = if (review.attempt.settings.mode == ReviewMode.QUIZ) "Quiz Review" else "Flashcard Review"
             QuizHistoryCard(
                 title = review.attempt.stack.title.ifBlank { "Untitled stack" },
-                date = "${historyDate(review.finishedAt)} · $mode",
+                date = "${historyDate(review.finishedAt)}, $mode",
                 score = review.score,
                 isHighlight = index == 0,
                 onClick = { onOpenReview(review.attempt.id) },
             )
         }
-
-        // 4. ANSWER COLOURS AND SETTINGS: Each opens its bottom sheet
-        Spacer(Modifier.height(8.dp))
-        SettingRow(
-            icon = Icons.Outlined.Palette,
-            title = "Answer colours",
-            value = answerColors.label,
-            onClick = { showAnswerColors = true },
-        )
-        SettingRow(
-            icon = Icons.Outlined.Settings,
-            title = "Settings",
-            value = null,
-            onClick = { showSettingsSheet = true },
-        )
     }
 
     if (showAnswerColors) {
@@ -324,6 +334,14 @@ fun AccountsScreen(
             selected = answerColors,
             onSelect = viewModel::setAnswerColors,
             onDismiss = { showAnswerColors = false },
+        )
+    }
+
+    if (showAnswerInput) {
+        AnswerInputSheet(
+            selected = answerInput,
+            onSelect = viewModel::setAnswerInput,
+            onDismiss = { showAnswerInput = false },
         )
     }
 

@@ -90,4 +90,21 @@ class LocalHostTest {
 
         addresses.forEach { assertEquals(true, it.startsWith("http://") && it.endsWith(":${LocalHost.PORT}")) }
     }
+
+    @Test
+    fun aRoomOpensAgainAfterTheServerStopped() = runBlocking {
+        withTimeout(60_000) {
+            host.start()
+            val membership = api.createRoom(
+                CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.DISCUSSION, hostDisplayName = "Ms. Reyes"),
+                host.selfUrl,
+            )
+            host.stop()
+            assertFalse(host.running.value)
+
+            host.start()
+            val state = api.roomState(membership.room.id, membership.participantToken, host.selfUrl)
+            assertEquals(membership.room.id, state.room.id)
+        }
+    }
 }

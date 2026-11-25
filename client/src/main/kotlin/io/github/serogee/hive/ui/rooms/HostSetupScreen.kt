@@ -26,7 +26,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -42,13 +41,13 @@ import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.rooms.RoomOptions
 import io.github.serogee.hive.data.rooms.RoomRepository
-import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.NameField
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
@@ -90,15 +89,15 @@ class HostSetupViewModel(private val rooms: RoomRepository) : ViewModel() {
 @Composable
 fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, onCreated: (Membership) -> Unit) {
     val container = LocalAppContainer.current
-    val context = LocalContext.current
     val viewModel = viewModel { HostSetupViewModel(container.rooms) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val session by container.auth.session.collectAsStateWithLifecycle(null)
-    val preferredName by container.rooms.preferredName.collectAsStateWithLifecycle(null)
+    val session by container.session.collectAsStateWithLifecycle()
+    val preferredName by container.preferredName.collectAsStateWithLifecycle()
     var mode by rememberSaveable { mutableStateOf(RoomMode.DISCUSSION) }
     var admission by rememberSaveable { mutableStateOf(AdmissionPolicy.EVERYONE) }
     var onPhone by rememberSaveable { mutableStateOf(true) }
-    var hostName by rememberSaveable { mutableStateOf<String?>(null) }
+    var hostName by rememberSaveable { mutableStateOf("") }
+    var useMyName by rememberSaveable { mutableStateOf(true) }
     var speedScoring by rememberSaveable { mutableStateOf(false) }
     var timeTiebreak by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var deadlineMinutes by rememberSaveable { mutableStateOf("") }
@@ -108,7 +107,6 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
 
     LaunchedEffect(state.created) {
         val created = state.created ?: return@LaunchedEffect
-        if (onPhone) HostingService.start(context)
         onCreated(created)
     }
 
@@ -137,6 +135,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             return@Page
         }
 
+        val myName = session?.account?.displayName ?: preferredName?.takeIf { it.isNotBlank() }
         SectionHeader(title = "Where to host")
         SleekCard {
             Choice(
@@ -148,14 +147,9 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 selected = !onPhone,
             ) { onPhone = false }
 
-            val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
             if (onPhone) {
                 Spacer(Modifier.height(4.dp))
-                HiveTextField(
-                    value = name,
-                    onValueChange = { hostName = it.take(30) },
-                    label = "Your name as Host",
-                )
+                NameField("Your name as Host", hostName, { hostName = it }, myName, useMyName) { useMyName = it }
             } else if (session == null) {
                 Spacer(Modifier.height(4.dp))
                 Text("Sign in to host online.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -218,7 +212,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             )
         }
 
-        val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
+        val name = myName?.takeIf { useMyName } ?: hostName
         val effectiveAdmission = if (onPhone && admission == AdmissionPolicy.SIGNED_IN_ONLY) AdmissionPolicy.EVERYONE else admission
 
         HiveButton(
@@ -239,7 +233,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
 }
 
 @Composable
-private fun Choice(label: String, selected: Boolean, enabled: Boolean = true, onSelect: () -> Unit) {
+internal fun Choice(label: String, selected: Boolean, enabled: Boolean = true, onSelect: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

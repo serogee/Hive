@@ -57,6 +57,24 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
         Unit
     }
 
+    override suspend fun updateSettings(room: RoomRecord) = db.write { connection ->
+        connection.prepareStatement(
+            "UPDATE rooms SET title = ?, admission = ?, stack_json = ?, deadline_at = ?, speed_scoring = ?, time_tiebreak = ?, " +
+                "revision = ? WHERE id = ?",
+        ).use {
+            it.setString(1, room.title)
+            it.setString(2, room.admission.name)
+            it.setString(3, HiveJson.encodeToString(StackSnapshot.serializer(), room.stack))
+            if (room.deadlineAt != null) it.setLong(4, room.deadlineAt!!) else it.setNull(4, Types.INTEGER)
+            it.setInt(5, if (room.speedScoring) 1 else 0)
+            it.setInt(6, if (room.timeTiebreak) 1 else 0)
+            it.setLong(7, room.revision)
+            it.setString(8, room.id.value)
+            it.executeUpdate()
+        }
+        Unit
+    }
+
     override suspend fun insertSubmission(submission: SubmissionRecord, revision: Long) = db.write { connection ->
         insertSubmission(connection, submission)
         setRevision(connection, submission.roomId, revision)

@@ -34,6 +34,9 @@ import io.github.serogee.hive.core.engine.RoomProgression
 import io.github.serogee.hive.core.engine.SpeedBonus
 import io.github.serogee.hive.core.engine.Timing
 import io.github.serogee.hive.core.engine.Transition
+import io.github.serogee.hive.core.editor.QuestionDraft
+import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.withDuration
 import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.Question
@@ -268,6 +271,7 @@ class RoomService(
         if (host.role != RoomRole.HOST) throw HiveException(ErrorCode.FORBIDDEN, "Only the Host can do this.")
 
         val now = clock.nowMillis()
+        if (command is HostCommand.UpdateSettings) return updateSettings(room, host, command, now)
         if (room.mode == RoomMode.ASYNCHRONOUS) return asyncCommand(room, host, command, now)
         // A question whose time ran out counts as closed, so the Host can move on.
         val current = room.progress.let { if (it.questionOpen && !room.acceptsAnswers(now)) it.copy(questionOpen = false) else it }
@@ -284,10 +288,52 @@ class RoomService(
                 HostCommand.Start, HostCommand.NextQuestion -> RoomEvent.QuestionOpened(roomId, revision, number)
                 HostCommand.CloseQuestion -> RoomEvent.QuestionClosed(roomId, revision, number)
                 HostCommand.EndRoom -> RoomEvent.RoomEnded(roomId, revision)
+                is HostCommand.UpdateSettings -> RoomEvent.SettingsChanged(roomId, revision)
             },
         )
         if (progress.questionOpen) scheduleClose(updated)
         stateFor(updated, host)
+    }
+
+    /** The Host changes the room in the lobby, before anyone has seen a question. */
+    private suspend fun updateSettings(room: RoomRecord, host: ParticipantRecord, command: HostCommand.UpdateSettings, now: Long): RoomState {
+        if (room.status != RoomStatus.LOBBY) {
+            throw HiveException(ErrorCode.INVALID_COMMAND, "Settings can change only before the quiz starts.")
+        }
+        val title = command.title.trim()
+        if (title.isEmpty() || title.length > MAX_TITLE_LENGTH) {
+            throw HiveException(ErrorCode.INVALID_REQUEST, "The room needs a name of up to $MAX_TITLE_LENGTH characters.")
+        }
+        if ((command.deadlineAt ?: Long.MAX_VALUE) <= now) {
+            throw HiveException(ErrorCode.INVALID_REQUEST, "The quiz deadline has already passed.")
+        }
+        if (!accountsSupported && command.admission == AdmissionPolicy.SIGNED_IN_ONLY) {
+            throw HiveException(ErrorCode.INVALID_REQUEST, "This room cannot check accounts.")
+        }
+        val seconds = command.questionSeconds
+        if (seconds != null && seconds != 0 && seconds !in QuestionDraft.MIN_DURATION_SECONDS..QuestionDraft.MAX_DURATION_SECONDS) {
+            throw HiveException(
+                ErrorCode.INVALID_REQUEST,
+                "A time limit is between ${QuestionDraft.MIN_DURATION_SECONDS} and ${QuestionDraft.MAX_DURATION_SECONDS} seconds.",
+            )
+        }
+        val stack = if (seconds == null) {
+            room.stack
+        } else {
+            room.stack.copy(questions = room.stack.questions.map { it.withDuration(seconds.takeIf { limit -> limit > 0 }) })
+        }
+        val updated = room.copy(
+            title = title,
+            admission = command.admission,
+            stack = stack,
+            deadlineAt = command.deadlineAt,
+            speedScoring = command.speedScoring,
+            timeTiebreak = command.timeTiebreak,
+            revision = room.revision + 1,
+        )
+        store.updateSettings(updated)
+        hub.publish(RoomEvent.SettingsChanged(room.id, updated.revision))
+        return stateFor(updated, host)
     }
 
     /** In an Asynchronous room, the Host only opens and ends the room. Players set their own pace. */
@@ -620,5 +666,9 @@ class RoomService(
         ErrorCode.GUESTS_NOT_ALLOWED -> "This room accepts signed-in Players only."
         ErrorCode.GUESTS_ONLY -> "This room accepts guests only. Join as a guest."
         else -> "You cannot join this room."
+    }
+
+    private companion object {
+        const val MAX_TITLE_LENGTH = 100
     }
 }

@@ -7,6 +7,7 @@ import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.QuestionId
@@ -51,6 +52,40 @@ class SqliteRoomStoreTest {
 
             assertEquals(closesAt, state.live?.closesAt)
             assertEquals(true, state.attempt?.started)
+        }
+    }
+
+    @Test
+    fun changedSettingsSurviveReopening() = runTest {
+        val roomId = DemoDatabase.open(dbPath).use { db ->
+            db.write { connection ->
+                connection.createStatement().use {
+                    it.executeUpdate("INSERT INTO accounts VALUES ('account-host', 'host', 'x', 'Host')")
+                }
+            }
+            val service = RoomService(SqliteRoomStore(db), requireAccountToHost = true)
+            val room = service.createRoom(host, CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.DISCUSSION)).room
+            val settings = HostCommand.UpdateSettings(
+                title = "Friday quiz",
+                admission = AdmissionPolicy.GUESTS_ONLY,
+                speedScoring = true,
+                timeTiebreak = false,
+                deadlineAt = Long.MAX_VALUE,
+                questionSeconds = 20,
+            )
+            service.command(room.id, host, null, settings)
+            room.id
+        }
+
+        DemoDatabase.open(dbPath).use { db ->
+            val room = checkNotNull(SqliteRoomStore(db).findRoom(roomId))
+
+            assertEquals("Friday quiz", room.title)
+            assertEquals(AdmissionPolicy.GUESTS_ONLY, room.admission)
+            assertEquals(true, room.speedScoring)
+            assertEquals(false, room.timeTiebreak)
+            assertEquals(Long.MAX_VALUE, room.deadlineAt)
+            assertEquals(setOf<Int?>(20), room.stack.questions.map { it.durationSeconds }.toSet())
         }
     }
 

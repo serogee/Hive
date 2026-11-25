@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
@@ -110,10 +111,10 @@ private fun ButtonFrame(
         HiveButtonStyle.DANGER -> MaterialTheme.colorScheme.onErrorContainer
     }
     val border = when {
-        !enabled && onSolid -> MaterialTheme.hiveColors.onSolid.copy(alpha = 0.4f)
+        !enabled && onSolid -> MaterialTheme.hiveColors.borderOnSolid.copy(alpha = 0.4f)
         !enabled -> MaterialTheme.colorScheme.outline
-        onSolid -> MaterialTheme.hiveColors.onSolid
-        else -> MaterialTheme.hiveColors.ink
+        onSolid -> MaterialTheme.hiveColors.borderOnSolid
+        else -> MaterialTheme.hiveColors.border
     }
     Button(
         onClick = onClick,
@@ -162,7 +163,8 @@ fun HiveTextField(
 ) {
     val text = if (onSolid) MaterialTheme.hiveColors.onSolid else MaterialTheme.colorScheme.onSurface
     val muted = if (onSolid) MaterialTheme.hiveColors.onSolid.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
-    val focus = if (onSolid) Honey else MaterialTheme.hiveColors.ink
+    val focus = if (onSolid || MaterialTheme.hiveColors.isDark) Honey else MaterialTheme.hiveColors.border
+    val quiet = if (onSolid) MaterialTheme.hiveColors.borderOnSolid.copy(alpha = 0.75f) else MaterialTheme.hiveColors.quietBorder
     val container = if (onSolid) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.surface
     OutlinedTextField(
         value = value,
@@ -187,7 +189,7 @@ fun HiveTextField(
             disabledContainerColor = container,
             cursorColor = if (onSolid) Honey else MaterialTheme.colorScheme.primary,
             focusedBorderColor = focus,
-            unfocusedBorderColor = muted,
+            unfocusedBorderColor = quiet,
             disabledBorderColor = MaterialTheme.colorScheme.outline,
             focusedLabelColor = if (onSolid) Honey else MaterialTheme.colorScheme.primary,
             unfocusedLabelColor = muted,
@@ -215,7 +217,7 @@ fun HiveSegment(
         shape = MaterialTheme.shapes.small,
         color = if (selected) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.surface,
         contentColor = if (selected) Honey else MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(2.dp, if (selected) MaterialTheme.hiveColors.ink else MaterialTheme.colorScheme.outline),
+        border = BorderStroke(2.dp, if (selected) MaterialTheme.hiveColors.border else MaterialTheme.colorScheme.outline),
     ) {
         Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
             Text(
@@ -254,13 +256,34 @@ fun ToggleRow(
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Graphite,
                 checkedTrackColor = Honey,
-                checkedBorderColor = if (onSolid) MaterialTheme.hiveColors.onSolid else MaterialTheme.hiveColors.ink,
+                checkedBorderColor = if (onSolid) MaterialTheme.hiveColors.borderOnSolid else MaterialTheme.hiveColors.border,
                 uncheckedThumbColor = line,
                 uncheckedTrackColor = Color.Transparent,
-                uncheckedBorderColor = line,
+                uncheckedBorderColor = if (onSolid) MaterialTheme.hiveColors.borderOnSolid else MaterialTheme.hiveColors.quietBorder,
             ),
         )
     }
+}
+
+/** A name, which the user's own name fills and locks while Use my name is on. */
+@Composable
+fun NameField(
+    label: String,
+    name: String,
+    onNameChange: (String) -> Unit,
+    /** The signed-in or guest name. Without one, there is nothing to fill in. */
+    myName: String?,
+    useMyName: Boolean,
+    onUseMyNameChange: (Boolean) -> Unit,
+) {
+    val locked = useMyName && myName != null
+    if (myName != null) ToggleRow("Use my name", locked, onChange = onUseMyNameChange)
+    HiveTextField(
+        value = if (locked) myName else name,
+        onValueChange = { onNameChange(it.take(DisplayNames.MAX_LENGTH)) },
+        label = label,
+        enabled = !locked,
+    )
 }
 
 /** Asks for a decision. [danger] is for leave, delete, and end. */
@@ -276,7 +299,7 @@ fun HiveDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.border(2.dp, MaterialTheme.hiveColors.ink, MaterialTheme.shapes.extraLarge),
+        modifier = Modifier.border(2.dp, MaterialTheme.hiveColors.border, MaterialTheme.shapes.extraLarge),
         title = { Text(title, style = MaterialTheme.typography.titleLarge) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content) },
         confirmButton = {

@@ -1,13 +1,25 @@
 package io.github.serogee.hive.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
@@ -20,14 +32,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -44,11 +62,15 @@ import io.github.serogee.hive.ui.rooms.LobbyScreen
 import io.github.serogee.hive.ui.rooms.QuizRoomScreen
 import io.github.serogee.hive.ui.review.ReviewScreen
 import io.github.serogee.hive.ui.rooms.SessionEntryScreen
+import io.github.serogee.hive.ui.stacks.EditorExit
 import io.github.serogee.hive.ui.stacks.ImportScreen
 import io.github.serogee.hive.ui.stacks.MyStacksScreen
 import io.github.serogee.hive.ui.stacks.StackDetailsScreen
 import io.github.serogee.hive.ui.stacks.StackEditorScreen
 import io.github.serogee.hive.ui.stacks.StackListPurpose
+import io.github.serogee.hive.ui.theme.Graphite
+import io.github.serogee.hive.ui.theme.HEXAGON_RATIO
+import io.github.serogee.hive.ui.theme.HexagonShape
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
 import io.github.serogee.hive.ui.welcome.WelcomeScreen
@@ -108,7 +130,13 @@ data class ImportRoute(val hostAfter: Boolean = false, val reviewAfter: Boolean 
  * returns to the review picker when the stack was created there.
  */
 @Serializable
-data class StackEditorRoute(val stackId: String, val hostAfter: Boolean = false, val reviewAfter: Boolean = false)
+data class StackEditorRoute(
+    val stackId: String,
+    val hostAfter: Boolean = false,
+    val reviewAfter: Boolean = false,
+    /** Whether the stack was created to open the editor, so that leaving without saving removes it. */
+    val isNew: Boolean = false,
+)
 
 @Serializable
 data class LobbyRoute(val roomId: String)
@@ -146,7 +174,7 @@ fun HiveApp() {
         bottomBar = {
             if (onTab && !onWelcome) {
                 HiveTabBar(
-                    isSelected = { destination?.hasRoute(it.route::class) == true },
+                    current = tabs.firstOrNull { destination?.hasRoute(it.route::class) == true },
                     onSelect = { navController.openTab(it.route) },
                 )
             }
@@ -156,6 +184,9 @@ fun HiveApp() {
             navController = navController,
             startDestination = startDestination,
             modifier = Modifier.padding(padding),
+            // Tabs switch at once. Other screens fade quickly, because the default fade takes 700 ms.
+            enterTransition = { if (betweenTabs()) EnterTransition.None else fadeIn(tween(FADE_MILLIS)) },
+            exitTransition = { if (betweenTabs()) ExitTransition.None else fadeOut(tween(FADE_MILLIS)) },
         ) {
             composable<WelcomeRoute> {
                 WelcomeScreen(
@@ -175,14 +206,14 @@ fun HiveApp() {
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
                     onHostQuiz = { navController.navigate(HostPickerRoute) },
                     onReview = { navController.navigate(ReviewPickerRoute) },
-                    onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
+                    onStackCreated = { navController.navigate(StackEditorRoute(it.value, isNew = true)) },
                 )
             }
             composable<MyStacksRoute> {
                 MyStacksScreen(
                     purpose = StackListPurpose.BROWSE,
                     onOpen = { navController.navigate(StackDetailsRoute(it.value)) },
-                    onCreated = { navController.navigate(StackEditorRoute(it.value)) },
+                    onCreated = { navController.navigate(StackEditorRoute(it.value, isNew = true)) },
                     onImport = { navController.navigate(ImportRoute()) },
                     onHost = { navController.navigate(HostSetupRoute(it.value)) },
                     onReview = { navController.navigate(ReviewRoute(it)) },
@@ -193,7 +224,7 @@ fun HiveApp() {
                     purpose = StackListPurpose.HOST,
                     onOpen = { navController.navigate(HostSetupRoute(it.value)) { popUpTo<HostPickerRoute> { inclusive = true } } },
                     onCreated = {
-                        navController.navigate(StackEditorRoute(it.value, hostAfter = true)) {
+                        navController.navigate(StackEditorRoute(it.value, hostAfter = true, isNew = true)) {
                             popUpTo<HostPickerRoute> { inclusive = true }
                         }
                     },
@@ -206,7 +237,7 @@ fun HiveApp() {
                 MyStacksScreen(
                     purpose = StackListPurpose.REVIEW,
                     onOpen = {},
-                    onCreated = { navController.navigate(StackEditorRoute(it.value, reviewAfter = true)) },
+                    onCreated = { navController.navigate(StackEditorRoute(it.value, reviewAfter = true, isNew = true)) },
                     onImport = { navController.navigate(ImportRoute(reviewAfter = true)) },
                     onReview = { navController.navigate(ReviewRoute(it)) { popUpTo<ReviewPickerRoute> { inclusive = true } } },
                 )
@@ -237,26 +268,46 @@ fun HiveApp() {
                     onReview = { navController.navigate(ReviewRoute(it)) },
                     onEdit = { navController.navigate(StackEditorRoute(stackId.value)) },
                     onDeleted = { navController.popBackStack() },
+                    onOpenStacks = { navController.openStacks() },
                 )
             }
             composable<StackEditorRoute> { entry ->
                 val route = entry.toRoute<StackEditorRoute>()
-                StackEditorScreen(StackId(route.stackId), onDone = {
-                    if (route.reviewAfter) {
+                val openDetails = {
+                    if (navController.previousBackStackEntry?.destination?.hasRoute(StackDetailsRoute::class) == true) {
                         navController.popBackStack()
-                    } else if (route.hostAfter) {
-                        navController.navigate(HostSetupRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
                     } else {
                         navController.navigate(StackDetailsRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
                     }
-                })
+                    Unit
+                }
+                StackEditorScreen(
+                    stackId = StackId(route.stackId),
+                    isNew = route.isNew,
+                    onSaved = {
+                        if (route.reviewAfter) {
+                            navController.popBackStack()
+                        } else if (route.hostAfter) {
+                            navController.navigate(HostSetupRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
+                        } else {
+                            openDetails()
+                        }
+                    },
+                    onLeave = { exit ->
+                        when (exit) {
+                            EditorExit.BACK -> navController.popBackStack()
+                            EditorExit.STACKS -> navController.openStacks()
+                            EditorExit.DETAILS -> openDetails()
+                        }
+                    },
+                )
             }
             composable<QuizRoomRoute> {
                 QuizRoomScreen(
                     onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },
                     onOpenRoom = { navController.navigate(LobbyRoute(it)) },
                     onCreateRoom = { navController.navigate(HostPickerRoute) },
-                    onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
+                    onStackCreated = { navController.navigate(StackEditorRoute(it.value, isNew = true)) },
                     onSignIn = { navController.navigate(SignInRoute) },
                 )
             }
@@ -305,46 +356,88 @@ fun HiveApp() {
                 )
             }
         }
+
+        // After NavHost, so that it comes before NavHost's own back handling, which would go to Home.
+        val activity = LocalActivity.current
+        BackHandler(enabled = onTab) { activity?.finish() }
     }
 }
 
-/** The selected tab is graphite with a honey icon and label. */
+/** A honey hexagon rises behind the icon of the selected tab. */
 @Composable
-private fun HiveTabBar(isSelected: (Tab) -> Boolean, onSelect: (Tab) -> Unit) {
+private fun HiveTabBar(current: Tab?, onSelect: (Tab) -> Unit) {
+    var tapped by remember { mutableStateOf<Tab?>(null) }
+    LaunchedEffect(tapped) {
+        val tab = tapped ?: return@LaunchedEffect
+        // Draw the new selection first, because the next screen can take a moment to compose.
+        withFrameNanos { }
+        onSelect(tab)
+    }
+    LaunchedEffect(current) { if (tapped == current) tapped = null }
+    val selectedTab = tapped ?: current
+
     Column(
         Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
             .navigationBarsPadding(),
     ) {
-        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.ink)
+        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.border)
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .padding(horizontal = 8.dp)
                 .selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             tabs.forEach { tab ->
-                val selected = isSelected(tab)
-                val content = if (selected) Honey else MaterialTheme.colorScheme.onSurfaceVariant
+                val selected = tab == selectedTab
+                val rise by animateFloatAsState(
+                    targetValue = if (selected) 1f else 0f,
+                    animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium),
+                    label = "tab",
+                )
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 56.dp)
                         .clip(MaterialTheme.shapes.medium)
-                        .background(if (selected) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.surface)
-                        .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(tab) })
+                        .selectable(selected = selected, role = Role.Tab, onClick = { if (!selected) tapped = tab })
                         .padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
                 ) {
-                    Icon(tab.icon, contentDescription = null, tint = content)
-                    Text(tab.label.uppercase(), color = content, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Box(Modifier.size(width = 48.dp, height = 40.dp), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier
+                                .graphicsLayer {
+                                    translationY = (1f - rise) * size.height
+                                    alpha = rise.coerceIn(0f, 1f)
+                                }
+                                .size(width = 40.dp * HEXAGON_RATIO, height = 40.dp)
+                                .background(Honey, HexagonShape),
+                        )
+                        Icon(
+                            tab.icon,
+                            contentDescription = null,
+                            tint = if (selected) Graphite else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        tab.label.uppercase(),
+                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                    )
                 }
             }
         }
     }
+}
+
+private const val FADE_MILLIS = 120
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.betweenTabs(): Boolean {
+    fun NavBackStackEntry.isTab() = tabs.any { destination.hasRoute(it.route::class) }
+    return initialState.isTab() && targetState.isTab()
 }
 
 private fun NavHostController.openTab(route: Any) {
@@ -353,5 +446,14 @@ private fun NavHostController.openTab(route: Any) {
         popUpTo<HomeRoute> { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+/** Goes back to My Stacks. Opening its tab instead would restore the screen that the user is leaving. */
+private fun NavHostController.openStacks() {
+    if (popBackStack(MyStacksRoute, inclusive = false)) return
+    navigate(MyStacksRoute) {
+        popUpTo<HomeRoute>()
+        launchSingleTop = true
     }
 }

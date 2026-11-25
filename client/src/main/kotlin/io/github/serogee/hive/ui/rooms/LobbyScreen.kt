@@ -5,10 +5,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,17 +50,21 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var confirmLeave by remember { mutableStateOf(false) }
+    var confirmEnd by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
 
     val room = state.room
     Page(
         title = room?.room?.title ?: "Quiz Room",
-        subtitle = room?.let { "${it.room.mode.label()} · ${it.room.questionCount} questions" },
+        subtitle = room?.let { "${it.room.mode.label()}, ${it.room.questionCount} questions" },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TagPill(
-                text = state.connection.label(),
-                selected = state.connection == Connection.LIVE,
-            )
+            if (room?.room?.status != RoomStatus.ENDED) {
+                TagPill(
+                    text = state.connection.label(),
+                    selected = state.connection == Connection.LIVE,
+                )
+            }
             room?.let {
                 TagPill(
                     text = it.room.status.label(),
@@ -67,16 +74,28 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
         }
         state.fatalError?.let {
             ErrorText(it)
+            HiveButton("Back", onClick = onLeft, modifier = Modifier.fillMaxWidth(), style = HiveButtonStyle.SECONDARY)
             return@Page
         }
         if (room == null) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            if (state.connection == Connection.RECONNECTING) {
+                UnreachableRoom(state.hostedHere, onBack = onLeft, onLeave = { confirmLeave = true })
+            }
             return@Page
         }
 
         val isHost = room.you.role == RoomRole.HOST
+        // Once the room has ended, this phone can stop serving rooms.
+        LaunchedEffect(room.room.status) { if (isHost && room.room.status == RoomStatus.ENDED) container.stopHostingSoon() }
         when (room.room.status) {
-            RoomStatus.LOBBY -> LobbyContent(room, isHost, busy = state.busy, onStart = { viewModel.command(HostCommand.Start) })
+            RoomStatus.LOBBY -> LobbyContent(
+                room = room,
+                isHost = isHost,
+                busy = state.busy,
+                onStart = { viewModel.command(HostCommand.Start) },
+                onEdit = { editing = true },
+            )
             RoomStatus.LIVE -> {
                 val live = room.live
                 when {
@@ -109,14 +128,65 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
         }
         ErrorText(state.error)
 
-        if (!isHost && room.room.status != RoomStatus.ENDED) {
-            HiveButton(
+        when {
+            room.room.status == RoomStatus.ENDED ->
+                HiveButton("Done", onClick = onLeft, modifier = Modifier.fillMaxWidth())
+            isHost -> {
+                HiveButton(
+                    text = "Leave for now",
+                    onClick = onLeft,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = HiveButtonStyle.SECONDARY,
+                )
+                Text(
+                    "The room stays open. Come back to it in Quiz Room.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                // A live room has its own button for this.
+                if (room.room.status == RoomStatus.LOBBY) {
+                    HiveButton(
+                        text = "End room for everyone",
+                        onClick = { confirmEnd = true },
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = HiveButtonStyle.DANGER,
+                    )
+                }
+            }
+            else -> HiveButton(
                 text = "Leave room",
                 onClick = { confirmLeave = true },
                 modifier = Modifier.fillMaxWidth(),
                 style = HiveButtonStyle.DANGER,
             )
         }
+    }
+
+    if (editing && room != null) {
+        RoomSettingsSheet(
+            room = room.room,
+            onSave = {
+                editing = false
+                viewModel.command(it)
+            },
+            onDismiss = { editing = false },
+        )
+    }
+
+    if (confirmEnd) {
+        HiveDialog(
+            title = "End the room for everyone?",
+            message = "Players leave the lobby, and nobody can join this room again.",
+            confirmText = "End room",
+            onConfirm = {
+                confirmEnd = false
+                viewModel.command(HostCommand.EndRoom)
+            },
+            dismissText = "Keep open",
+            onDismiss = { confirmEnd = false },
+            danger = true,
+        )
     }
 
     if (confirmLeave) {
@@ -138,13 +208,32 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     }
 }
 
+/** What to do when the room cannot be reached, so that nobody is stuck in it. */
 @Composable
-private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStart: () -> Unit) {
+private fun UnreachableRoom(hostedHere: Boolean, onBack: () -> Unit, onLeave: () -> Unit) {
+    Text(
+        if (hostedHere) {
+            "This phone could not open the room. Trying again."
+        } else {
+            "The room cannot be reached. Trying again. Check that you are on the Host's network and that the Host is still hosting. " +
+                "If the Host's address changed, join again with the code."
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    HiveButton("Back", onClick = onBack, modifier = Modifier.fillMaxWidth(), style = HiveButtonStyle.SECONDARY)
+    if (!hostedHere) {
+        HiveButton("Leave room", onClick = onLeave, modifier = Modifier.fillMaxWidth(), style = HiveButtonStyle.DANGER)
+    }
+}
+
+@Composable
+private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStart: () -> Unit, onEdit: () -> Unit) {
     if (isHost) {
         HeroCard(
             badgeText = "ROOM CODE",
             title = room.room.code,
-            subtitle = "Players enter this code in Quiz Room · Admission: ${room.room.admission.label()}",
+            subtitle = "Players enter this code in Quiz Room.\nAdmission: ${room.room.admission.label()}",
         ) {
             if (!room.room.acceptsAccounts) {
                 val addresses = LocalAppContainer.current.rooms.playerAddresses()
@@ -189,6 +278,14 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
             onClick = onStart,
             enabled = !busy && players > 0,
             modifier = Modifier.fillMaxWidth(),
+        )
+        HiveButton(
+            text = "Edit room",
+            onClick = onEdit,
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+            style = HiveButtonStyle.SECONDARY,
+            icon = Icons.Outlined.Edit,
         )
     }
 

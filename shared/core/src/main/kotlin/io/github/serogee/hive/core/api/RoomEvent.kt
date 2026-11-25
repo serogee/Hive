@@ -75,6 +75,14 @@ sealed interface RoomEvent {
         val participantId: ParticipantId,
     ) : RoomEvent
 
+    /** The Host changed the room's settings. */
+    @Serializable
+    @SerialName("settings_changed")
+    data class SettingsChanged(
+        override val roomId: RoomId,
+        override val revision: Long,
+    ) : RoomEvent
+
     @Serializable
     @SerialName("room_ended")
     data class RoomEnded(

@@ -1,5 +1,6 @@
 package io.github.serogee.hive.ui.rooms
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -26,11 +27,14 @@ import io.github.serogee.hive.core.api.LiveQuestion
 import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.describe
 import io.github.serogee.hive.core.model.Answer
+import io.github.serogee.hive.ui.common.AnswerInput
+import io.github.serogee.hive.ui.common.AnswerTaps
 import io.github.serogee.hive.ui.common.AnswerTile
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveDialog
 import io.github.serogee.hive.ui.common.HiveTextField
+import io.github.serogee.hive.ui.common.LocalAnswerInput
 import io.github.serogee.hive.ui.common.NoteBox
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.TagPill
@@ -201,6 +205,8 @@ fun PlayerLiveContent(
     var text by rememberSaveable(question.id.value) { mutableStateOf("") }
     val sendingThis = pending?.takeIf { it.questionId == question.id }
     val locked = received != null || sendingThis != null || !live.isOpen
+    val input = LocalAnswerInput.current
+    val taps = remember(question.id, input) { AnswerTaps(input) }
 
     SleekCard(active = true) {
         QuestionHeader(live, onTimeUp)
@@ -215,7 +221,10 @@ fun PlayerLiveContent(
                         selected = selected == option.id.value,
                         correct = live.isCorrect(Answer.SelectedChoice(option.id)),
                     ),
-                    onClick = { choice = option.id.value },
+                    onClick = {
+                        choice = option.id.value
+                        if (taps.locksIn(option.id.value, SystemClock.uptimeMillis())) onSubmit(Answer.SelectedChoice(option.id))
+                    },
                     enabled = !locked,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -230,7 +239,10 @@ fun PlayerLiveContent(
                             selected = selected == value,
                             correct = live.isCorrect(Answer.TrueFalse(value)),
                         ),
-                        onClick = { truth = value },
+                        onClick = {
+                            truth = value
+                            if (taps.locksIn("$value", SystemClock.uptimeMillis())) onSubmit(Answer.TrueFalse(value))
+                        },
                         enabled = !locked,
                         modifier = Modifier.weight(1f),
                     )
@@ -268,8 +280,13 @@ fun PlayerLiveContent(
                 Text("Sending answer...", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             !live.isOpen -> Text("This question is closed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            question !is PlayerQuestion.Identification && input == AnswerInput.LOCK_ON_TAP -> Text(
+                "Your first tap is your answer.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
             else -> HiveButton(
-                text = "Submit Answer",
+                text = "Confirm",
                 onClick = { answer?.let(onSubmit) },
                 enabled = answer != null,
                 modifier = Modifier.fillMaxWidth(),

@@ -13,18 +13,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.RoomSummary
+import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
-import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HeroCard
@@ -81,20 +80,18 @@ fun QuizRoomScreen(
     onSignIn: () -> Unit,
 ) {
     val container = LocalAppContainer.current
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val viewModel = viewModel { QuizRoomViewModel(container.rooms, container.auth) }
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     val joined by viewModel.joined.collectAsStateWithLifecycle()
     val hosted by viewModel.hosted.collectAsStateWithLifecycle()
-    val localRooms by container.rooms.localHostedRooms.collectAsStateWithLifecycle(emptyList())
-    val hostingHere by container.rooms.localHostRunning.collectAsStateWithLifecycle()
+    val localRooms by container.hostedRooms.collectAsStateWithLifecycle()
 
     LaunchedEffect(signedIn) { if (signedIn) viewModel.refreshHosted() }
 
     Page(
         title = "Quiz Room",
-        subtitle = "Multiplayer quiz lobbies & live sessions",
+        subtitle = "Multiplayer quiz lobbies and live sessions",
     ) {
         JoinCard(
             onJoinCode = onJoinCode,
@@ -107,41 +104,18 @@ fun QuizRoomScreen(
             HeroCard(
                 badgeText = "JOINED ROOM",
                 title = membership.roomTitle,
-                subtitle = "Code ${membership.roomCode} · as ${membership.displayName}",
+                subtitle = "Code ${membership.roomCode}, joined as ${membership.displayName}",
                 buttonText = "RECONNECT",
                 onButtonClick = { onOpenRoom(membership.roomId.value) },
                 main = false,
             )
         }
 
-        SectionHeader(
-            title = "Host a Quiz",
-            actionText = "New Room",
-            onActionClick = onCreateRoom,
-        )
-
-        HiveButton(
-            text = "Create Room",
-            onClick = onCreateRoom,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        if (localRooms.isNotEmpty()) {
+        // Rooms that ended are not listed.
+        val openRooms = localRooms.orEmpty().filter { it.status != RoomStatus.ENDED }
+        if (openRooms.isNotEmpty()) {
             SectionHeader(title = "Hosted on this phone")
-            localRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
-            if (hostingHere) {
-                HiveButton(
-                    text = "Stop hosting on this phone",
-                    onClick = {
-                        scope.launch {
-                            container.rooms.stopLocalHosting()
-                            HostingService.stop(context)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    style = HiveButtonStyle.DANGER,
-                )
-            }
+            openRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
         }
 
         SectionHeader(title = "Online Rooms")
@@ -190,7 +164,7 @@ private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    "Code ${room.code} · ${room.mode.label()} · ${room.status.label()}",
+                    "Code ${room.code}\n${room.mode.label()}, ${room.status.label()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

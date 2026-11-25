@@ -1,5 +1,6 @@
 package io.github.serogee.hive.ui.review
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,6 +36,8 @@ import io.github.serogee.hive.core.review.Review
 import io.github.serogee.hive.core.review.ReviewAttempt
 import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.data.review.ReviewRepository
+import io.github.serogee.hive.ui.common.AnswerInput
+import io.github.serogee.hive.ui.common.AnswerTaps
 import io.github.serogee.hive.ui.common.AnswerTile
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.HeroCard
@@ -42,6 +46,7 @@ import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveTextButton
 import io.github.serogee.hive.ui.common.HiveTextField
+import io.github.serogee.hive.ui.common.LocalAnswerInput
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.MetricStatChip
 import io.github.serogee.hive.ui.common.NoteBox
@@ -169,6 +174,8 @@ private fun QuizCard(
     var truth by rememberSaveable(key) { mutableStateOf<Boolean?>(null) }
     var showChoices by rememberSaveable(key) { mutableStateOf(false) }
     val checked = outcome != null
+    val input = LocalAnswerInput.current
+    val taps = remember(key, input) { AnswerTaps(input) }
 
     SleekCard(active = true) {
         Prompt(question)
@@ -194,7 +201,10 @@ private fun QuizCard(
                             selected = choice == option.id.value,
                             correct = if (checked) option.id == question.correctChoiceId else null,
                         ),
-                        onClick = { choice = option.id.value },
+                        onClick = {
+                            choice = option.id.value
+                            if (taps.locksIn(option.id.value, SystemClock.uptimeMillis())) onCheck(Answer.SelectedChoice(option.id))
+                        },
                         enabled = !checked,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -208,7 +218,10 @@ private fun QuizCard(
                                 selected = truth == value,
                                 correct = if (checked) value == question.answer else null,
                             ),
-                            onClick = { truth = value },
+                            onClick = {
+                                truth = value
+                                if (taps.locksIn("$value", SystemClock.uptimeMillis())) onCheck(Answer.TrueFalse(value))
+                            },
                             enabled = !checked,
                             modifier = Modifier.weight(1f),
                         )
@@ -227,12 +240,14 @@ private fun QuizCard(
 
         Spacer(Modifier.height(4.dp))
         if (!checked) {
-            HiveButton(
-                text = "Check Answer",
-                onClick = { answer?.let(onCheck) },
-                enabled = answer != null,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (typing || input != AnswerInput.LOCK_ON_TAP) {
+                HiveButton(
+                    text = "Confirm",
+                    onClick = { answer?.let(onCheck) },
+                    enabled = answer != null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         } else {
             AnswerFeedback(question, correct = outcome == Outcome.CORRECT)
             HiveButton(

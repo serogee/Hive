@@ -37,7 +37,7 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
         badgeText = "ASYNC ROOM",
         title = "Room ${room.room.code}",
         subtitle = "Players move through the $questions questions at their own pace" +
-            (room.room.deadlineAt?.let { " · Closes at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))}" } ?: ""),
+            (room.room.deadlineAt?.let { "\nCloses at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))}" } ?: ""),
     )
 
     SectionHeader(title = "Player Progress")
@@ -46,9 +46,9 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
     }
     room.progress.forEach { player ->
         val statusText = when {
-            player.finished -> "Finished · ${player.answeredCount} answered"
+            player.finished -> "Finished, ${player.answeredCount} answered"
             player.currentQuestion == null -> "Not started"
-            else -> "Question ${player.currentQuestion} of $questions · ${player.answeredCount} answered"
+            else -> "Question ${player.currentQuestion} of $questions, ${player.answeredCount} answered"
         }
         SleekCard {
             Text(player.displayName, style = MaterialTheme.typography.titleMedium)
