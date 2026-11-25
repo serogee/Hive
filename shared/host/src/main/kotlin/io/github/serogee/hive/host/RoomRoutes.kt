@@ -30,14 +30,15 @@ import kotlinx.coroutines.launch
 fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier?) {
     route("/rooms") {
         post {
+            // Only a server with accounts needs one here. A phone lets anyone host.
+            requireSignInSettings(accounts)
             val caller = call.account(accounts)
             val request = call.receive<CreateRoomRequest>()
             call.respond(HttpStatusCode.Created, service.createRoom(caller, request))
         }
 
         get("/hosted") {
-            val caller = call.account(accounts)
-                ?: throw HiveException(ErrorCode.SIGN_IN_REQUIRED, "Sign in to see rooms you host.")
+            val caller = call.requireAccount(accounts, "Sign in to see rooms you host.")
             call.respond(service.hostedRooms(caller))
         }
 
@@ -50,6 +51,7 @@ fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier?) {
                 val roomId = RoomId(call.parameters["id"].orEmpty())
                 val caller = call.account(accounts)
                 val request = call.receive<JoinRoomRequest>()
+                if (!request.asGuest) requireSignInSettings(accounts)
                 call.respond(service.join(roomId, caller, request, call.participantToken()))
             }
 

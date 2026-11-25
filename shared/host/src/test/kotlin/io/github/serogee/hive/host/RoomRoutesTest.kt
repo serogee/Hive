@@ -6,6 +6,7 @@ import io.github.serogee.hive.core.api.ApiError
 import io.github.serogee.hive.core.api.ApiPaths
 import io.github.serogee.hive.core.api.CreateRoomRequest
 import io.github.serogee.hive.core.api.ErrorCode
+import io.github.serogee.hive.core.api.HealthMode
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
@@ -54,7 +55,7 @@ class RoomRoutesTest {
             installHiveApi()
             routing {
                 route("/v1") {
-                    healthRoutes()
+                    healthRoutes(HealthMode.DEMO, accounts = null)
                     roomRoutes(RoomService(InMemoryRoomStore(), requireAccountToHost = true), verifier)
                 }
             }

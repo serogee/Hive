@@ -1,5 +1,6 @@
 package io.github.serogee.hive.localhost
 
+import io.github.serogee.hive.core.api.HealthMode
 import io.github.serogee.hive.host.RoomService
 import io.github.serogee.hive.host.RoomStore
 import io.github.serogee.hive.host.healthRoutes
@@ -48,7 +49,7 @@ class LocalHost(store: RoomStore) {
                     installHiveApi()
                     routing {
                         route("/v1") {
-                            healthRoutes()
+                            healthRoutes(HealthMode.PHONE, accounts = null)
                             roomRoutes(service, accounts = null)
                         }
                     }
