@@ -26,7 +26,7 @@ import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.ui.common.CountBadge
 import io.github.serogee.hive.ui.common.ErrorText
-import io.github.serogee.hive.ui.common.HeroCard
+import io.github.serogee.hive.ui.common.Gated
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.LocalAppContainer
@@ -35,7 +35,9 @@ import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
 import io.github.serogee.hive.ui.common.userMessage
+import io.github.serogee.hive.ui.common.watchOnline
 import io.github.serogee.hive.ui.home.JoinCard
+import io.github.serogee.hive.ui.home.JoinedRoomCard
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -87,7 +89,9 @@ fun QuizRoomScreen(
     val hosted by viewModel.hosted.collectAsStateWithLifecycle()
     val localRooms by container.hostedRooms.collectAsStateWithLifecycle()
 
-    LaunchedEffect(signedIn) { if (signedIn) viewModel.refreshHosted() }
+    val gate = watchOnline().accountGate()
+
+    LaunchedEffect(signedIn, gate == null) { if (signedIn && gate == null) viewModel.refreshHosted() }
 
     Page(
         title = "Quiz Room",
@@ -101,14 +105,7 @@ fun QuizRoomScreen(
 
         joined?.let { membership ->
             SectionHeader(title = "Active Room")
-            HeroCard(
-                badgeText = "JOINED ROOM",
-                title = membership.roomTitle,
-                subtitle = "Code ${membership.roomCode}, joined as ${membership.displayName}",
-                buttonText = "RECONNECT",
-                onButtonClick = { onOpenRoom(membership.roomId.value) },
-                main = false,
-            )
+            JoinedRoomCard(membership, "Joined room", "Reconnect") { onOpenRoom(membership.roomId.value) }
         }
 
         // Rooms that ended are not listed.
@@ -120,8 +117,8 @@ fun QuizRoomScreen(
 
         SectionHeader(title = "Online Rooms")
         if (!signedIn) {
-            SleekCard {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Gated(gate) { enabled ->
+                SleekCard {
                     Text(
                         "Sign in to host and join online rooms over the internet. Nearby phone rooms require no account.",
                         style = MaterialTheme.typography.bodySmall,
@@ -130,23 +127,30 @@ fun QuizRoomScreen(
                     HiveButton(
                         text = "Sign in",
                         onClick = onSignIn,
+                        enabled = enabled,
                         style = HiveButtonStyle.SECONDARY,
                     )
                 }
             }
             return@Page
         }
-        if (hosted.loading) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-        ErrorText(hosted.error)
-        if (!hosted.loading && hosted.rooms.isEmpty() && hosted.error == null) {
-            Text("No online rooms yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        Gated(gate) { enabled ->
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (hosted.loading && enabled) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                if (enabled) ErrorText(hosted.error)
+                if (!hosted.loading && hosted.rooms.isEmpty() && hosted.error == null) {
+                    Text("No online rooms yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                }
+                hosted.rooms.forEach { room ->
+                    HostedRoomCard(room, onClick = if (enabled) ({ onOpenRoom(room.id.value) }) else null)
+                }
+            }
         }
-        hosted.rooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
     }
 }
 
 @Composable
-private fun HostedRoomCard(room: RoomSummary, onClick: () -> Unit) {
+private fun HostedRoomCard(room: RoomSummary, onClick: (() -> Unit)?) {
     SleekCard(onClick = onClick) {
         Row(
             modifier = Modifier.fillMaxWidth(),
