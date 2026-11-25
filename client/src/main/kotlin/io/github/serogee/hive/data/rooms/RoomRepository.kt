@@ -54,12 +54,14 @@ class RoomRepository(
     private val localHost: LocalHost,
     private val localRooms: LocalRoomStore,
 ) {
-    val joinedRoom: Flow<SavedMembership?> = preferences.joinedRoom
+    /** The room this device is in as a Player. A room that ended does not count. */
+    val joinedRoom: Flow<SavedMembership?> = preferences.joinedRoom.map { it?.takeUnless(SavedMembership::ended) }
     val preferredName: Flow<String?> = preferences.preferredName
 
-    /** Rooms hosted on this phone, newest first. */
+    /** Rooms hosted on this phone, newest first. Rooms past their deadline are shown as ended. */
     val localHostedRooms: Flow<List<RoomSummary>> = localRooms.rooms.map { rooms ->
-        rooms.map { it.summary().copy(acceptsAccounts = false) }
+        val now = System.currentTimeMillis()
+        rooms.map { it.summary().copy(status = it.effectiveStatus(now), acceptsAccounts = false) }
     }
     val localHostRunning = localHost.running
 
@@ -82,25 +84,32 @@ class RoomRepository(
 
     /** Restarts the embedded server after the app restarts, while a hosted room is still open. */
     suspend fun resumeLocalHosting(): Boolean {
+        localRooms.endAbandonedRooms(preferences.hostTokens.first().keys, System.currentTimeMillis())
         if (!localRooms.hasActiveRooms()) return false
         localHost.start()
         return true
     }
 
-    suspend fun stopLocalHosting() = localHost.stop()
+    /** Stops the embedded server when every room on this phone has ended. */
+    suspend fun stopHostingWhenIdle() {
+        if (!localRooms.hasActiveRooms()) localHost.stop()
+    }
+
+    /** Whether this phone hosts [roomId]. */
+    suspend fun isHostedHere(roomId: RoomId): Boolean = roomId.value in preferences.hostTokens.first()
 
     fun playerAddresses(): List<String> = localHost.playerAddresses()
+
+    /**
+     * The room this device already joined, when it is a different room. A Player is in one room at a
+     * time, so joining [roomId] needs an explicit decision to leave it.
+     */
+    suspend fun otherJoinedRoom(roomId: RoomId): SavedMembership? = joinedRoom.first()?.takeIf { it.roomId != roomId }
 
     /**
      * Joins as a Player and remembers the membership. Joining the same room again sends the saved
      * credential, so a retry never creates a second participant.
      */
-    /**
-     * The room this device already joined, when it is a different room. A Player is in one room at a
-     * time, so joining [roomId] needs an explicit decision to leave it.
-     */
-    suspend fun otherJoinedRoom(roomId: RoomId): SavedMembership? = preferences.joinedRoom.first()?.takeIf { it.roomId != roomId }
-
     suspend fun join(
         room: RoomSummary,
         displayName: String?,
@@ -131,6 +140,17 @@ class RoomRepository(
         preferences.setJoinedRoom(null)
     }
 
+    /** Frees the Player to join another room, and keeps the credential for the results. */
+    suspend fun markJoinedRoomEnded(roomId: RoomId) {
+        val joined = preferences.joinedRoom.first()?.takeIf { it.roomId == roomId && !it.ended } ?: return
+        preferences.setJoinedRoom(joined.copy(ended = true))
+    }
+
+    /** Forgets a room that no longer exists, so that the Player is not stuck in it. */
+    suspend fun forgetJoinedRoom(roomId: RoomId) {
+        if (preferences.joinedRoom.first()?.roomId == roomId) preferences.setJoinedRoom(null)
+    }
+
     private suspend fun leaveQuietly(membership: SavedMembership) {
         val server = membership.serverUrl.takeUnless { it == preferences.currentServerUrl() }
         runCatching { api.leave(membership.roomId, membership.participantToken, server) }
@@ -138,7 +158,11 @@ class RoomRepository(
 
     /** The server and credential to use for [roomId]. A null server means the configured one. */
     private suspend fun access(roomId: RoomId): Pair<String?, String?> {
-        preferences.hostTokens.first()[roomId.value]?.let { return localHost.selfUrl to it }
+        preferences.hostTokens.first()[roomId.value]?.let {
+            // The server may have stopped, for example when the phone closed the app. The room needs it.
+            localHost.start()
+            return localHost.selfUrl to it
+        }
         val joined = preferences.joinedRoom.first()?.takeIf { it.roomId == roomId } ?: return null to null
         val server = joined.serverUrl.takeUnless { it == preferences.currentServerUrl() }
         return server to joined.participantToken

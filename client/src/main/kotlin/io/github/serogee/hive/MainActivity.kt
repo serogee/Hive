@@ -11,7 +11,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.ui.HiveApp
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.LocalAnswerInput
@@ -29,7 +28,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as HiveApplication).container
         // Serve rooms that this phone was hosting before the app closed.
         lifecycleScope.launch {
-            if (container.rooms.resumeLocalHosting()) HostingService.start(this@MainActivity)
+            container.rooms.resumeLocalHosting()
         }
         setContent {
             val theme by container.preferences.theme.collectAsStateWithLifecycle(ThemePreference.SYSTEM)

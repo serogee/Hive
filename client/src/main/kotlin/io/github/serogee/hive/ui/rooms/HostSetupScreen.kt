@@ -26,7 +26,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -42,7 +41,6 @@ import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.rooms.RoomOptions
 import io.github.serogee.hive.data.rooms.RoomRepository
-import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HiveButton
@@ -91,7 +89,6 @@ class HostSetupViewModel(private val rooms: RoomRepository) : ViewModel() {
 @Composable
 fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, onCreated: (Membership) -> Unit) {
     val container = LocalAppContainer.current
-    val context = LocalContext.current
     val viewModel = viewModel { HostSetupViewModel(container.rooms) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val session by container.session.collectAsStateWithLifecycle()
@@ -110,7 +107,6 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
 
     LaunchedEffect(state.created) {
         val created = state.created ?: return@LaunchedEffect
-        if (onPhone) HostingService.start(context)
         onCreated(created)
     }
 
@@ -237,7 +233,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
 }
 
 @Composable
-private fun Choice(label: String, selected: Boolean, enabled: Boolean = true, onSelect: () -> Unit) {
+internal fun Choice(label: String, selected: Boolean, enabled: Boolean = true, onSelect: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

@@ -45,6 +45,8 @@ data class LobbyUiState(
     val error: String? = null,
     /** A failure that reconnecting cannot fix, such as a deleted room. */
     val fatalError: String? = null,
+    /** Whether this phone hosts the room. */
+    val hostedHere: Boolean = false,
 )
 
 /**
@@ -56,6 +58,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
     private val _state = MutableStateFlow(LobbyUiState())
     val state: StateFlow<LobbyUiState> = _state.asStateFlow()
     init {
+        viewModelScope.launch { _state.update { it.copy(hostedHere = rooms.isHostedHere(roomId)) } }
         viewModelScope.launch { follow() }
     }
 
@@ -119,10 +122,12 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
 
     private suspend fun follow() {
         var backoff = 1_000L
-        while (true) {
+        // Nothing changes after the results, and the Host phone can stop its server.
+        while (_state.value.results == null) {
             try {
                 // Fails fast with an ApiException when the room is gone or the credential is unknown.
                 refresh()
+                if (_state.value.results != null) return
                 rooms.events(roomId).collect { event ->
                     when (event) {
                         is RoomEvent.Subscribed -> {
@@ -133,7 +138,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
                         is RoomEvent.ParticipantJoined -> applyJoin(event)
                         is RoomEvent.AnswerRecorded -> applyAnswerCount(event)
                         is RoomEvent.QuestionOpened, is RoomEvent.QuestionClosed, is RoomEvent.RoomEnded,
-                        is RoomEvent.AttemptUpdated, is RoomEvent.ParticipantLeft,
+                        is RoomEvent.AttemptUpdated, is RoomEvent.ParticipantLeft, is RoomEvent.SettingsChanged,
                         -> refresh()
                     }
                 }
@@ -141,6 +146,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
                 throw e
             } catch (e: ApiException) {
                 if (e.error.code in FATAL) {
+                    rooms.forgetJoinedRoom(roomId)
                     _state.update { it.copy(fatalError = e.error.message) }
                     return
                 }
@@ -162,6 +168,7 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
             // Ignore a snapshot older than the one on screen.
             if (current.room != null && room.revision < current.room.revision) current else current.copy(room = room)
         }
+        if (room.room.status == RoomStatus.ENDED) rooms.markJoinedRoomEnded(roomId)
         if (room.room.status == RoomStatus.ENDED && _state.value.results == null) {
             try {
                 val results = rooms.results(roomId)

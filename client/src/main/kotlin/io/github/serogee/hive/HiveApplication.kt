@@ -11,9 +11,11 @@ import io.github.serogee.hive.data.remote.HiveApi
 import io.github.serogee.hive.data.review.ReviewRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
 import io.github.serogee.hive.data.stacks.StackRepository
+import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.localhost.LocalHost
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -56,7 +58,14 @@ class AppContainer(application: Application) {
 
     private fun <T> Flow<T>.kept(): StateFlow<T?> = stateIn(appScope, SharingStarted.WhileSubscribed(KEEP_MILLIS), null)
 
+    /** Stops hosting after every room has ended, once Players have had time to get the results. */
+    fun stopHostingSoon() = appScope.launch {
+        delay(RESULTS_MILLIS)
+        rooms.stopHostingWhenIdle()
+    }
+
     private companion object {
+        const val RESULTS_MILLIS = 60_000L
         const val KEEP_MILLIS = 60_000L
     }
 }
@@ -69,5 +78,12 @@ class HiveApplication : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.appScope.launch { container.auth.restore() }
+        // Keeps the app running while the embedded server runs, and lets it close afterwards.
+        container.appScope.launch {
+            container.rooms.localHostRunning.collect { running ->
+                // Android does not allow the start while the app is in the background.
+                runCatching { if (running) HostingService.start(this@HiveApplication) else HostingService.stop(this@HiveApplication) }
+            }
+        }
     }
 }

@@ -33,6 +33,8 @@ data class SavedMembership(
     val roomTitle: String,
     val displayName: String,
     val participantToken: String,
+    /** Set when the room ended. Its results stay open, but the Player is free to join another room. */
+    val ended: Boolean = false,
 )
 
 /** Small settings and credentials stored on this device. */
