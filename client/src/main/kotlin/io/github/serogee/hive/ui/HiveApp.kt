@@ -1,5 +1,7 @@
 package io.github.serogee.hive.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -354,6 +356,10 @@ fun HiveApp() {
                 )
             }
         }
+
+        // After NavHost, so that it comes before NavHost's own back handling, which would go to Home.
+        val activity = LocalActivity.current
+        BackHandler(enabled = onTab) { activity?.finish() }
     }
 }
 
