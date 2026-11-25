@@ -49,6 +49,7 @@ import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.NameField
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
@@ -93,12 +94,13 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
     val context = LocalContext.current
     val viewModel = viewModel { HostSetupViewModel(container.rooms) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val session by container.auth.session.collectAsStateWithLifecycle(null)
-    val preferredName by container.rooms.preferredName.collectAsStateWithLifecycle(null)
+    val session by container.session.collectAsStateWithLifecycle()
+    val preferredName by container.preferredName.collectAsStateWithLifecycle()
     var mode by rememberSaveable { mutableStateOf(RoomMode.DISCUSSION) }
     var admission by rememberSaveable { mutableStateOf(AdmissionPolicy.EVERYONE) }
     var onPhone by rememberSaveable { mutableStateOf(true) }
-    var hostName by rememberSaveable { mutableStateOf<String?>(null) }
+    var hostName by rememberSaveable { mutableStateOf("") }
+    var useMyName by rememberSaveable { mutableStateOf(true) }
     var speedScoring by rememberSaveable { mutableStateOf(false) }
     var timeTiebreak by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var deadlineMinutes by rememberSaveable { mutableStateOf("") }
@@ -137,6 +139,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             return@Page
         }
 
+        val myName = session?.account?.displayName ?: preferredName?.takeIf { it.isNotBlank() }
         SectionHeader(title = "Where to host")
         SleekCard {
             Choice(
@@ -148,14 +151,9 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 selected = !onPhone,
             ) { onPhone = false }
 
-            val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
             if (onPhone) {
                 Spacer(Modifier.height(4.dp))
-                HiveTextField(
-                    value = name,
-                    onValueChange = { hostName = it.take(30) },
-                    label = "Your name as Host",
-                )
+                NameField("Your name as Host", hostName, { hostName = it }, myName, useMyName) { useMyName = it }
             } else if (session == null) {
                 Spacer(Modifier.height(4.dp))
                 Text("Sign in to host online.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -218,7 +216,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             )
         }
 
-        val name = hostName ?: session?.account?.displayName ?: preferredName.orEmpty()
+        val name = myName?.takeIf { useMyName } ?: hostName
         val effectiveAdmission = if (onPhone && admission == AdmissionPolicy.SIGNED_IN_ONLY) AdmissionPolicy.EVERYONE else admission
 
         HiveButton(

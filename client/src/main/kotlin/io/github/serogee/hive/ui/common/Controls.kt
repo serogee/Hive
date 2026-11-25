@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
@@ -262,6 +263,27 @@ fun ToggleRow(
             ),
         )
     }
+}
+
+/** A name, which the user's own name fills and locks while Use my name is on. */
+@Composable
+fun NameField(
+    label: String,
+    name: String,
+    onNameChange: (String) -> Unit,
+    /** The signed-in or guest name. Without one, there is nothing to fill in. */
+    myName: String?,
+    useMyName: Boolean,
+    onUseMyNameChange: (Boolean) -> Unit,
+) {
+    val locked = useMyName && myName != null
+    if (myName != null) ToggleRow("Use my name", locked, onChange = onUseMyNameChange)
+    HiveTextField(
+        value = if (locked) myName else name,
+        onValueChange = { onNameChange(it.take(DisplayNames.MAX_LENGTH)) },
+        label = label,
+        enabled = !locked,
+    )
 }
 
 /** Asks for a decision. [danger] is for leave, delete, and end. */

@@ -32,8 +32,8 @@ import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveDialog
-import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.NameField
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.common.label
@@ -135,7 +135,8 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
     val state by viewModel.state.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
     val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
-    var name by rememberSaveable { mutableStateOf<String?>(null) }
+    var typedName by rememberSaveable { mutableStateOf("") }
+    var useMyName by rememberSaveable { mutableStateOf(true) }
 
     LaunchedEffect(state.joined) { state.joined?.let(onJoined) }
 
@@ -178,17 +179,15 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
                 }
 
                 if (guestsAllowed) {
+                    val myName = account?.displayName ?: preferredName?.takeIf { it.isNotBlank() }
+                    val name = myName?.takeIf { useMyName } ?: typedName
                     SleekCard {
                         Caption("Join as guest")
-                        HiveTextField(
-                            value = name ?: preferredName.orEmpty(),
-                            onValueChange = { name = it },
-                            label = "Your name in this room",
-                        )
+                        NameField("Your name in this room", typedName, { typedName = it }, myName, useMyName) { useMyName = it }
                         HiveButton(
                             text = "Join as guest",
-                            onClick = { viewModel.join(name ?: preferredName, asGuest = true) },
-                            enabled = !state.joining && !(name ?: preferredName).isNullOrBlank(),
+                            onClick = { viewModel.join(name, asGuest = true) },
+                            enabled = !state.joining && name.isNotBlank(),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
