@@ -83,7 +83,7 @@ fun AnswerTile(
         shape = MaterialTheme.shapes.medium,
         color = tone?.background ?: if (selected) scheme.primaryContainer else scheme.surface,
         contentColor = tone?.text ?: if (selected) scheme.onPrimaryContainer else scheme.onSurface,
-        border = BorderStroke(2.dp, tone?.border ?: if (selected) MaterialTheme.hiveColors.ink else scheme.outline),
+        border = BorderStroke(2.dp, tone?.border ?: if (selected) MaterialTheme.hiveColors.border else scheme.outline),
     ) {
         Row(
             modifier = Modifier
@@ -198,7 +198,7 @@ fun NoteBox(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        border = BorderStroke(2.dp, MaterialTheme.hiveColors.ink),
+        border = BorderStroke(2.dp, MaterialTheme.hiveColors.border),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
     }

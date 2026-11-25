@@ -1,6 +1,7 @@
 package io.github.serogee.hive.ui.theme
 
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 class ThemeContrastTest {
     private val themes = listOf(
@@ -32,10 +33,18 @@ class ThemeContrastTest {
     }
 
     @Test
-    fun `ink borders stand out`() {
-        themes.forEach { (name, scheme, hive) ->
-            assertContrast("$name border on background", hive.ink, scheme.background, ICON_CONTRAST)
-            assertContrast("$name border on card", hive.ink, scheme.surface, ICON_CONTRAST)
+    fun `borders stand out in light and are dim in dark`() {
+        assertContrast("light border on background", LightHiveColors.border, SoftLight.background, ICON_CONTRAST)
+        assertContrast("light border on card", LightHiveColors.border, SoftLight.surface, ICON_CONTRAST)
+
+        listOf(DarkHiveColors.border, DarkHiveColors.borderOnSolid, DarkHiveColors.quietBorder, SoftDark.outline).forEach { border ->
+            assertTrue(contrast(border, SoftDark.background) < ICON_CONTRAST, "a dark border is too bright")
         }
+        assertContrast("dark border on card", DarkHiveColors.border, SoftDark.surface, DIM_CONTRAST)
+    }
+
+    private companion object {
+        /** Enough to see a border, without a bright line. */
+        const val DIM_CONTRAST = 1.5f
     }
 }

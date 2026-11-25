@@ -339,8 +339,8 @@ private fun HiveTabBar(current: Tab?, onSelect: (Tab) -> Unit) {
         // Draw the new selection first, because the next screen can take a moment to compose.
         withFrameNanos { }
         onSelect(tab)
-        tapped = null
     }
+    LaunchedEffect(current) { if (tapped == current) tapped = null }
     val selectedTab = tapped ?: current
 
     Column(
@@ -349,7 +349,7 @@ private fun HiveTabBar(current: Tab?, onSelect: (Tab) -> Unit) {
             .background(MaterialTheme.colorScheme.surface)
             .navigationBarsPadding(),
     ) {
-        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.ink)
+        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.border)
         Row(
             Modifier
                 .fillMaxWidth()

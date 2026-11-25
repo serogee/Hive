@@ -76,7 +76,7 @@ private fun ChoiceCard(choice: AnswerColorChoice, selected: Boolean, onClick: ()
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(2.dp, if (selected) MaterialTheme.hiveColors.ink else MaterialTheme.colorScheme.outline),
+        border = BorderStroke(2.dp, if (selected) MaterialTheme.hiveColors.border else MaterialTheme.colorScheme.outline),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

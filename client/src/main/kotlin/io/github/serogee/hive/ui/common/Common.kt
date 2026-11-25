@@ -108,7 +108,7 @@ fun HiveTopBar(
             )
             action?.invoke()
         }
-        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.ink)
+        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.border)
     }
 }
 
@@ -353,7 +353,7 @@ fun SolidCard(
         shape = shape,
         color = MaterialTheme.hiveColors.solid,
         contentColor = MaterialTheme.hiveColors.onSolid,
-        border = BorderStroke(2.dp, MaterialTheme.hiveColors.ink),
+        border = BorderStroke(2.dp, MaterialTheme.hiveColors.border),
     ) {
         Column(
             modifier = Modifier
@@ -480,7 +480,7 @@ fun SleekCard(
         shape = shape,
         color = MaterialTheme.colorScheme.surface,
         border = if (active) {
-            BorderStroke(2.dp, MaterialTheme.hiveColors.ink)
+            BorderStroke(2.dp, MaterialTheme.hiveColors.border)
         } else {
             BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         },

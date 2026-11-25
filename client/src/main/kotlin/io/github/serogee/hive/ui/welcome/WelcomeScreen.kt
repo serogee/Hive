@@ -100,7 +100,7 @@ private fun GoogleButton() {
                 disabledContainerColor = Color.White,
                 disabledContentColor = WaxMuted,
             ),
-            border = BorderStroke(2.dp, MaterialTheme.hiveColors.ink),
+            border = BorderStroke(2.dp, MaterialTheme.hiveColors.border),
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 52.dp),
