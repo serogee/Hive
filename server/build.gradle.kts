@@ -28,11 +28,14 @@ dependencies {
     implementation(libs.logback.classic)
     implementation(libs.sqlite.jdbc)
     implementation(libs.nimbus.jose.jwt)
+    implementation(libs.postgresql)
+    implementation(libs.hikari)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.embedded.postgres)
 }
 
 tasks.test {

@@ -7,6 +7,9 @@ ktor = "3.6.1"
 logback = "1.6.8"
 sqlite-jdbc = "3.54.1.0"
 nimbus-jose-jwt = "10.10"
+postgresql = "42.7.15"
+hikari = "7.1.0"
+embedded-postgres = "2.2.3"
 compose-bom = "2026.09.00"
 activity = "1.13.0"
 lifecycle = "2.11.0"
@@ -39,6 +42,9 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core" }

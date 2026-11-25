@@ -8,6 +8,9 @@ import io.github.serogee.hive.server.demo.DemoDatabase
 import io.github.serogee.hive.server.demo.DemoSeed
 import io.github.serogee.hive.server.demo.SqliteRoomStore
 import io.github.serogee.hive.server.demo.demoAuthRoutes
+import io.github.serogee.hive.server.postgres.PostgresAccounts
+import io.github.serogee.hive.server.postgres.PostgresDatabase
+import io.github.serogee.hive.server.postgres.PostgresRoomStore
 import io.github.serogee.hive.server.supabase.SupabaseAccounts
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
@@ -42,8 +45,13 @@ private fun runProduction(config: ServerConfig) {
     if (!accounts.configured) {
         println("SUPABASE_URL is missing or is not a web address, so nobody can sign in. Guests can still join rooms.")
     }
-    println("Rooms are kept in memory and end when the server stops.")
-    serve(config, Backend(InMemoryRoomStore(), accounts, HealthMode.PRODUCTION))
+    if (config.database == null) {
+        println("DATABASE_URL is missing, so rooms are kept in memory and end when the server stops.")
+        serve(config, Backend(InMemoryRoomStore(), accounts, HealthMode.PRODUCTION))
+        return
+    }
+    val db = PostgresDatabase.open(config.database)
+    serve(config, Backend(PostgresRoomStore(db), PostgresAccounts(db, accounts), HealthMode.PRODUCTION))
 }
 
 /** Checks Supabase tokens, or accepts nobody without a usable [supabaseUrl], so that the server always starts. */
