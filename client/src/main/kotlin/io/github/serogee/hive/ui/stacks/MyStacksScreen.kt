@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.MaterialTheme
@@ -28,8 +29,8 @@ import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveSegment
 import io.github.serogee.hive.ui.common.HiveTextField
+import io.github.serogee.hive.ui.common.LazyPage
 import io.github.serogee.hive.ui.common.LocalAppContainer
-import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
 import io.github.serogee.hive.ui.review.ReviewSetupSheet
@@ -52,61 +53,72 @@ fun MyStacksScreen(
     onReview: (attemptId: String) -> Unit = {},
 ) {
     val container = LocalAppContainer.current
-    val stacks by container.stacks.stacks.collectAsStateWithLifecycle(null)
+    val stacks by container.stackList.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var practiceFor by remember { mutableStateOf<StackId?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var activeTab by remember { mutableStateOf(0) }
     val open: (StackId) -> Unit = { if (purpose == StackListPurpose.REVIEW) practiceFor = it else onOpen(it) }
 
-    Page(
-        title = purpose.title,
-        subtitle = "Create, review, and host questions",
-    ) {
+    LazyPage(title = purpose.title) {
+        item {
+            Text(
+                "Create, review, and host questions",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         // Quick Action Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            HiveButton(
-                text = "Create Stack",
-                onClick = { scope.launch { onCreated(container.stacks.create()) } },
-                modifier = Modifier.weight(1f),
-            )
-            HiveButton(
-                text = "Import File",
-                onClick = onImport,
-                modifier = Modifier.weight(1f),
-                style = HiveButtonStyle.SECONDARY,
-            )
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                HiveButton(
+                    text = "Create Stack",
+                    onClick = { scope.launch { onCreated(container.stacks.create()) } },
+                    modifier = Modifier.weight(1f),
+                )
+                HiveButton(
+                    text = "Import File",
+                    onClick = onImport,
+                    modifier = Modifier.weight(1f),
+                    style = HiveButtonStyle.SECONDARY,
+                )
+            }
         }
 
         // Search bar
-        HiveTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = "Search stacks...",
-            leadingIcon = Icons.Outlined.Search,
-        )
-
-        // Filter tabs (LIBRARY / ALL style)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(vertical = 4.dp),
-        ) {
-            HiveSegment(
-                text = "ALL STACKS",
-                selected = activeTab == 0,
-                onClick = { activeTab = 0 },
-            )
-            HiveSegment(
-                text = "RECENT",
-                selected = activeTab == 1,
-                onClick = { activeTab = 1 },
+        item {
+            HiveTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = "Search stacks...",
+                leadingIcon = Icons.Outlined.Search,
             )
         }
 
-        val list = stacks ?: return@Page
+        // Filter tabs (LIBRARY / ALL style)
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(vertical = 4.dp),
+            ) {
+                HiveSegment(
+                    text = "ALL STACKS",
+                    selected = activeTab == 0,
+                    onClick = { activeTab = 0 },
+                )
+                HiveSegment(
+                    text = "RECENT",
+                    selected = activeTab == 1,
+                    onClick = { activeTab = 1 },
+                )
+            }
+        }
+
+        val list = stacks ?: return@LazyPage
 
         // RECENT lists the newest change first. ALL STACKS is in title order.
         val filteredList = list
@@ -120,39 +132,41 @@ fun MyStacksScreen(
             }
 
         if (list.isEmpty()) {
-            SleekCard {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        text = "No stacks yet",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = "Create your own stack or add the built-in sample stack to get started.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    HiveButton(
-                        text = "Add Networking Fundamentals sample",
-                        onClick = { scope.launch { open(container.stacks.addSample()) } },
-                    )
+            item {
+                SleekCard {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = "No stacks yet",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "Create your own stack or add the built-in sample stack to get started.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        HiveButton(
+                            text = "Add Networking Fundamentals sample",
+                            onClick = { scope.launch { open(container.stacks.addSample()) } },
+                        )
+                    }
                 }
             }
         } else if (filteredList.isEmpty()) {
-            Text(
-                text = "No stacks match \"$searchQuery\"",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 12.dp),
-            )
+            item {
+                Text(
+                    text = "No stacks match \"$searchQuery\"",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(vertical = 12.dp),
+                )
+            }
         } else {
-            SectionHeader(
-                title = "Library (${filteredList.size})",
-            )
+            item { SectionHeader(title = "Library (${filteredList.size})") }
 
-            filteredList.forEach { stack ->
+            items(filteredList, key = { it.id.value }) { stack ->
                 StackCard(
                     stack = stack,
                     onClick = { open(stack.id) },

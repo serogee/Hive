@@ -87,7 +87,7 @@ fun QuizRoomScreen(
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     val joined by viewModel.joined.collectAsStateWithLifecycle()
     val hosted by viewModel.hosted.collectAsStateWithLifecycle()
-    val localRooms by container.rooms.localHostedRooms.collectAsStateWithLifecycle(emptyList())
+    val localRooms by container.hostedRooms.collectAsStateWithLifecycle()
     val hostingHere by container.rooms.localHostRunning.collectAsStateWithLifecycle()
 
     LaunchedEffect(signedIn) { if (signedIn) viewModel.refreshHosted() }
@@ -126,9 +126,9 @@ fun QuizRoomScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        if (localRooms.isNotEmpty()) {
+        if (localRooms.orEmpty().isNotEmpty()) {
             SectionHeader(title = "Hosted on this phone")
-            localRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
+            localRooms.orEmpty().forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
             if (hostingHere) {
                 HiveButton(
                     text = "Stop hosting on this phone",

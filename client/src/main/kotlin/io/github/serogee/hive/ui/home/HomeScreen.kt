@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -59,8 +60,8 @@ import io.github.serogee.hive.ui.common.HexBadge
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveTextField
+import io.github.serogee.hive.ui.common.LazyPage
 import io.github.serogee.hive.ui.common.LocalAppContainer
-import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.ProgressCells
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
@@ -99,11 +100,12 @@ fun HomeScreen(
 ) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
-    val joined by container.rooms.joinedRoom.collectAsStateWithLifecycle(null)
-    val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
-    val review by container.reviews.latestUnfinished.collectAsStateWithLifecycle(null)
-    val preferredName by container.preferences.preferredName.collectAsStateWithLifecycle(null)
-    val session by container.auth.session.collectAsStateWithLifecycle(null)
+    val joined by container.joinedRoom.collectAsStateWithLifecycle()
+    val loadedStacks by container.stackList.collectAsStateWithLifecycle()
+    val review by container.latestUnfinishedReview.collectAsStateWithLifecycle()
+    val preferredName by container.preferredName.collectAsStateWithLifecycle()
+    val session by container.session.collectAsStateWithLifecycle()
+    val stacks = loadedStacks.orEmpty()
 
     val displayName = session?.account?.displayName
         ?: preferredName?.takeIf { it.isNotBlank() }
@@ -112,9 +114,19 @@ fun HomeScreen(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var sortMode by rememberSaveable { mutableStateOf(SortMode.RECENT) }
 
-    Page(
+    // Filter and sort stacks
+    val filteredStacks = stacks
+        .filter { stack -> searchQuery.isBlank() || stack.title.contains(searchQuery, ignoreCase = true) }
+        .let { list ->
+            when (sortMode) {
+                SortMode.RECENT -> list.sortedByDescending { it.updatedAt }
+                SortMode.TITLE -> list.sortedBy { it.title.lowercase() }
+                SortMode.QUESTIONS -> list.sortedByDescending { it.questionCount }
+            }
+        }
+
+    LazyPage(
         title = displayName,
-        subtitle = "Ready to test your knowledge?",
         leading = {
             HexBadge(
                 text = displayName.take(1).uppercase(),
@@ -124,198 +136,215 @@ fun HomeScreen(
             )
         },
     ) {
+        item {
+            Text(
+                text = "Ready to test your knowledge?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         // Active Joined Room Banner (if any)
         joined?.let { membership ->
-            HeroCard(
-                badgeText = "ACTIVE QUIZ ROOM",
-                title = membership.roomTitle,
-                subtitle = "Joined as ${membership.displayName} · Code ${membership.roomCode}",
-                buttonText = "RETURN TO ROOM",
-                onButtonClick = { onReturnToRoom(membership) },
-                main = false,
-            )
+            item {
+                HeroCard(
+                    badgeText = "ACTIVE QUIZ ROOM",
+                    title = membership.roomTitle,
+                    subtitle = "Joined as ${membership.displayName} · Code ${membership.roomCode}",
+                    buttonText = "RETURN TO ROOM",
+                    onButtonClick = { onReturnToRoom(membership) },
+                    main = false,
+                )
+            }
         }
 
         // Continue Review in Progress (if any)
         review?.let { attempt ->
-            SleekCard(onClick = { onContinueReview(attempt.id) }) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    CountBadge(
-                        topText = "${attempt.position + 1}",
-                        bottomText = "CARD",
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Caption("Continue review", color = MaterialTheme.colorScheme.primary)
-                        Text(
-                            text = attempt.stack.title.ifBlank { "Untitled stack" },
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+            item {
+                SleekCard(onClick = { onContinueReview(attempt.id) }) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        CountBadge(
+                            topText = "${attempt.position + 1}",
+                            bottomText = "CARD",
                         )
-                        Text(
-                            text = "${attempt.position} of ${attempt.order.size} questions reviewed",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Column(modifier = Modifier.weight(1f)) {
+                            Caption("Continue review", color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                text = attempt.stack.title.ifBlank { "Untitled stack" },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = "${attempt.position} of ${attempt.order.size} questions reviewed",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            ProgressCells(done = attempt.position, total = attempt.order.size)
+                        }
+                        Icon(
+                            imageVector = Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(Modifier.height(6.dp))
-                        ProgressCells(done = attempt.position, total = attempt.order.size)
                     }
-                    Icon(
-                        imageVector = Icons.Outlined.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
 
         // 2. HERO DARK CARD: Room Code Input + Join, and [Create Stack] + [Host Quiz] buttons
-        JoinCard(
-            onJoinCode = onJoinCode,
-            onCreateStack = { scope.launch { onStackCreated(container.stacks.create()) } },
-            onHostQuiz = onHostQuiz,
-        )
+        item {
+            JoinCard(
+                onJoinCode = onJoinCode,
+                onCreateStack = { scope.launch { onStackCreated(container.stacks.create()) } },
+                onHostQuiz = onHostQuiz,
+            )
+        }
 
         // Review entry
-        HomeCard(
-            icon = Icons.Outlined.School,
-            title = "Review",
-            subtitle = "Practice a stack on your own",
-            onClick = onReview,
-        )
+        item {
+            HomeCard(
+                icon = Icons.Outlined.School,
+                title = "Review",
+                subtitle = "Practice a stack on your own",
+                onClick = onReview,
+            )
+        }
 
         // 3. SEARCH & SORT ROW: [Search input] + [[sort]] button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            HiveTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = "Search",
-                leadingIcon = Icons.Outlined.Search,
-                modifier = Modifier.weight(1f),
-            )
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                HiveTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = "Search",
+                    leadingIcon = Icons.Outlined.Search,
+                    modifier = Modifier.weight(1f),
+                )
 
-            // Sort button
-            HiveButton(
-                text = sortMode.label,
-                onClick = {
-                    sortMode = when (sortMode) {
-                        SortMode.RECENT -> SortMode.TITLE
-                        SortMode.TITLE -> SortMode.QUESTIONS
-                        SortMode.QUESTIONS -> SortMode.RECENT
-                    }
-                },
-                style = HiveButtonStyle.SECONDARY,
-                icon = Icons.AutoMirrored.Outlined.Sort,
-                iconDescription = "Sort",
-            )
+                // Sort button
+                HiveButton(
+                    text = sortMode.label,
+                    onClick = {
+                        sortMode = when (sortMode) {
+                            SortMode.RECENT -> SortMode.TITLE
+                            SortMode.TITLE -> SortMode.QUESTIONS
+                            SortMode.QUESTIONS -> SortMode.RECENT
+                        }
+                    },
+                    style = HiveButtonStyle.SECONDARY,
+                    icon = Icons.AutoMirrored.Outlined.Sort,
+                    iconDescription = "Sort",
+                )
+            }
         }
 
         // 4. MY STACKS ROW: [see all] action + Horizontal row of icon boxes with label underneath
         if (stacks.isNotEmpty()) {
-            SectionHeader(
-                title = "My Stacks",
-                actionText = "[see all]",
-                onActionClick = onOpenStacks,
-            )
+            item {
+                SectionHeader(
+                    title = "My Stacks",
+                    actionText = "[see all]",
+                    onActionClick = onOpenStacks,
+                )
+            }
+            item {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp),
+                ) {
+                    itemsIndexed(stacks.take(6)) { index, stack ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .width(76.dp)
+                                .clip(MaterialTheme.shapes.small)
+                                .clickable { onOpenStack(stack.id) }
+                                .padding(vertical = 4.dp),
+                        ) {
+                            HexBadge(size = 72.dp) {
+                                Icon(
+                                    imageVector = StackIcons[index % StackIcons.size],
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(30.dp),
+                                )
+                            }
 
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp),
-            ) {
-                itemsIndexed(stacks.take(6)) { index, stack ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .width(76.dp)
-                            .clip(MaterialTheme.shapes.small)
-                            .clickable { onOpenStack(stack.id) }
-                            .padding(vertical = 4.dp),
-                    ) {
-                        HexBadge(size = 72.dp) {
-                            Icon(
-                                imageVector = StackIcons[index % StackIcons.size],
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(30.dp),
+                            Spacer(Modifier.height(8.dp))
+
+                            Text(
+                                text = stack.title.ifBlank { "Untitled stack" },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Text(
-                            text = stack.title.ifBlank { "Untitled stack" },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
                     }
                 }
             }
         }
 
         // 5. RECENT STACKS SECTION: List of Stacks
-        SectionHeader(
-            title = "Recent stacks",
-            actionText = if (stacks.isNotEmpty()) "View All" else null,
-            onActionClick = onOpenStacks,
-        )
+        item {
+            SectionHeader(
+                title = "Recent stacks",
+                actionText = if (stacks.isNotEmpty()) "View All" else null,
+                onActionClick = onOpenStacks,
+            )
+        }
 
-        // Filter and sort stacks
-        val filteredStacks = stacks
-            .filter { stack -> searchQuery.isBlank() || stack.title.contains(searchQuery, ignoreCase = true) }
-            .let { list ->
-                when (sortMode) {
-                    SortMode.RECENT -> list.sortedByDescending { it.updatedAt }
-                    SortMode.TITLE -> list.sortedBy { it.title.lowercase() }
-                    SortMode.QUESTIONS -> list.sortedByDescending { it.questionCount }
-                }
-            }
-
+        if (loadedStacks == null) return@LazyPage
         if (stacks.isEmpty()) {
-            SleekCard {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        text = "No stacks yet",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = "Create a stack, or add the built-in sample to host it or review it.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    HiveButton(
-                        text = "Add Sample Stack",
-                        onClick = { scope.launch { onOpenStack(container.stacks.addSample()) } },
-                    )
+            item {
+                SleekCard {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = "No stacks yet",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "Create a stack, or add the built-in sample to host it or review it.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        HiveButton(
+                            text = "Add Sample Stack",
+                            onClick = { scope.launch { onOpenStack(container.stacks.addSample()) } },
+                        )
+                    }
                 }
             }
         } else if (filteredStacks.isEmpty()) {
-            Text(
-                text = "No stacks match \"$searchQuery\"",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 12.dp),
-            )
+            item {
+                Text(
+                    text = "No stacks match \"$searchQuery\"",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(vertical = 12.dp),
+                )
+            }
         } else {
             // Render recent stacks as cards:
             // [Icon]  Title
             //         X Questions
-            filteredStacks.forEach { stack ->
+            items(filteredStacks, key = { it.id.value }) { stack ->
                 HomeCard(
                     icon = Icons.Outlined.Layers,
                     title = stack.title.ifBlank { "Untitled stack" },

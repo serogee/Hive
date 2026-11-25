@@ -14,6 +14,10 @@ import io.github.serogee.hive.data.stacks.StackRepository
 import io.github.serogee.hive.localhost.LocalHost
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** Creates the app's long-lived objects once. */
@@ -39,6 +43,22 @@ class AppContainer(application: Application) {
     val rooms = RoomRepository(api, preferences, localHost, localRoomStore)
     val stacks = StackRepository(database.stacks())
     val reviews = ReviewRepository(database.reviews())
+
+    // What the tabs show. These are read and decoded off the main thread, and stay loaded for a while
+    // after a tab closes, so that a tab opens with its content. Null means not loaded yet.
+    val session = auth.session.kept()
+    val preferredName = preferences.preferredName.kept()
+    val joinedRoom = rooms.joinedRoom.kept()
+    val hostedRooms = rooms.localHostedRooms.kept()
+    val stackList = stacks.stacks.kept()
+    val latestUnfinishedReview = reviews.latestUnfinished.kept()
+    val finishedReviews = reviews.finished.kept()
+
+    private fun <T> Flow<T>.kept(): StateFlow<T?> = stateIn(appScope, SharingStarted.WhileSubscribed(KEEP_MILLIS), null)
+
+    private companion object {
+        const val KEEP_MILLIS = 60_000L
+    }
 }
 
 class HiveApplication : Application() {

@@ -94,14 +94,12 @@ data class AccountsUiState(
 )
 
 class AccountsViewModel(private val container: AppContainer) : ViewModel() {
-    val session: StateFlow<AuthSession?> = container.auth.session
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val session: StateFlow<AuthSession?> = container.session
     val serverUrl = container.preferences.serverUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val theme = container.preferences.theme.stateIn(viewModelScope, SharingStarted.Eagerly, ThemePreference.SYSTEM)
     val answerColors = container.preferences.answerColors
         .stateIn(viewModelScope, SharingStarted.Eagerly, AnswerColorChoice.APP_HONEY)
-    val preferredName = container.preferences.preferredName
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val preferredName = container.preferredName
     val showsDemoHint = container.auth.showsDemoHint
     val signedInLabel = container.auth.signedInLabel
 
@@ -165,9 +163,9 @@ fun AccountsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val answerColors by viewModel.answerColors.collectAsStateWithLifecycle()
     val preferredName by viewModel.preferredName.collectAsStateWithLifecycle()
-    val stacks by container.stacks.stacks.collectAsStateWithLifecycle(emptyList())
-    val hostedRooms by container.rooms.localHostedRooms.collectAsStateWithLifecycle(emptyList())
-    val finishedReviews by container.reviews.finished.collectAsStateWithLifecycle(null)
+    val stacks by container.stackList.collectAsStateWithLifecycle()
+    val hostedRooms by container.hostedRooms.collectAsStateWithLifecycle()
+    val finishedReviews by container.finishedReviews.collectAsStateWithLifecycle()
 
     val displayName = session?.account?.displayName
         ?: preferredName?.takeIf { it.isNotBlank() }
@@ -249,7 +247,7 @@ fun AccountsScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             MetricStatChip(
-                value = "${stacks.size}",
+                value = "${stacks.orEmpty().size}",
                 label = "stacks\nsaved",
                 modifier = Modifier.weight(1f),
             )
@@ -259,7 +257,7 @@ fun AccountsScreen(
                 modifier = Modifier.weight(1f),
             )
             MetricStatChip(
-                value = "${hostedRooms.size}",
+                value = "${hostedRooms.orEmpty().size}",
                 label = "rooms\nhosted",
                 modifier = Modifier.weight(1f),
             )

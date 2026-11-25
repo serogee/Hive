@@ -1,13 +1,23 @@
 package io.github.serogee.hive.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
@@ -20,14 +30,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -49,6 +65,9 @@ import io.github.serogee.hive.ui.stacks.MyStacksScreen
 import io.github.serogee.hive.ui.stacks.StackDetailsScreen
 import io.github.serogee.hive.ui.stacks.StackEditorScreen
 import io.github.serogee.hive.ui.stacks.StackListPurpose
+import io.github.serogee.hive.ui.theme.Graphite
+import io.github.serogee.hive.ui.theme.HEXAGON_RATIO
+import io.github.serogee.hive.ui.theme.HexagonShape
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
 import io.github.serogee.hive.ui.welcome.WelcomeScreen
@@ -146,7 +165,7 @@ fun HiveApp() {
         bottomBar = {
             if (onTab && !onWelcome) {
                 HiveTabBar(
-                    isSelected = { destination?.hasRoute(it.route::class) == true },
+                    current = tabs.firstOrNull { destination?.hasRoute(it.route::class) == true },
                     onSelect = { navController.openTab(it.route) },
                 )
             }
@@ -156,6 +175,9 @@ fun HiveApp() {
             navController = navController,
             startDestination = startDestination,
             modifier = Modifier.padding(padding),
+            // Tabs switch at once. Other screens fade quickly, because the default fade takes 700 ms.
+            enterTransition = { if (betweenTabs()) EnterTransition.None else fadeIn(tween(FADE_MILLIS)) },
+            exitTransition = { if (betweenTabs()) ExitTransition.None else fadeOut(tween(FADE_MILLIS)) },
         ) {
             composable<WelcomeRoute> {
                 WelcomeScreen(
@@ -308,9 +330,19 @@ fun HiveApp() {
     }
 }
 
-/** The selected tab is graphite with a honey icon and label. */
+/** A honey hexagon rises behind the icon of the selected tab. */
 @Composable
-private fun HiveTabBar(isSelected: (Tab) -> Boolean, onSelect: (Tab) -> Unit) {
+private fun HiveTabBar(current: Tab?, onSelect: (Tab) -> Unit) {
+    var tapped by remember { mutableStateOf<Tab?>(null) }
+    LaunchedEffect(tapped) {
+        val tab = tapped ?: return@LaunchedEffect
+        // Draw the new selection first, because the next screen can take a moment to compose.
+        withFrameNanos { }
+        onSelect(tab)
+        tapped = null
+    }
+    val selectedTab = tapped ?: current
+
     Column(
         Modifier
             .fillMaxWidth()
@@ -321,30 +353,58 @@ private fun HiveTabBar(isSelected: (Tab) -> Boolean, onSelect: (Tab) -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .padding(horizontal = 8.dp)
                 .selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             tabs.forEach { tab ->
-                val selected = isSelected(tab)
-                val content = if (selected) Honey else MaterialTheme.colorScheme.onSurfaceVariant
+                val selected = tab == selectedTab
+                val rise by animateFloatAsState(
+                    targetValue = if (selected) 1f else 0f,
+                    animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium),
+                    label = "tab",
+                )
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 56.dp)
                         .clip(MaterialTheme.shapes.medium)
-                        .background(if (selected) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.surface)
-                        .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(tab) })
+                        .selectable(selected = selected, role = Role.Tab, onClick = { if (!selected) tapped = tab })
                         .padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
                 ) {
-                    Icon(tab.icon, contentDescription = null, tint = content)
-                    Text(tab.label.uppercase(), color = content, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Box(Modifier.size(width = 48.dp, height = 40.dp), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier
+                                .graphicsLayer {
+                                    translationY = (1f - rise) * size.height
+                                    alpha = rise.coerceIn(0f, 1f)
+                                }
+                                .size(width = 40.dp * HEXAGON_RATIO, height = 40.dp)
+                                .background(Honey, HexagonShape),
+                        )
+                        Icon(
+                            tab.icon,
+                            contentDescription = null,
+                            tint = if (selected) Graphite else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        tab.label.uppercase(),
+                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                    )
                 }
             }
         }
     }
+}
+
+private const val FADE_MILLIS = 120
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.betweenTabs(): Boolean {
+    fun NavBackStackEntry.isTab() = tabs.any { destination.hasRoute(it.route::class) }
+    return initialState.isTab() && targetState.isTab()
 }
 
 private fun NavHostController.openTab(route: Any) {
