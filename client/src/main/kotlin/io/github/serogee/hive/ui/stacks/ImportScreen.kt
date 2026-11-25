@@ -33,6 +33,7 @@ import io.github.serogee.hive.core.transfer.HiveStackFile
 import io.github.serogee.hive.core.transfer.ImportResult
 import io.github.serogee.hive.data.stacks.StackRepository
 import io.github.serogee.hive.ui.common.Caption
+import io.github.serogee.hive.ui.common.Crumb
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
@@ -136,6 +137,7 @@ fun ImportScreen(onSaved: (StackId) -> Unit) {
     Page(
         title = "Import Stack",
         subtitle = "From JSON, CSV or AI-generated stacks",
+        crumbs = listOf(Crumb("My Stacks"), Crumb("Import")),
     ) {
         SleekCard {
             Caption("Choose file")

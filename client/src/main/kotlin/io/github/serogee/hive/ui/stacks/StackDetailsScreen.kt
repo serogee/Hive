@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.StackId
+import io.github.serogee.hive.ui.common.Crumb
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HexBadge
@@ -45,6 +47,7 @@ fun StackDetailsScreen(
     onReview: (attemptId: String) -> Unit,
     onEdit: () -> Unit,
     onDeleted: () -> Unit,
+    onOpenStacks: () -> Unit,
 ) {
     val container = LocalAppContainer.current
     val draft by remember(stackId) { container.stacks.observeDraft(stackId) }.collectAsStateWithLifecycle(null)
@@ -56,6 +59,7 @@ fun StackDetailsScreen(
     Page(
         title = stack?.title?.ifBlank { "Untitled stack" } ?: "Stack Details",
         subtitle = stack?.description?.takeIf { it.isNotBlank() } ?: "Question Stack",
+        crumbs = listOf(Crumb("My Stacks", onOpenStacks), Crumb(stack?.title?.ifBlank { "Untitled stack" } ?: "Stack")),
     ) {
         if (stack == null) return@Page
 
@@ -91,11 +95,10 @@ fun StackDetailsScreen(
                 enabled = issues.isEmpty(),
                 modifier = Modifier.weight(1f),
             )
-            HiveButton(
-                text = "Edit",
+            HiveIconButton(
+                icon = Icons.Outlined.Edit,
+                contentDescription = "Edit",
                 onClick = onEdit,
-                modifier = Modifier.weight(1f),
-                style = HiveButtonStyle.SECONDARY,
             )
             HiveIconButton(
                 icon = Icons.Outlined.Delete,
@@ -172,11 +175,7 @@ fun StackDetailsScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        Text(
-                            text = question.summary(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        QuestionInfo(question)
                     }
                 }
             }

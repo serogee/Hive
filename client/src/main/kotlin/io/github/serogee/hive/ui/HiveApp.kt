@@ -60,6 +60,7 @@ import io.github.serogee.hive.ui.rooms.LobbyScreen
 import io.github.serogee.hive.ui.rooms.QuizRoomScreen
 import io.github.serogee.hive.ui.review.ReviewScreen
 import io.github.serogee.hive.ui.rooms.SessionEntryScreen
+import io.github.serogee.hive.ui.stacks.EditorExit
 import io.github.serogee.hive.ui.stacks.ImportScreen
 import io.github.serogee.hive.ui.stacks.MyStacksScreen
 import io.github.serogee.hive.ui.stacks.StackDetailsScreen
@@ -127,7 +128,13 @@ data class ImportRoute(val hostAfter: Boolean = false, val reviewAfter: Boolean 
  * returns to the review picker when the stack was created there.
  */
 @Serializable
-data class StackEditorRoute(val stackId: String, val hostAfter: Boolean = false, val reviewAfter: Boolean = false)
+data class StackEditorRoute(
+    val stackId: String,
+    val hostAfter: Boolean = false,
+    val reviewAfter: Boolean = false,
+    /** Whether the stack was created to open the editor, so that leaving without saving removes it. */
+    val isNew: Boolean = false,
+)
 
 @Serializable
 data class LobbyRoute(val roomId: String)
@@ -197,14 +204,14 @@ fun HiveApp() {
                     onReturnToRoom = { navController.navigate(LobbyRoute(it.roomId.value)) },
                     onHostQuiz = { navController.navigate(HostPickerRoute) },
                     onReview = { navController.navigate(ReviewPickerRoute) },
-                    onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
+                    onStackCreated = { navController.navigate(StackEditorRoute(it.value, isNew = true)) },
                 )
             }
             composable<MyStacksRoute> {
                 MyStacksScreen(
                     purpose = StackListPurpose.BROWSE,
                     onOpen = { navController.navigate(StackDetailsRoute(it.value)) },
-                    onCreated = { navController.navigate(StackEditorRoute(it.value)) },
+                    onCreated = { navController.navigate(StackEditorRoute(it.value, isNew = true)) },
                     onImport = { navController.navigate(ImportRoute()) },
                     onHost = { navController.navigate(HostSetupRoute(it.value)) },
                     onReview = { navController.navigate(ReviewRoute(it)) },
@@ -215,7 +222,7 @@ fun HiveApp() {
                     purpose = StackListPurpose.HOST,
                     onOpen = { navController.navigate(HostSetupRoute(it.value)) { popUpTo<HostPickerRoute> { inclusive = true } } },
                     onCreated = {
-                        navController.navigate(StackEditorRoute(it.value, hostAfter = true)) {
+                        navController.navigate(StackEditorRoute(it.value, hostAfter = true, isNew = true)) {
                             popUpTo<HostPickerRoute> { inclusive = true }
                         }
                     },
@@ -228,7 +235,7 @@ fun HiveApp() {
                 MyStacksScreen(
                     purpose = StackListPurpose.REVIEW,
                     onOpen = {},
-                    onCreated = { navController.navigate(StackEditorRoute(it.value, reviewAfter = true)) },
+                    onCreated = { navController.navigate(StackEditorRoute(it.value, reviewAfter = true, isNew = true)) },
                     onImport = { navController.navigate(ImportRoute(reviewAfter = true)) },
                     onReview = { navController.navigate(ReviewRoute(it)) { popUpTo<ReviewPickerRoute> { inclusive = true } } },
                 )
@@ -259,26 +266,46 @@ fun HiveApp() {
                     onReview = { navController.navigate(ReviewRoute(it)) },
                     onEdit = { navController.navigate(StackEditorRoute(stackId.value)) },
                     onDeleted = { navController.popBackStack() },
+                    onOpenStacks = { navController.openStacks() },
                 )
             }
             composable<StackEditorRoute> { entry ->
                 val route = entry.toRoute<StackEditorRoute>()
-                StackEditorScreen(StackId(route.stackId), onDone = {
-                    if (route.reviewAfter) {
+                val openDetails = {
+                    if (navController.previousBackStackEntry?.destination?.hasRoute(StackDetailsRoute::class) == true) {
                         navController.popBackStack()
-                    } else if (route.hostAfter) {
-                        navController.navigate(HostSetupRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
                     } else {
                         navController.navigate(StackDetailsRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
                     }
-                })
+                    Unit
+                }
+                StackEditorScreen(
+                    stackId = StackId(route.stackId),
+                    isNew = route.isNew,
+                    onSaved = {
+                        if (route.reviewAfter) {
+                            navController.popBackStack()
+                        } else if (route.hostAfter) {
+                            navController.navigate(HostSetupRoute(route.stackId)) { popUpTo<StackEditorRoute> { inclusive = true } }
+                        } else {
+                            openDetails()
+                        }
+                    },
+                    onLeave = { exit ->
+                        when (exit) {
+                            EditorExit.BACK -> navController.popBackStack()
+                            EditorExit.STACKS -> navController.openStacks()
+                            EditorExit.DETAILS -> openDetails()
+                        }
+                    },
+                )
             }
             composable<QuizRoomRoute> {
                 QuizRoomScreen(
                     onJoinCode = { code, address -> navController.navigate(SessionEntryRoute(code, address)) },
                     onOpenRoom = { navController.navigate(LobbyRoute(it)) },
                     onCreateRoom = { navController.navigate(HostPickerRoute) },
-                    onStackCreated = { navController.navigate(StackEditorRoute(it.value)) },
+                    onStackCreated = { navController.navigate(StackEditorRoute(it.value, isNew = true)) },
                     onSignIn = { navController.navigate(SignInRoute) },
                 )
             }
@@ -413,5 +440,14 @@ private fun NavHostController.openTab(route: Any) {
         popUpTo<HomeRoute> { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+/** Goes back to My Stacks. Opening its tab instead would restore the screen that the user is leaving. */
+private fun NavHostController.openStacks() {
+    if (popBackStack(MyStacksRoute, inclusive = false)) return
+    navigate(MyStacksRoute) {
+        popUpTo<HomeRoute>()
+        launchSingleTop = true
     }
 }

@@ -3,6 +3,7 @@ package io.github.serogee.hive.ui.common
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,11 +23,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -112,12 +118,63 @@ fun HiveTopBar(
     }
 }
 
+/** One step of [Breadcrumbs]. The last one is where the user is, so it opens nothing. */
+data class Crumb(val text: String, val onClick: (() -> Unit)? = null)
+
+/** A thin row below the top bar that shows where the screen is, such as My Stacks > Biology > Edit. */
+@Composable
+fun Breadcrumbs(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
+    val scroll = rememberScrollState()
+    // Keep the end in view, because it says what is being edited.
+    LaunchedEffect(crumbs, scroll.maxValue) { scroll.scrollTo(scroll.maxValue) }
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(scroll)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            crumbs.forEachIndexed { index, crumb ->
+                if (index > 0) {
+                    Icon(
+                        Icons.Outlined.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+                val last = index == crumbs.lastIndex
+                Text(
+                    text = crumb.text,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (last) FontWeight.Bold else FontWeight.Normal,
+                    color = if (last) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .then(if (crumb.onClick != null) Modifier.clickable(onClick = crumb.onClick) else Modifier)
+                        .widthIn(max = 180.dp)
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+    }
+}
+
 /** A page with a top bar, an optional subtitle, and scrolling content. */
 @Composable
 fun Page(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    crumbs: List<Crumb> = emptyList(),
     leading: @Composable (() -> Unit)? = null,
     action: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
@@ -128,6 +185,7 @@ fun Page(
             .background(MaterialTheme.colorScheme.background),
     ) {
         HiveTopBar(title, leading = leading, action = action)
+        if (crumbs.isNotEmpty()) Breadcrumbs(crumbs)
         Column(
             modifier = Modifier
                 .fillMaxSize()

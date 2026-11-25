@@ -11,8 +11,6 @@ import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.stacks.StackRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,29 +18,38 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class EditorUiState(
+    /** The working copy. It reaches the phone's storage on Save, or when the app closes. */
     val draft: StackDraft? = null,
+    /** The question that is expanded, if any. */
     val activeQuestionId: QuestionId? = null,
+    val unsaved: Boolean = false,
 )
 
-/**
- * Edits one stack in place. Every change is saved to the phone shortly after it is made, so an
- * incomplete draft survives leaving the screen or closing the app.
- */
+/** Edits a working copy of one stack, so that changes can be saved or thrown away. */
 class StackEditorViewModel(
     private val stackId: StackId,
     private val stacks: StackRepository,
-    /** Outlives this ViewModel, so the last change is saved after the screen closes. */
+    /** Outlives this ViewModel, so that closing the app saves the last change. */
     private val appScope: CoroutineScope,
+    /** Whether the stack was created to open this editor. */
+    isNew: Boolean,
 ) : ViewModel() {
     private val _state = MutableStateFlow(EditorUiState())
     val state: StateFlow<EditorUiState> = _state.asStateFlow()
-    private var saveJob: Job? = null
-    private var dirty = false
+
+    /** The stack as it was when the editor opened. */
+    private var original: StackDraft? = null
+
+    /** Whether storage holds changes that were saved because the app closed. */
+    private var savedOnClose = false
+    private var discardDeletes = false
 
     init {
         viewModelScope.launch {
             val draft = stacks.draft(stackId) ?: return@launch
-            _state.value = EditorUiState(draft, draft.questions.firstOrNull()?.id)
+            original = draft
+            discardDeletes = isNew && draft.isUntouched()
+            _state.value = EditorUiState(draft)
         }
     }
 
@@ -51,6 +58,10 @@ class StackEditorViewModel(
     fun setDescription(description: String) = edit { it.copy(description = description) }
 
     fun activate(id: QuestionId) = _state.update { it.copy(activeQuestionId = id) }
+
+    fun collapse() = _state.update { it.copy(activeQuestionId = null) }
+
+    fun toggle(id: QuestionId) = _state.update { it.copy(activeQuestionId = if (it.activeQuestionId == id) null else id) }
 
     fun updateQuestion(id: QuestionId, change: (QuestionDraft) -> QuestionDraft) = edit { draft ->
         draft.copy(questions = draft.questions.map { if (it.id == id) change(it) else it })
@@ -77,12 +88,16 @@ class StackEditorViewModel(
         activate(copy.id)
     }
 
-    fun move(id: QuestionId, offset: Int) = edit { draft ->
+    /** Moves a question up or down by [offset]. It stays expanded if it was. */
+    fun move(id: QuestionId, offset: Int) {
+        val from = _state.value.draft?.questions?.indexOfFirst { it.id == id } ?: return
+        moveTo(id, from + offset)
+    }
+
+    fun moveTo(id: QuestionId, index: Int) = edit { draft ->
         val from = draft.questions.indexOfFirst { it.id == id }
-        val to = from + offset
-        if (from < 0 || to !in draft.questions.indices) return@edit draft
-        val questions = draft.questions.toMutableList().apply { add(to, removeAt(from)) }
-        draft.copy(questions = questions)
+        if (from < 0 || index !in draft.questions.indices) return@edit draft
+        draft.copy(questions = draft.questions.toMutableList().apply { add(index, removeAt(from)) })
     }
 
     fun delete(id: QuestionId) = edit { draft -> draft.copy(questions = draft.questions.filterNot { it.id == id }) }
@@ -111,25 +126,44 @@ class StackEditorViewModel(
         }
     }
 
+    /** Saves the working copy. */
+    suspend fun save() {
+        val draft = _state.value.draft ?: return
+        stacks.save(draft)
+        original = draft
+        savedOnClose = false
+        discardDeletes = false
+        _state.update { it.copy(unsaved = it.draft != draft) }
+    }
+
+    /** Throws the changes away, and the stack too when it was created only to open this editor. */
+    suspend fun discard() {
+        val before = original ?: return
+        when {
+            discardDeletes -> stacks.delete(stackId)
+            savedOnClose -> stacks.save(before)
+        }
+        savedOnClose = false
+        _state.update { it.copy(draft = before, activeQuestionId = null, unsaved = false) }
+    }
+
+    /** Saves the working copy because the app is closing. The changes can still be thrown away after a return. */
+    fun saveOnClose() {
+        val current = _state.value
+        val draft = current.draft ?: return
+        if (!current.unsaved) return
+        savedOnClose = true
+        appScope.launch { stacks.save(draft) }
+    }
+
     private fun edit(change: (StackDraft) -> StackDraft) {
-        val current = _state.value.draft ?: return
-        _state.update { it.copy(draft = change(current)) }
-        dirty = true
-        saveJob?.cancel()
-        saveJob = viewModelScope.launch {
-            delay(400)
-            saveNow()
+        _state.update { current ->
+            val draft = current.draft ?: return@update current
+            val changed = change(draft)
+            current.copy(draft = changed, unsaved = changed != original)
         }
     }
 
-    private suspend fun saveNow() {
-        val draft = _state.value.draft ?: return
-        if (!dirty) return
-        dirty = false
-        stacks.save(draft)
-    }
-
-    override fun onCleared() {
-        appScope.launch { saveNow() }
-    }
+    private fun StackDraft.isUntouched() =
+        title.isBlank() && description.isBlank() && questions.all { it.prompt.isBlank() && it.choices.all { choice -> choice.text.isBlank() } }
 }
