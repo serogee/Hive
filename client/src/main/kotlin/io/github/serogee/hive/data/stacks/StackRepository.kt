@@ -56,8 +56,10 @@ class StackRepository(private val dao: StackDao, private val now: () -> Long = S
     suspend fun save(draft: StackDraft) {
         val existing = dao.stack(draft.id.value)
         val time = now()
+        val stack = existing?.copy(title = draft.title, description = draft.description, updatedAt = time, pendingSync = !existing.localOnly)
+            ?: StackEntity(draft.id.value, draft.title, draft.description, time, time)
         dao.saveStack(
-            StackEntity(draft.id.value, draft.title, draft.description, existing?.createdAt ?: time, time),
+            stack,
             draft.questions.mapIndexed { index, question ->
                 QuestionEntity(
                     id = question.id.value,
@@ -69,7 +71,7 @@ class StackRepository(private val dao: StackDao, private val now: () -> Long = S
         )
     }
 
-    suspend fun delete(id: StackId) = dao.deleteStack(id.value)
+    suspend fun delete(id: StackId) = dao.deleteStackAndSync(id.value)
 
     private fun StackEntity.toDraft(questions: List<QuestionEntity>) = StackDraft(
         id = StackId(id),

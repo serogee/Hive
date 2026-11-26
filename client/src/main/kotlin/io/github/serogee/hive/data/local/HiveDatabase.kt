@@ -2,6 +2,7 @@ package io.github.serogee.hive.data.local
 
 import android.content.Context
 import androidx.room.AutoMigration
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -22,6 +23,41 @@ data class StackEntity(
     val description: String,
     val createdAt: Long,
     val updatedAt: Long,
+    /** The account's version that this copy is based on. Null when the account does not have it. */
+    val accountVersion: Long? = null,
+    /** Changed on this phone since the account last got it. */
+    @ColumnInfo(defaultValue = "1") val pendingSync: Boolean = true,
+    /** Kept on this phone only, by the choice at sign-in. */
+    @ColumnInfo(defaultValue = "0") val localOnly: Boolean = false,
+)
+
+/** A deleted stack that the account still has. Sync deletes it there too. */
+@Entity(tableName = "stack_deletions")
+data class StackDeletionEntity(
+    @PrimaryKey val stackId: String,
+    val baseVersion: Long,
+)
+
+/** Whether a record, such as a finished review, went to the account. */
+object RecordSync {
+    const val UNSENT = 0
+    const val SENT = 1
+
+    /** Kept on this phone only, by the choice at sign-in. */
+    const val LOCAL_ONLY = 2
+}
+
+/**
+ * A quiz that this phone or the account hosted or played. [resultJson] holds a QuizResult. Rows with
+ * [online] come from the account's list of online rooms, which replaces them each time.
+ */
+@Entity(tableName = "quiz_results", indices = [Index("playedAt")])
+data class QuizResultEntity(
+    @PrimaryKey val id: String,
+    val resultJson: String,
+    val playedAt: Long,
+    val online: Boolean,
+    @ColumnInfo(defaultValue = "0") val syncState: Int = RecordSync.UNSENT,
 )
 
 /**
@@ -83,6 +119,18 @@ interface StackDao {
     @Query("DELETE FROM stacks WHERE id = :id")
     suspend fun deleteStack(id: String)
 
+    @Upsert
+    suspend fun upsertDeletion(deletion: StackDeletionEntity)
+
+    /** Deletes a stack, and remembers to delete it from the account when the account has it. */
+    @Transaction
+    suspend fun deleteStackAndSync(id: String) {
+        val stack = stack(id) ?: return
+        val version = stack.accountVersion
+        if (version != null && !stack.localOnly) upsertDeletion(StackDeletionEntity(id, version))
+        deleteStack(id)
+    }
+
     /** Replaces a stack and all its questions in one transaction. */
     @Transaction
     suspend fun saveStack(stack: StackEntity, questions: List<QuestionEntity>) {
@@ -100,6 +148,7 @@ data class ReviewAttemptEntity(
     val attemptJson: String,
     val finished: Boolean,
     val updatedAt: Long,
+    @ColumnInfo(defaultValue = "0") val syncState: Int = RecordSync.UNSENT,
 )
 
 @Dao
@@ -137,14 +186,17 @@ interface ReviewDao {
         LocalParticipantEntity::class,
         LocalSubmissionEntity::class,
         LocalAttemptEntity::class,
+        StackDeletionEntity::class,
+        QuizResultEntity::class,
     ],
-    version = 6,
+    version = 7,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6),
+        AutoMigration(from = 6, to = 7),
     ],
 )
 abstract class HiveDatabase : RoomDatabase() {
@@ -153,6 +205,8 @@ abstract class HiveDatabase : RoomDatabase() {
     abstract fun reviews(): ReviewDao
 
     abstract fun localRooms(): LocalRoomDao
+
+    abstract fun sync(): SyncDao
 
     companion object {
         fun create(context: Context): HiveDatabase =

@@ -6,7 +6,9 @@ import io.github.serogee.hive.data.auth.ApiDemoAuth
 import io.github.serogee.hive.data.auth.AuthConfig
 import io.github.serogee.hive.data.auth.AuthRepository
 import io.github.serogee.hive.data.auth.GoogleIdTokens
+import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.data.auth.SupabaseAuth
+import io.github.serogee.hive.data.history.QuizHistory
 import io.github.serogee.hive.data.local.HiveDatabase
 import io.github.serogee.hive.data.local.LocalRoomStore
 import io.github.serogee.hive.data.remote.HiveApi
@@ -19,6 +21,9 @@ import io.github.serogee.hive.data.server.ServerState
 import io.github.serogee.hive.data.server.ServerStatus
 import io.github.serogee.hive.data.server.ServerTriggers
 import io.github.serogee.hive.data.stacks.StackRepository
+import io.github.serogee.hive.data.sync.ApiSyncRemote
+import io.github.serogee.hive.data.sync.RoomSyncLocal
+import io.github.serogee.hive.data.sync.SyncEngine
 import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.localhost.LocalHost
 import io.github.serogee.hive.localhost.NsdNearbyRooms
@@ -29,6 +34,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -58,9 +65,21 @@ class AppContainer(application: Application) {
     private val localRoomStore = LocalRoomStore(database.localRooms())
     val localHost = LocalHost(localRoomStore)
     val nearbyRooms = NsdNearbyRooms(application)
-    val rooms = RoomRepository(api, preferences, localHost, localRoomStore, nearbyRooms)
+    val quizHistory = QuizHistory(database.sync())
+    val rooms = RoomRepository(api, preferences, localHost, localRoomStore, nearbyRooms) { results, joined ->
+        joined.participantId?.let { quizHistory.recordPlayedNearby(results, it) }
+    }
     val stacks = StackRepository(database.stacks())
     val reviews = ReviewRepository(database.reviews())
+
+    /** Signed-in accounts only. Guests keep everything on this phone. */
+    val sync = SyncEngine(
+        local = RoomSyncLocal(database),
+        remote = ApiSyncRemote(api),
+        states = preferences,
+        accountId = { auth.session.first()?.account?.id?.value },
+        server = { server.status.value },
+    )
 
     // What the tabs show. These are read and decoded off the main thread, and stay loaded for a while
     // after a tab closes, so that a tab opens with its content. Null means not loaded yet.
@@ -71,6 +90,7 @@ class AppContainer(application: Application) {
     val stackList = stacks.stacks.kept()
     val latestUnfinishedReview = reviews.latestUnfinished.kept()
     val finishedReviews = reviews.finished.kept()
+    val quizResults = quizHistory.results.kept()
 
     val serverUrl = preferences.serverUrl.kept()
 
@@ -82,6 +102,22 @@ class AppContainer(application: Application) {
         OnlineFacts(auth.googleAvailable, auth.demoAvailable, signedIn, status)
 
     private fun <T> Flow<T>.kept(): StateFlow<T?> = stateIn(appScope, SharingStarted.WhileSubscribed(KEEP_MILLIS), null)
+
+    /** Starts sync, and records each room that this phone hosted once it ends. */
+    fun startSync() {
+        sync.start(appScope, auth.session.map { it?.account?.id?.value }, server.status, database.sync().observePendingCount())
+        appScope.launch {
+            rooms.localHostedRooms.collect { hosted ->
+                quizHistory.recordHostedHere(hosted) { room -> localRoomStore.participants(room.id).count { it.role == RoomRole.PLAYER } }
+            }
+        }
+    }
+
+    /** Signs out. [removeSyncedStacks] also deletes the stacks that the account keeps from this phone. */
+    suspend fun signOut(removeSyncedStacks: Boolean = false) {
+        auth.signOut()
+        sync.forgetAccount(removeSyncedStacks)
+    }
 
     /** Stops hosting after every room has ended, once Players have had time to get the results. */
     fun stopHostingSoon() = appScope.launch {
@@ -103,6 +139,7 @@ class HiveApplication : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.appScope.launch { container.auth.restore() }
+        container.startSync()
         ServerTriggers(this, container.server)
         // Keeps the app running while the embedded server runs, and lets it close afterwards.
         container.appScope.launch {
