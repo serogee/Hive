@@ -107,13 +107,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Where the user goes when they leave the editor without saving. */
-enum class EditorExit { BACK, STACKS, DETAILS }
+enum class EditorExit { BACK, ROOT, DETAILS }
 
 /** One inline editor for creating and editing a stack. */
 @Composable
 fun StackEditorScreen(
     stackId: StackId,
     isNew: Boolean,
+    /** The first breadcrumb: the tab that opened the editor. */
+    rootLabel: String,
     onSaved: () -> Unit,
     onLeave: (EditorExit) -> Unit,
 ) {
@@ -164,7 +166,7 @@ fun StackEditorScreen(
         val activeNumber = draft.questions.indexOfFirst { it.id == state.activeQuestionId } + 1
         Breadcrumbs(
             buildList {
-                add(Crumb("My Stacks") { leave(EditorExit.STACKS) })
+                add(Crumb(rootLabel) { leave(EditorExit.ROOT) })
                 // A stack that was never saved has no details to open.
                 val title = draft.title.ifBlank { "Untitled stack" }
                 add(if (isNew) Crumb(title) else Crumb(title) { leave(EditorExit.DETAILS) })

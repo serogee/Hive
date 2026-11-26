@@ -55,6 +55,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import androidx.compose.material3.MaterialTheme
 import io.github.serogee.hive.ui.accounts.AccountsScreen
+import io.github.serogee.hive.ui.common.Crumb
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.ui.home.HomeScreen
 import io.github.serogee.hive.ui.rooms.HostSetupScreen
@@ -252,7 +253,8 @@ fun HiveApp() {
             }
             composable<ImportRoute> { entry ->
                 val route = entry.toRoute<ImportRoute>()
-                ImportScreen(onSaved = { stackId ->
+                val origin = remember(entry) { navController.originTab() }
+                ImportScreen(root = Crumb(origin.label) { navController.backTo(origin) }, onSaved = { stackId ->
                     if (route.reviewAfter) {
                         navController.popBackStack()
                         return@ImportScreen
@@ -263,17 +265,19 @@ fun HiveApp() {
             }
             composable<StackDetailsRoute> { entry ->
                 val stackId = StackId(entry.toRoute<StackDetailsRoute>().stackId)
+                val origin = remember(entry) { navController.originTab() }
                 StackDetailsScreen(
                     stackId = stackId,
                     onHost = { navController.navigate(HostSetupRoute(stackId.value)) },
                     onReview = { navController.navigate(ReviewRoute(it)) },
                     onEdit = { navController.navigate(StackEditorRoute(stackId.value)) },
                     onDeleted = { navController.popBackStack() },
-                    onOpenStacks = { navController.openStacks() },
+                    root = Crumb(origin.label) { navController.backTo(origin) },
                 )
             }
             composable<StackEditorRoute> { entry ->
                 val route = entry.toRoute<StackEditorRoute>()
+                val origin = remember(entry) { navController.originTab() }
                 val openDetails = {
                     if (navController.previousBackStackEntry?.destination?.hasRoute(StackDetailsRoute::class) == true) {
                         navController.popBackStack()
@@ -285,6 +289,7 @@ fun HiveApp() {
                 StackEditorScreen(
                     stackId = StackId(route.stackId),
                     isNew = route.isNew,
+                    rootLabel = origin.label,
                     onSaved = {
                         if (route.reviewAfter) {
                             navController.popBackStack()
@@ -297,7 +302,7 @@ fun HiveApp() {
                     onLeave = { exit ->
                         when (exit) {
                             EditorExit.BACK -> navController.popBackStack()
-                            EditorExit.STACKS -> navController.openStacks()
+                            EditorExit.ROOT -> navController.backTo(origin)
                             EditorExit.DETAILS -> openDetails()
                         }
                     },
@@ -452,11 +457,13 @@ private fun NavHostController.openTab(route: Any) {
     }
 }
 
-/** Goes back to My Stacks. Opening its tab instead would restore the screen that the user is leaving. */
-private fun NavHostController.openStacks() {
-    if (popBackStack(MyStacksRoute, inclusive = false)) return
-    navigate(MyStacksRoute) {
-        popUpTo<HomeRoute>()
-        launchSingleTop = true
-    }
+/** The tab below the current screen, which its first breadcrumb names. */
+private fun NavHostController.originTab(): Tab = originTab(tabs) { tab -> runCatching { getBackStackEntry(tab.route) }.isSuccess }
+
+/**
+ * Goes back down to [tab]'s own screen. It never opens a tab on top of another one, which would leave the
+ * other tab showing this tab's screen.
+ */
+private fun NavHostController.backTo(tab: Tab) {
+    if (!popBackStack(tab.route, inclusive = false)) popBackStack(HomeRoute, inclusive = false)
 }
