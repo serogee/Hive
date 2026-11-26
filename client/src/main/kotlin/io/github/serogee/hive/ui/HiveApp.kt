@@ -5,24 +5,29 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
@@ -41,7 +46,15 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import io.github.serogee.hive.data.sync.SyncStatus
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -71,8 +84,6 @@ import io.github.serogee.hive.ui.stacks.StackDetailsScreen
 import io.github.serogee.hive.ui.stacks.StackEditorScreen
 import io.github.serogee.hive.ui.stacks.StackListPurpose
 import io.github.serogee.hive.ui.theme.Graphite
-import io.github.serogee.hive.ui.theme.HEXAGON_RATIO
-import io.github.serogee.hive.ui.theme.HexagonShape
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
 import io.github.serogee.hive.ui.welcome.WelcomeScreen
@@ -148,13 +159,13 @@ data class StackEditorRoute(
 @Serializable
 data class LobbyRoute(val roomId: String)
 
-private data class Tab(val label: String, val icon: ImageVector, val route: Any)
+private data class Tab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector, val route: Any)
 
 private val tabs = listOf(
-    Tab("Home", Icons.Outlined.Home, HomeRoute),
-    Tab("My Stacks", Icons.Outlined.Layers, MyStacksRoute),
-    Tab("Quiz Room", Icons.Outlined.Groups, QuizRoomRoute),
-    Tab("Accounts", Icons.Outlined.AccountCircle, AccountsRoute),
+    Tab("Home", Icons.Outlined.Home, Icons.Filled.Home, HomeRoute),
+    Tab("Stacks", Icons.Outlined.Layers, Icons.Filled.Layers, MyStacksRoute),
+    Tab("Rooms", Icons.Outlined.Groups, Icons.Filled.Groups, QuizRoomRoute),
+    Tab("Account", Icons.Outlined.AccountCircle, Icons.Filled.AccountCircle, AccountsRoute),
 )
 
 @Composable
@@ -170,6 +181,17 @@ fun HiveApp() {
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
+
+    // Dots on the tabs: a room is live, or sync needs the user.
+    val joinedRoom by container.joinedRoom.collectAsStateWithLifecycle()
+    val hosting by container.rooms.localHostRunning.collectAsStateWithLifecycle()
+    val syncChoice by container.sync.choice.collectAsStateWithLifecycle()
+    val syncStatus by container.sync.status.collectAsStateWithLifecycle()
+    val attention = MaterialTheme.colorScheme.error
+    val dots = buildMap {
+        if (joinedRoom != null || hosting) put(tabs[2], Honey)
+        if (syncChoice != null || syncStatus is SyncStatus.Waiting) put(tabs[3], attention)
+    }
     val destination = backStackEntry?.destination
     val onTab = tabs.any { destination?.hasRoute(it.route::class) == true }
     val onWelcome = destination?.hasRoute(WelcomeRoute::class) == true
@@ -182,7 +204,9 @@ fun HiveApp() {
             if (onTab && !onWelcome) {
                 HiveTabBar(
                     current = tabs.firstOrNull { destination?.hasRoute(it.route::class) == true },
+                    dots = dots,
                     onSelect = { navController.openTab(it.route) },
+                    onReselect = { navController.popBackStack(it.route, inclusive = false) },
                 )
             }
         },
@@ -381,9 +405,9 @@ fun HiveApp() {
     SyncChoiceDialog()
 }
 
-/** A honey hexagon rises behind the icon of the selected tab. */
+/** The selected tab's icon sits in a honey hexagon, which slides to the tab that the user taps. */
 @Composable
-private fun HiveTabBar(current: Tab?, onSelect: (Tab) -> Unit) {
+private fun HiveTabBar(current: Tab?, dots: Map<Tab, Color>, onSelect: (Tab) -> Unit, onReselect: (Tab) -> Unit) {
     var tapped by remember { mutableStateOf<Tab?>(null) }
     LaunchedEffect(tapped) {
         val tab = tapped ?: return@LaunchedEffect
@@ -393,65 +417,108 @@ private fun HiveTabBar(current: Tab?, onSelect: (Tab) -> Unit) {
     }
     LaunchedEffect(current) { if (tapped == current) tapped = null }
     val selectedTab = tapped ?: current
+    val dark = MaterialTheme.hiveColors.isDark
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(
         Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(if (dark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surface)
             .navigationBarsPadding(),
     ) {
-        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.hiveColors.border)
-        Row(
+        if (!dark) HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
+        BoxWithConstraints(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-                .selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(horizontal = 8.dp),
         ) {
-            tabs.forEach { tab ->
-                val selected = tab == selectedTab
-                val rise by animateFloatAsState(
-                    targetValue = if (selected) 1f else 0f,
-                    animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium),
-                    label = "tab",
+            val tabWidth = maxWidth / tabs.size
+            val index = tabs.indexOf(selectedTab)
+            val x by animateDpAsState(
+                targetValue = tabWidth * index.coerceAtLeast(0) + (tabWidth - TabHexWidth) / 2,
+                animationSpec = tween(TAB_SLIDE_MILLIS),
+                label = "tab",
+            )
+            if (index >= 0) {
+                Box(
+                    Modifier
+                        .padding(top = TabTopPadding)
+                        .offset(x = x)
+                        .size(width = TabHexWidth, height = TabHexHeight)
+                        .background(Honey, TabHexagon),
                 )
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(MaterialTheme.shapes.medium)
-                        .selectable(selected = selected, role = Role.Tab, onClick = { if (!selected) tapped = tab })
-                        .padding(vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(Modifier.size(width = 48.dp, height = 40.dp), contentAlignment = Alignment.Center) {
-                        Box(
-                            Modifier
-                                .graphicsLayer {
-                                    translationY = (1f - rise) * size.height
-                                    alpha = rise.coerceIn(0f, 1f)
-                                }
-                                .size(width = 40.dp * HEXAGON_RATIO, height = 40.dp)
-                                .background(Honey, HexagonShape),
-                        )
-                        Icon(
-                            tab.icon,
-                            contentDescription = null,
-                            tint = if (selected) Graphite else MaterialTheme.colorScheme.onSurfaceVariant,
+            }
+            Row(Modifier.fillMaxWidth().selectableGroup()) {
+                tabs.forEach { tab ->
+                    val selected = tab == selectedTab
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(MaterialTheme.shapes.medium)
+                            .selectable(
+                                selected = selected,
+                                role = Role.Tab,
+                                onClick = { if (selected) onReselect(tab) else tapped = tab },
+                            )
+                            .padding(top = TabTopPadding, bottom = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(Modifier.size(width = TabHexWidth, height = TabHexHeight), contentAlignment = Alignment.Center) {
+                            Icon(
+                                if (selected) tab.selectedIcon else tab.icon,
+                                contentDescription = null,
+                                tint = if (selected) Graphite else muted,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            dots[tab]?.let { color ->
+                                Box(
+                                    Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(top = 2.dp, end = 14.dp)
+                                        .size(8.dp)
+                                        .background(color, CircleShape),
+                                )
+                            }
+                        }
+                        Text(
+                            tab.label,
+                            modifier = Modifier.padding(top = 4.dp),
+                            color = if (selected) MaterialTheme.colorScheme.onSurface else muted,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1,
                         )
                     }
-                    Text(
-                        tab.label.uppercase(),
-                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                    )
                 }
             }
         }
     }
 }
 
-private const val FADE_MILLIS = 120
+private val TabHexWidth = 64.dp
+private val TabHexHeight = 32.dp
+private val TabTopPadding = 8.dp
+private const val TAB_SLIDE_MILLIS = 150
+
+/** A hexagon with flat top and bottom and points at the sides. The slanted ends keep their depth at any width. */
+private val TabHexagon = object : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val end = with(density) { 12.dp.toPx() }.coerceAtMost(size.width / 2)
+        val path = Path().apply {
+            moveTo(end, 0f)
+            lineTo(size.width - end, 0f)
+            lineTo(size.width, size.height / 2)
+            lineTo(size.width - end, size.height)
+            lineTo(end, size.height)
+            lineTo(0f, size.height / 2)
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
+/** Short enough that a screen change feels instant. */
+private const val FADE_MILLIS = 60
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.betweenTabs(): Boolean {
     fun NavBackStackEntry.isTab() = tabs.any { destination.hasRoute(it.route::class) }
