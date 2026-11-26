@@ -186,7 +186,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     if (showReset) {
         HiveDialog(
             title = "Reset data on this phone",
-            message = "This leaves the room you joined and forgets it on this phone. Your stacks, reviews, hosted rooms, " +
+            message = "This leaves the session you joined and forgets it on this phone. Your stacks, reviews, hosted sessions, " +
                 "name, sign-in, and settings stay.",
             confirmText = "Reset",
             onConfirm = {

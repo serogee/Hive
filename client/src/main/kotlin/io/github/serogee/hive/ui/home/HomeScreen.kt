@@ -150,7 +150,7 @@ fun HomeScreen(
 
         // Active Joined Room Banner (if any)
         joined?.let { membership ->
-            item { JoinedRoomCard(membership, "Active quiz room", "Return to room") { onReturnToRoom(membership) } }
+            item { JoinedRoomCard(membership, "Active session", "Return to session") { onReturnToRoom(membership) } }
         }
 
         // Continue Review in Progress (if any)
@@ -399,7 +399,7 @@ fun JoinCard(
             HiveTextField(
                 value = code,
                 onValueChange = { code = it.take(RoomCodes.LENGTH + 2) },
-                placeholder = "Room Code",
+                placeholder = "Session Code",
                 onSolid = true,
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Characters,

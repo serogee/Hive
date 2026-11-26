@@ -233,7 +233,7 @@ fun AccountsScreen(
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     MetricStatChip("${stats.quizzesPlayed}", "quizzes\nplayed", Modifier.weight(1f))
-                    MetricStatChip("${stats.roomsHosted}", "rooms\nhosted", Modifier.weight(1f))
+                    MetricStatChip("${stats.roomsHosted}", "sessions\nhosted", Modifier.weight(1f))
                 }
             }
             AccountTab.HISTORY -> {
@@ -287,7 +287,7 @@ fun AccountsScreen(
                 }
             }
             Text(
-                "Unsync and delete account deletes your account, and removes your synced stacks, history, and online rooms from " +
+                "Unsync and delete account deletes your account, and removes your synced stacks, history, and online sessions from " +
                     "the server. This phone keeps everything it has.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -334,7 +334,7 @@ fun AccountsScreen(
             danger = true,
         ) {
             Text(
-                "Your account is deleted, with the stacks, reviews, quiz results, and online rooms that the server keeps for it. " +
+                "Your account is deleted, with the stacks, reviews, quiz results, and online sessions that the server keeps for it. " +
                     "You are signed out on every phone, and you cannot undo this. This phone keeps its stacks and history.",
                 style = MaterialTheme.typography.bodyMedium,
             )

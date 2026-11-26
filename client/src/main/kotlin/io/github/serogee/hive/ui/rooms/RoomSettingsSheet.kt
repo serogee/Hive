@@ -71,7 +71,7 @@ fun RoomSettingsSheet(room: RoomSummary, onSave: (HostCommand.UpdateSettings) ->
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("EDIT ROOM", style = MaterialTheme.typography.headlineSmall)
-            HiveTextField(value = title, onValueChange = { title = it.take(100) }, label = "Room name")
+            HiveTextField(value = title, onValueChange = { title = it.take(100) }, label = "Session name")
 
             Caption("Who can join")
             AdmissionPolicy.entries.forEach { option ->
@@ -104,7 +104,7 @@ fun RoomSettingsSheet(room: RoomSummary, onSave: (HostCommand.UpdateSettings) ->
                 HiveTextField(
                     value = minutes,
                     onValueChange = { minutes = it.filter(Char::isDigit).take(4) },
-                    label = "Close room after (minutes from now)",
+                    label = "Close session after (minutes from now)",
                     placeholder = "No deadline",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )

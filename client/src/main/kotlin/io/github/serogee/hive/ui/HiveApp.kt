@@ -160,7 +160,7 @@ private data class Tab(val label: String, val icon: ImageVector, val selectedIco
 private val tabs = listOf(
     Tab("Home", Icons.Outlined.Home, Icons.Filled.Home, HomeRoute),
     Tab("Stacks", Icons.Outlined.Layers, Icons.Filled.Layers, MyStacksRoute),
-    Tab("Rooms", Icons.Outlined.Groups, Icons.Filled.Groups, QuizRoomRoute),
+    Tab("Sessions", Icons.Outlined.Groups, Icons.Filled.Groups, QuizRoomRoute),
     Tab("Account", Icons.Outlined.AccountCircle, Icons.Filled.AccountCircle, AccountsRoute),
 )
 

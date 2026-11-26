@@ -96,7 +96,7 @@ class RoomService(
 
     suspend fun createRoom(caller: Account?, request: CreateRoomRequest): Membership {
         if (requireAccountToHost && caller == null) {
-            throw HiveException(ErrorCode.SIGN_IN_REQUIRED, "Sign in to host an online room.")
+            throw HiveException(ErrorCode.SIGN_IN_REQUIRED, "Sign in to host an online session.")
         }
         if (request.stack.questions.isEmpty()) {
             throw HiveException(ErrorCode.INVALID_REQUEST, "The stack has no questions.")
@@ -147,7 +147,7 @@ class RoomService(
 
     suspend fun lookup(rawCode: String): RoomSummary {
         val room = store.findRoomByCode(RoomCodes.normalize(rawCode))
-            ?: throw HiveException(ErrorCode.ROOM_NOT_FOUND, "No room uses that code.")
+            ?: throw HiveException(ErrorCode.ROOM_NOT_FOUND, "No session uses that code.")
         return room.publicSummary()
     }
 
@@ -175,7 +175,7 @@ class RoomService(
             }
         }
         if (room.status == RoomStatus.ENDED) {
-            throw HiveException(ErrorCode.ROOM_CLOSED, "This room has ended.")
+            throw HiveException(ErrorCode.ROOM_CLOSED, "This session has ended.")
         }
 
         val decision = Admission.decide(room.admission, signedIn = caller != null, asGuest = request.asGuest)
@@ -231,8 +231,8 @@ class RoomService(
         }
         if (others.isEmpty()) return
         if (!leave) {
-            val title = store.findRoom(others.first().roomId)?.title ?: "another room"
-            throw HiveException(ErrorCode.ALREADY_IN_ROOM, "You are in $title. Leave it to join this room.")
+            val title = store.findRoom(others.first().roomId)?.title ?: "another session"
+            throw HiveException(ErrorCode.ALREADY_IN_ROOM, "You are in $title. Leave it to join this session.")
         }
         others.forEach { markLeft(it) }
     }
@@ -257,7 +257,7 @@ class RoomService(
     /** A Player leaves the room. Their answers still count, and they can rejoin with the code. */
     suspend fun leave(roomId: RoomId, caller: Account?, participantToken: String?) = lockFor(roomId).withLock {
         val participant = authorize(roomId, caller, participantToken)
-        if (participant.role != RoomRole.PLAYER) throw HiveException(ErrorCode.FORBIDDEN, "The Host ends the room instead.")
+        if (participant.role != RoomRole.PLAYER) throw HiveException(ErrorCode.FORBIDDEN, "The Host ends the session instead.")
         if (participant.leftAt == null) markLeft(participant)
     }
     suspend fun state(roomId: RoomId, caller: Account?, participantToken: String?): RoomState {
@@ -309,13 +309,13 @@ class RoomService(
         }
         val title = command.title.trim()
         if (title.isEmpty() || title.length > MAX_TITLE_LENGTH) {
-            throw HiveException(ErrorCode.INVALID_REQUEST, "The room needs a name of up to $MAX_TITLE_LENGTH characters.")
+            throw HiveException(ErrorCode.INVALID_REQUEST, "The session needs a name of up to $MAX_TITLE_LENGTH characters.")
         }
         if ((command.deadlineAt ?: Long.MAX_VALUE) <= now) {
             throw HiveException(ErrorCode.INVALID_REQUEST, "The quiz deadline has already passed.")
         }
         if (!accountsSupported && command.admission == AdmissionPolicy.SIGNED_IN_ONLY) {
-            throw HiveException(ErrorCode.INVALID_REQUEST, "This room cannot check accounts.")
+            throw HiveException(ErrorCode.INVALID_REQUEST, "This session cannot check accounts.")
         }
         val seconds = command.questionSeconds
         if (seconds != null && seconds != 0 && seconds !in QuestionDraft.MIN_DURATION_SECONDS..QuestionDraft.MAX_DURATION_SECONDS) {
@@ -350,8 +350,8 @@ class RoomService(
             command == HostCommand.EndRoom && room.effectiveStatus(now) != RoomStatus.ENDED ->
                 Progress(RoomStatus.ENDED, null, false)
             command == HostCommand.Start || command == HostCommand.EndRoom ->
-                throw HiveException(ErrorCode.INVALID_COMMAND, "The room is already ${if (command == HostCommand.Start) "open" else "closed"}.")
-            else -> throw HiveException(ErrorCode.INVALID_COMMAND, "Players move through this room at their own pace.")
+                throw HiveException(ErrorCode.INVALID_COMMAND, "The session is already ${if (command == HostCommand.Start) "open" else "closed"}.")
+            else -> throw HiveException(ErrorCode.INVALID_COMMAND, "Players move through this session at their own pace.")
         }
         val revision = room.revision + 1
         store.updateProgress(room.id, progress, revision)
@@ -392,12 +392,12 @@ class RoomService(
         val player = authorize(roomId, caller, participantToken)
         val now = clock.nowMillis()
         if (player.role != RoomRole.PLAYER) throw HiveException(ErrorCode.FORBIDDEN, "Only Players take attempts.")
-        if (player.leftAt != null) throw HiveException(ErrorCode.FORBIDDEN, "You left this room. Join it again to continue.")
+        if (player.leftAt != null) throw HiveException(ErrorCode.FORBIDDEN, "You left this session. Join it again to continue.")
         if (room.mode != RoomMode.ASYNCHRONOUS) {
-            throw HiveException(ErrorCode.INVALID_COMMAND, "The Host moves this room from question to question.")
+            throw HiveException(ErrorCode.INVALID_COMMAND, "The Host moves this session from question to question.")
         }
         if (room.effectiveStatus(now) != RoomStatus.LIVE) {
-            throw HiveException(ErrorCode.ROOM_CLOSED, if (room.status == RoomStatus.LOBBY) "The Host has not opened this room yet." else "This room has closed.")
+            throw HiveException(ErrorCode.ROOM_CLOSED, if (room.status == RoomStatus.LOBBY) "The Host has not opened this session yet." else "This session has closed.")
         }
 
         val current = store.findAttempt(roomId, player.id)
@@ -452,7 +452,7 @@ class RoomService(
         val room = requireRoom(roomId)
         val player = authorize(roomId, caller, participantToken)
         if (player.role != RoomRole.PLAYER) throw HiveException(ErrorCode.FORBIDDEN, "The Host does not answer questions.")
-        if (player.leftAt != null) throw HiveException(ErrorCode.FORBIDDEN, "You left this room. Join it again to answer.")
+        if (player.leftAt != null) throw HiveException(ErrorCode.FORBIDDEN, "You left this session. Join it again to answer.")
         if (request.idempotencyKey.isBlank() || request.idempotencyKey.length > 100) {
             throw HiveException(ErrorCode.INVALID_REQUEST, "The answer needs an idempotency key of up to 100 characters.")
         }
@@ -660,19 +660,19 @@ class RoomService(
         requireRoom(roomId)
         val participant = participantToken?.let { store.findParticipantByToken(roomId, Tokens.hash(it)) }
             ?: caller?.let { store.findParticipantByAccount(roomId, it.id) }
-        return participant ?: throw HiveException(ErrorCode.NOT_A_PARTICIPANT, "Join this room first.")
+        return participant ?: throw HiveException(ErrorCode.NOT_A_PARTICIPANT, "Join this session first.")
     }
 
     private fun RoomRecord.publicSummary() = summary().copy(acceptsAccounts = accountsSupported)
 
     private suspend fun requireRoom(roomId: RoomId) =
-        store.findRoom(roomId) ?: throw HiveException(ErrorCode.ROOM_NOT_FOUND, "This room no longer exists.")
+        store.findRoom(roomId) ?: throw HiveException(ErrorCode.ROOM_NOT_FOUND, "This session no longer exists.")
 
     private fun deniedMessage(code: ErrorCode) = when (code) {
         ErrorCode.SIGN_IN_REQUIRED -> "Sign in to join with an account, or join as a guest."
-        ErrorCode.GUESTS_NOT_ALLOWED -> "This room accepts signed-in Players only."
-        ErrorCode.GUESTS_ONLY -> "This room accepts guests only. Join as a guest."
-        else -> "You cannot join this room."
+        ErrorCode.GUESTS_NOT_ALLOWED -> "This session accepts signed-in Players only."
+        ErrorCode.GUESTS_ONLY -> "This session accepts guests only. Join as a guest."
+        else -> "You cannot join this session."
     }
 
     private companion object {

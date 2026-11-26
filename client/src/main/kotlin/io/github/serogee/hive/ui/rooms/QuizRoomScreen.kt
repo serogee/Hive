@@ -94,7 +94,7 @@ fun QuizRoomScreen(
     LaunchedEffect(signedIn, gate == null) { if (signedIn && gate == null) viewModel.refreshHosted() }
 
     Page(
-        title = "Quiz Room",
+        title = "Sessions",
         subtitle = "Multiplayer quiz lobbies and live sessions",
     ) {
         JoinCard(
@@ -104,8 +104,8 @@ fun QuizRoomScreen(
         )
 
         joined?.let { membership ->
-            SectionHeader(title = "Active Room")
-            JoinedRoomCard(membership, "Joined room", "Reconnect") { onOpenRoom(membership.roomId.value) }
+            SectionHeader(title = "Active Session")
+            JoinedRoomCard(membership, "Joined session", "Reconnect") { onOpenRoom(membership.roomId.value) }
         }
 
         // Rooms that ended are not listed.
@@ -115,12 +115,12 @@ fun QuizRoomScreen(
             openRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
         }
 
-        SectionHeader(title = "Online Rooms")
+        SectionHeader(title = "Online Sessions")
         if (!signedIn) {
             Gated(gate) { enabled ->
                 SleekCard {
                     Text(
-                        "Sign in to host and join online rooms over the internet. Nearby phone rooms require no account.",
+                        "Sign in to host and join online sessions over the internet. Nearby phone sessions require no account.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -139,7 +139,7 @@ fun QuizRoomScreen(
                 if (hosted.loading && enabled) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 if (enabled) ErrorText(hosted.error)
                 if (!hosted.loading && hosted.rooms.isEmpty() && hosted.error == null) {
-                    Text("No online rooms yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                    Text("No online sessions yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                 }
                 hosted.rooms.forEach { room ->
                     HostedRoomCard(room, onClick = if (enabled) ({ onOpenRoom(room.id.value) }) else null)

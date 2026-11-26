@@ -26,7 +26,7 @@ class HostingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Hosting rooms", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(CHANNEL, "Hosting sessions", NotificationManager.IMPORTANCE_LOW),
         )
         val open = PendingIntent.getActivity(
             this,
@@ -36,8 +36,8 @@ class HostingService : Service() {
         )
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_upload_done)
-            .setContentTitle("Hosting a Hive room")
-            .setContentText("Players on this network can join. End the room in Quiz Room when you finish.")
+            .setContentTitle("Hosting a Hive session")
+            .setContentText("Players on this network can join. End it in the Sessions tab when you finish.")
             .setContentIntent(open)
             .setOngoing(true)
             .build()

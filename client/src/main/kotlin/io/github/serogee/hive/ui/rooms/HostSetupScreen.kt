@@ -125,7 +125,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         HeroCard(
             badgeText = "STACK SELECTED",
             title = current.title.ifBlank { "Untitled stack" },
-            subtitle = "${current.questions.size} questions included in this room",
+            subtitle = "${current.questions.size} questions included in this session",
         )
 
         if (stack == null) {
@@ -185,7 +185,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             if (!onPhone && gate != null) GateNote(gate)
             if (onPhone) {
                 Text(
-                    "Rooms on this phone admit Players as guests. Signed-in Players only needs a way to check accounts " +
+                    "Sessions on this phone admit Players as guests. Signed-in Players only needs a way to check accounts " +
                         "without internet, which Hive does not have yet.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -210,7 +210,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
             HiveTextField(
                 value = deadlineMinutes,
                 onValueChange = { deadlineMinutes = it.filter(Char::isDigit).take(4) },
-                label = "Close room after (minutes)",
+                label = "Close session after (minutes)",
                 placeholder = "No deadline",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
@@ -225,7 +225,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
         val effectiveAdmission = if (onPhone && admission == AdmissionPolicy.SIGNED_IN_ONLY) AdmissionPolicy.EVERYONE else admission
 
         HiveButton(
-            text = "Create Room",
+            text = "Create Session",
             onClick = {
                 if (onPhone && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
