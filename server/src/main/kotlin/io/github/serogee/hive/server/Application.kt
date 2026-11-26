@@ -7,6 +7,9 @@ import io.github.serogee.hive.host.RoomStore
 import io.github.serogee.hive.host.healthRoutes
 import io.github.serogee.hive.host.installHiveApi
 import io.github.serogee.hive.host.roomRoutes
+import io.github.serogee.hive.server.sync.SyncService
+import io.github.serogee.hive.server.sync.SyncStore
+import io.github.serogee.hive.server.sync.syncRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.calllogging.CallLogging
@@ -23,6 +26,8 @@ class Backend(
     val rooms: RoomStore,
     val accounts: AccountVerifier,
     val mode: HealthMode = HealthMode.DEMO,
+    /** Account sync, or null on a server that keeps nothing. */
+    val sync: SyncStore? = null,
     /** Routes that exist only in this configuration, such as demo login. */
     val extraRoutes: Route.() -> Unit = {},
 )
@@ -35,9 +40,10 @@ fun Application.hiveModule(backend: Backend) {
 
     routing {
         route("/v1") {
-            healthRoutes(backend.mode, backend.accounts)
+            healthRoutes(backend.mode, backend.accounts, sync = backend.sync != null)
             accountRoutes(backend.accounts)
             roomRoutes(roomService, backend.accounts)
+            backend.sync?.let { syncRoutes(SyncService(it, backend.rooms, roomService), backend.accounts) }
             backend.extraRoutes(this)
         }
     }

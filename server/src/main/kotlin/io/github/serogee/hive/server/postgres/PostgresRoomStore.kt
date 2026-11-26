@@ -60,6 +60,10 @@ class PostgresRoomStore(private val db: PostgresDatabase) : RoomStore {
 
     override suspend fun roomsHostedBy(accountId: AccountId) = db.read { it.rooms("WHERE host_account_id = ?", accountId.value) }
 
+    override suspend fun roomsPlayedBy(accountId: AccountId) = db.read {
+        it.rooms("WHERE id IN (SELECT room_id FROM hive.participants WHERE account_id = ? AND role = ?)", accountId.value, RoomRole.PLAYER.name)
+    }
+
     override suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long) = db.write { connection ->
         connection.update(
             "UPDATE hive.rooms SET status = ?, question_index = ?, question_open = ?, question_opened_at = ?, revision = ? WHERE id = ?",

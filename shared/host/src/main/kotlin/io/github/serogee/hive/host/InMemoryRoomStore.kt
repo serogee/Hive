@@ -32,6 +32,11 @@ class InMemoryRoomStore : RoomStore {
         rooms.values.filter { it.hostAccountId == accountId }
     }
 
+    override suspend fun roomsPlayedBy(accountId: AccountId) = mutex.withLock {
+        val ids = participants.filter { it.accountId == accountId && it.role == RoomRole.PLAYER }.map { it.roomId }.toSet()
+        rooms.values.filter { it.id in ids }
+    }
+
     override suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long) = mutex.withLock {
         rooms.computeIfPresent(roomId) { _, room -> room.with(progress, revision) }
         Unit
