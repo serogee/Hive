@@ -30,6 +30,13 @@ object ApiPaths {
 
     fun results(roomId: String) = "$ROOMS/$roomId/results"
 
+    const val SYNC = "$PREFIX/sync"
+    const val SYNC_CHANGES = "$SYNC/changes"
+    const val SYNC_STACKS = "$SYNC/stacks"
+    const val SYNC_REVIEWS = "$SYNC/reviews"
+    const val SYNC_RESULTS = "$SYNC/results"
+    const val SYNC_ROOMS = "$SYNC/rooms"
+
     /** Carries the reconnect credential that a join or room creation returned. */
     const val PARTICIPANT_TOKEN_HEADER = "X-Hive-Participant"
 }
