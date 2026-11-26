@@ -63,6 +63,7 @@ data class RoomRecord(
         revealPolicy = revealPolicy,
         speedScoring = speedScoring,
         timeTiebreak = timeTiebreak,
+        createdAt = createdAt,
     )
 
     /** When answers to the current question stop, from its time limit and the quiz deadline. */
