@@ -17,5 +17,6 @@ server/data/
 
 # Server settings and signing keys
 server/.env
+.env
 *.jks
 *.keystore

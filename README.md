@@ -23,6 +23,7 @@ Run these from the repository root on Windows, or double-click the files.
 - `.\app-build.cmd` runs the JVM tests, builds the debug app, and prints where it is.
 - `.\app-dev.cmd [server URL]` installs the debug app on the connected phone or emulator and opens it.
 - `.\server-dev.cmd [--reset]` starts the demo server on port 8080, with fresh demo data after `--reset`.
+- `.\server-docker.cmd [--down | --reset]` builds the server image and runs it with Postgres in Docker, as it runs when it is hosted. `--down` stops both, and `--reset` also deletes the local database. Copy `.env.example` to `.env` to change the port or the local password.
 - `.\server-run.cmd` builds the server and runs it with the settings in `server\.env`. Copy `server\.env.example` to make that file.
 - `.\app-release.cmd --setup-key` makes the signing key for releases, one time. Back up the key and the settings file that it prints.
 - `.\app-release.cmd 0.1.0` tests and builds a signed app from `main`, asks, then publishes the tag and the app as a GitHub release. The notes come from `releases\0.1.0.md`, or from the merges on `main` when there is no such file.
@@ -69,6 +70,8 @@ hive.serverUrl=https://your-hive-server.example
 On the server, set `HIVE_MODE=production` and `SUPABASE_URL` in `server\.env`. Without `SUPABASE_URL`, the server starts and guests can join rooms, but nobody can sign in.
 
 Set `DATABASE_URL` to the session pooler address of the Supabase project to keep rooms in Postgres. The server makes and updates its tables when it starts, in a schema that the publishable key cannot read. Without `DATABASE_URL`, rooms are kept in memory and end when the server stops.
+
+Add `?sslmode=disable` only for a database on a private network, such as the one in `compose.yaml`. Every other address is encrypted.
 
 `render.yaml` deploys the server to Render from `server/Dockerfile`. Create a blueprint from the repository in the Render dashboard, and enter `SUPABASE_URL` and `DATABASE_URL` there.
 

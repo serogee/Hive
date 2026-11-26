@@ -1,0 +1,35 @@
+# Runs the production server with Postgres on this computer: server-docker.cmd, or docker compose up --build.
+# Settings come from .env, which Git ignores. Copy .env.example to make it.
+name: hive
+
+services:
+    db:
+        image: postgres:16-alpine
+        environment:
+            POSTGRES_PASSWORD: ${HIVE_DB_PASSWORD:-hive-local-only}
+        volumes:
+            - hive-db:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U postgres']
+            interval: 2s
+            timeout: 3s
+            retries: 30
+
+    server:
+        build:
+            context: .
+            dockerfile: server/Dockerfile
+        depends_on:
+            db:
+                condition: service_healthy
+        environment:
+            PORT: 8080
+            SUPABASE_URL: ${SUPABASE_URL:-}
+            # The database is on the private network of these two containers, without encryption.
+            DATABASE_URL: postgresql://postgres:${HIVE_DB_PASSWORD:-hive-local-only}@db:5432/postgres?sslmode=disable
+        ports:
+            # Phones on the same Wi-Fi can use this computer's address with this port.
+            - '${HIVE_PORT:-8080}:8080'
+
+volumes:
+    hive-db:
