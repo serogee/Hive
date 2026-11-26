@@ -92,7 +92,7 @@ Guests keep everything on their phone. A signed-in account syncs through a serve
 - Finished reviews, and the results of quizzes hosted on a phone or played on a nearby Host's phone.
 - The account's online rooms, hosted and played, which come from the server itself.
 
-The phone syncs after sign-in, when the app starts, a few seconds after a change, when the server can be reached again, and with Sync now in Account. Changes made offline wait on the phone. When two phones change the same stack, the account keeps the change that arrived first, and the other phone saves its own as a new stack, with "(from this phone)" after the title. Nothing is lost without a stack to show it.
+The phone syncs after sign-in, when the app starts, a few seconds after a change, when the server can be reached again, and with Sync now in Account. Changes made offline wait on the phone. When two phones change the same stack, the account keeps the change that arrived first, and the other phone saves its own as a new stack, with "(from this phone)" after the title.
 
 The first sign-in on a phone that already has stacks asks one time whether to upload them or keep them on that phone only. Log Out asks whether to keep the synced stacks on the phone. Reset Data asks whether to reset this phone only, or the account too. The account option deletes what the server keeps, after a second question.
 
