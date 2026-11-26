@@ -46,14 +46,8 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import io.github.serogee.hive.data.sync.SyncStatus
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -85,6 +79,7 @@ import io.github.serogee.hive.ui.stacks.StackEditorScreen
 import io.github.serogee.hive.ui.stacks.StackListPurpose
 import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
+import io.github.serogee.hive.ui.theme.WideHexagonShape
 import io.github.serogee.hive.ui.theme.hiveColors
 import io.github.serogee.hive.ui.welcome.WelcomeScreen
 import io.github.serogee.hive.ui.accounts.SyncChoiceDialog
@@ -500,22 +495,8 @@ private val TabHexHeight = 32.dp
 private val TabTopPadding = 8.dp
 private const val TAB_SLIDE_MILLIS = 150
 
-/** A hexagon with flat top and bottom and points at the sides. The slanted ends keep their depth at any width. */
-private val TabHexagon = object : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val end = with(density) { 12.dp.toPx() }.coerceAtMost(size.width / 2)
-        val path = Path().apply {
-            moveTo(end, 0f)
-            lineTo(size.width - end, 0f)
-            lineTo(size.width, size.height / 2)
-            lineTo(size.width - end, size.height)
-            lineTo(end, size.height)
-            lineTo(0f, size.height / 2)
-            close()
-        }
-        return Outline.Generic(path)
-    }
-}
+/** The honey hexagon under the selected tab, with slightly rounded corners like every hexagon in the app. */
+private val TabHexagon = WideHexagonShape(endDepth = 12.dp, corner = 3.5.dp)
 
 /** Short enough that a screen change feels instant. */
 private const val FADE_MILLIS = 60
