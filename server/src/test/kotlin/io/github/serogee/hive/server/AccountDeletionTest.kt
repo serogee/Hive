@@ -77,7 +77,7 @@ class AccountDeletionTest {
     }
 
     @Test
-    fun anAccountIsDeletedWithItsDataAndLeftNamelessInOtherRooms() = testApplication {
+    fun anAccountIsDeletedWithItsDataAndStaysLikeAGuestInOtherRooms() = testApplication {
         val signInDeleted = mutableListOf<AccountId>()
         val client = client(AccountDeleter(db.accountData(), signIn = { signInDeleted += it }))
         val sam = client.token("sam")
@@ -95,8 +95,8 @@ class AccountDeletionTest {
         assertEquals(listOf("0"), query("SELECT COUNT(*) FROM sessions WHERE account_id = 'demo-account-sam'"))
         // Sam hosted the take-home room, which ends without a host account.
         assertEquals(listOf("ENDED|null"), query("SELECT status || '|' || IFNULL(host_account_id, 'null') FROM rooms WHERE id = 'demo-room-async'"))
-        // Sam played Alex's ended room: the result stays, without the name or the account.
-        assertEquals(listOf(DELETED_NAME), query("SELECT display_name FROM participants WHERE id = 'demo-p-ended-sam' AND account_id IS NULL"))
+        // Sam played Alex's ended room: the result and the name stay, like a guest's, without the account.
+        assertEquals(listOf("Sam Cruz"), query("SELECT display_name FROM participants WHERE id = 'demo-p-ended-sam' AND account_id IS NULL"))
         // Sam's token no longer works.
         assertEquals(HttpStatusCode.Unauthorized, client.get(ApiPaths.ME) { bearerAuth(sam) }.status)
     }
