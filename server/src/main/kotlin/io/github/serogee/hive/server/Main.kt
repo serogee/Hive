@@ -56,7 +56,7 @@ private fun runProduction(config: ServerConfig) {
     val saved = PostgresAccounts(db, accounts)
     val secret = config.supabaseSecretKey
     val deleter = if (config.supabaseUrl != null && secret != null) {
-        AccountDeleter(db.accountData(), SupabaseAdmin(config.supabaseUrl, secret), saved::forget)
+        AccountDeleter(db.accountData(), SupabaseAdmin(config.supabaseUrl, secret), saved::markDeleted)
     } else {
         println("SUPABASE_SECRET_KEY is missing, so accounts cannot be deleted.")
         null

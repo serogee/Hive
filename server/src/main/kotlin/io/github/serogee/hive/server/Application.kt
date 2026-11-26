@@ -1,7 +1,9 @@
 package io.github.serogee.hive.server
 
 import io.github.serogee.hive.core.api.HealthMode
+import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.host.AccountVerifier
+import io.github.serogee.hive.host.RoomEventHub
 import io.github.serogee.hive.host.RoomService
 import io.github.serogee.hive.host.RoomStore
 import io.github.serogee.hive.host.healthRoutes
@@ -40,12 +42,15 @@ fun Application.hiveModule(backend: Backend) {
     installHiveApi()
     install(CallLogging)
 
-    val roomService = RoomService(backend.rooms, requireAccountToHost = true)
+    val hub = RoomEventHub()
+    val roomService = RoomService(backend.rooms, hub = hub, requireAccountToHost = true, accountsSupported = backend.accounts.configured)
 
     routing {
         route("/v1") {
             healthRoutes(backend.mode, backend.accounts, sync = backend.sync != null)
-            accountRoutes(backend.accounts, backend.deleter, backend.profiles)
+            accountRoutes(backend.accounts, backend.deleter, backend.profiles) { ended ->
+                ended.forEach { hub.publish(RoomEvent.RoomEnded(it.roomId, it.revision)) }
+            }
             roomRoutes(roomService, backend.accounts)
             backend.sync?.let { syncRoutes(SyncService(it, backend.rooms, roomService), backend.accounts) }
             backend.extraRoutes(this)

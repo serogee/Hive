@@ -65,7 +65,7 @@ class QuizHistory(private val dao: SyncDao, private val now: () -> Long = System
                         title = room.title,
                         role = RoomRole.HOST,
                         place = QuizPlace.THIS_PHONE,
-                        playedAt = now(),
+                        playedAt = room.createdAt ?: now(),
                         questionCount = room.questionCount,
                         playerCount = players(room),
                     ),
@@ -74,21 +74,22 @@ class QuizHistory(private val dao: SyncDao, private val now: () -> Long = System
         )
     }
 
-    /** Records the result of a room on another Host's phone, once it ended. */
-    suspend fun recordPlayedNearby(results: RoomResults, participantId: ParticipantId) {
+    /** Records the result of a room played nearby or as a guest online, once it ended. */
+    suspend fun recordPlayed(results: RoomResults, participantId: ParticipantId, place: QuizPlace = QuizPlace.NEARBY) {
         if (results.room.status != RoomStatus.ENDED) return
         val you = results.leaderboard.firstOrNull { it.participantId == participantId } ?: return
+        val prefix = if (place == QuizPlace.ONLINE) "guest-online" else "nearby"
         dao.insertResults(
             listOf(
                 local(
-                    id = "nearby:${results.room.id.value}:${participantId.value}",
+                    id = "$prefix:${results.room.id.value}:${participantId.value}",
                     result = QuizResult(
                         roomId = results.room.id.value,
                         code = results.room.code,
                         title = results.room.title,
                         role = RoomRole.PLAYER,
-                        place = QuizPlace.NEARBY,
-                        playedAt = now(),
+                        place = place,
+                        playedAt = results.room.createdAt ?: now(),
                         questionCount = results.room.questionCount,
                         playerCount = results.leaderboard.size,
                         correctCount = you.correctCount,
@@ -99,6 +100,10 @@ class QuizHistory(private val dao: SyncDao, private val now: () -> Long = System
             ),
         )
     }
+
+    /** Records the result of a room on another Host's phone, once it ended. */
+    suspend fun recordPlayedNearby(results: RoomResults, participantId: ParticipantId) =
+        recordPlayed(results, participantId, QuizPlace.NEARBY)
 
     private fun local(id: String, result: QuizResult) =
         QuizResultEntity(id, encode(result), result.playedAt, online = false, syncState = RecordSync.UNSENT)

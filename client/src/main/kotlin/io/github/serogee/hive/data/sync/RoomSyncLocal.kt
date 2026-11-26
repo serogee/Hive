@@ -80,6 +80,14 @@ class RoomSyncLocal(private val db: HiveDatabase, private val now: () -> Long = 
 
     override suspend fun keepUnlinkedOnPhone() = dao.keepUnlinkedOnPhone()
 
+    override suspend fun markStackUnsynced(id: String) = dao.markStackUnsynced(id)
+
+    override suspend fun markStackSynced(id: String) = dao.markStackSynced(id)
+
+    override suspend fun syncAllStacks() = dao.syncAllStacks()
+
+    override suspend fun unsyncAllStacks() = dao.unsyncAllStacks()
+
     override suspend fun unlinkAll() = dao.unlinkAll()
 
     override suspend fun signOutSummary() = SignOutSummary(dao.syncedStackCount(), dao.unsyncedEditCount() + dao.unlinkedStackCount())

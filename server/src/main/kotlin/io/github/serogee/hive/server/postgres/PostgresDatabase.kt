@@ -43,8 +43,16 @@ class PostgresDatabase private constructor(private val pool: HikariDataSource) :
         },
     )
 
-    /** Deletes an account and what it synced, in one transaction. */
-    fun accountData(): AccountData = AccountData { accountId -> write { deleteAccountRows(it, "hive.", accountId) } }
+    /** Deletes an account and what it synced, in one transaction locked against concurrent sync writes. */
+    fun accountData(): AccountData = AccountData { accountId ->
+        write { connection ->
+            connection.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))").use {
+                it.setString(1, "sync:${accountId.value}")
+                it.executeQuery().close()
+            }
+            deleteAccountRows(connection, "hive.", accountId, recordDeleted = true)
+        }
+    }
 
     override fun close() = pool.close()
 

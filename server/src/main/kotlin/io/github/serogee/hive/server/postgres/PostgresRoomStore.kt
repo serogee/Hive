@@ -78,12 +78,13 @@ class PostgresRoomStore(private val db: PostgresDatabase) : RoomStore {
 
     override suspend fun updateSettings(room: RoomRecord) = db.write { connection ->
         connection.update(
-            "UPDATE hive.rooms SET title = ?, admission = ?, stack_json = ?, deadline_at = ?, speed_scoring = ?, time_tiebreak = ?, " +
-                "revision = ? WHERE id = ?",
+            "UPDATE hive.rooms SET title = ?, admission = ?, stack_json = ?, deadline_at = ?, reveal_policy = ?, speed_scoring = ?, " +
+                "time_tiebreak = ?, revision = ? WHERE id = ?",
             room.title,
             room.admission.name,
             HiveJson.encodeToString(StackSnapshot.serializer(), room.stack),
             room.deadlineAt,
+            room.revealPolicy.name,
             room.speedScoring,
             room.timeTiebreak,
             room.revision,

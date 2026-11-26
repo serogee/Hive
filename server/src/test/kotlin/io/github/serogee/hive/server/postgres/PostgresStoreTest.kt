@@ -12,6 +12,7 @@ import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.QuestionId
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomStatus
@@ -119,6 +120,11 @@ class PostgresStoreTest {
 
         db.accountData().delete(alex.id)
         assertNull(PostgresAccounts(db) { fromSignIn }.displayName(alex.id))
+        // An unexpired JWT for a deleted account cannot save it again, even after a restart.
+        assertNull(PostgresAccounts(db) { fromSignIn }.verify("token"))
+        reopen()
+        assertNull(PostgresAccounts(db) { fromSignIn }.verify("token"))
+        assertEquals(0, count("accounts"))
     }
 
     @Test
@@ -168,13 +174,22 @@ class PostgresStoreTest {
             host.room.id,
             alex,
             null,
-            HostCommand.UpdateSettings("Friday quiz", AdmissionPolicy.GUESTS_ONLY, speedScoring = true, timeTiebreak = false, deadlineAt = 90_000, questionSeconds = 20),
+            HostCommand.UpdateSettings(
+                "Friday quiz",
+                AdmissionPolicy.GUESTS_ONLY,
+                speedScoring = true,
+                timeTiebreak = false,
+                deadlineAt = 90_000,
+                questionSeconds = 20,
+                revealPolicy = RevealPolicy.AFTER_EACH_QUESTION,
+            ),
         )
         reopen()
 
         val stored = assertNotNull(PostgresRoomStore(db).findRoom(host.room.id))
         assertEquals("Friday quiz", stored.title)
         assertEquals(AdmissionPolicy.GUESTS_ONLY, stored.admission)
+        assertEquals(RevealPolicy.AFTER_EACH_QUESTION, stored.revealPolicy)
         assertTrue(stored.speedScoring)
         assertEquals(false, stored.timeTiebreak)
         assertEquals(90_000L, stored.deadlineAt)
@@ -271,7 +286,7 @@ class PostgresStoreTest {
         postgres.postgresDatabase.connection.use { connection ->
             connection.createStatement().use { statement ->
                 statement.execute("SET ROLE anon")
-                listOf("accounts", "rooms", "participants", "submissions", "attempts", "schema_migrations").forEach { table ->
+                listOf("accounts", "deleted_accounts", "rooms", "participants", "submissions", "attempts", "schema_migrations").forEach { table ->
                     val failure = assertFailsWith<SQLException> { statement.execute("SELECT * FROM hive.$table") }
                     assertEquals("42501", failure.sqlState, table)
                 }

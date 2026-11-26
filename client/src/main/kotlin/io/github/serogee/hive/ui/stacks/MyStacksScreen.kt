@@ -7,9 +7,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,6 +57,7 @@ fun MyStacksScreen(
 ) {
     val container = LocalAppContainer.current
     val stacks by container.stackList.collectAsStateWithLifecycle()
+    val session by container.session.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var practiceFor by remember { mutableStateOf<StackId?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -172,6 +176,7 @@ fun MyStacksScreen(
                     onClick = { open(stack.id) },
                     onHost = if (purpose == StackListPurpose.BROWSE) ({ onHost(stack.id) }) else null,
                     onPractice = if (purpose == StackListPurpose.BROWSE) ({ practiceFor = stack.id }) else null,
+                    showUnsynced = session != null,
                 )
             }
         }
@@ -192,6 +197,7 @@ fun StackCard(
     onClick: () -> Unit,
     onHost: (() -> Unit)? = null,
     onPractice: (() -> Unit)? = null,
+    showUnsynced: Boolean = false,
 ) {
     SleekCard(onClick = onClick) {
         Row(
@@ -209,11 +215,25 @@ fun StackCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Text(
-                    text = stack.title.ifBlank { "Untitled stack" },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = stack.title.ifBlank { "Untitled stack" },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (showUnsynced && stack.localOnly) {
+                        Icon(
+                            imageVector = Icons.Outlined.CloudOff,
+                            contentDescription = "Not synced",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
                 Text(
                     text = if (stack.questionCount == 1) "1 question" else "${stack.questionCount} questions",
                     style = MaterialTheme.typography.bodySmall,

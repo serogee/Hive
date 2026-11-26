@@ -123,9 +123,9 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Checks the server too, because the user may have just come back online. */
+    /** Retries the server connection too, because the user may have just come back online. */
     fun syncNow() {
-        container.server.checkNow()
+        container.server.retry()
         container.sync.requestSync()
     }
 
@@ -268,9 +268,14 @@ fun AccountsScreen(
                         )
                     }
                 }
+                val existingStackIds = stacks.orEmpty().map { it.id }.toSet()
                 (if (showAllHistory) entries else entries.take(HISTORY_PREVIEW)).forEach { entry ->
                     when (entry) {
-                        is HistoryEntry.Review -> ReviewCard(entry.review) { onOpenReview(entry.review.attempt.id) }
+                        is HistoryEntry.Review -> ReviewCard(
+                            review = entry.review,
+                            stackDeleted = stacks != null && entry.review.attempt.stack.id !in existingStackIds,
+                            onClick = { onOpenReview(entry.review.attempt.id) },
+                        )
                         is HistoryEntry.Quiz -> QuizResultCard(entry.result)
                     }
                 }
@@ -359,11 +364,12 @@ fun AccountsScreen(
             confirmText = if (state.unsyncing) "Deleting" else "Delete",
             onConfirm = { if (!state.unsyncing) viewModel.unsync { showUnsync = false } },
             dismissText = "Cancel",
-            onDismiss = { showUnsync = false },
+            onDismiss = { if (!state.unsyncing) showUnsync = false },
             danger = true,
         ) {
             Text(
-                "Your account is deleted, with the stacks, reviews, quiz results, and online sessions that the server keeps for it. " +
+                "Your account is deleted, with the stacks, reviews, and quiz results that the server keeps for it. " +
+                    "Any open sessions you host end, and past session results keep your display name. " +
                     "You are signed out on every phone, and you cannot undo this. This phone keeps its stacks and history.",
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -473,11 +479,12 @@ private fun historyEntries(reviews: List<FinishedReview>, quizzes: List<QuizResu
 }
 
 @Composable
-private fun ReviewCard(review: FinishedReview, onClick: () -> Unit) {
+private fun ReviewCard(review: FinishedReview, stackDeleted: Boolean = false, onClick: () -> Unit) {
     val mode = if (review.attempt.settings.mode == ReviewMode.QUIZ) "Quiz review" else "Flashcard review"
+    val suffix = if (stackDeleted) ", stack deleted" else ""
     HistoryRow(
         title = review.attempt.stack.title.ifBlank { "Untitled stack" },
-        meta = "${historyDate(review.finishedAt)}, $mode",
+        meta = "${historyDate(review.finishedAt)}, $mode$suffix",
         score = review.score,
         onClick = onClick,
     )

@@ -55,12 +55,21 @@ data class ReviewAttempt(
     /** Index into [order] of the current card. Equal to the size of [order] when finished. */
     val position: Int = 0,
     val outcomes: Map<String, Outcome> = emptyMap(),
+    /** Saved answers in Quiz Review, so pausing or stepping back still shows what was submitted. */
+    val answers: Map<String, Answer> = emptyMap(),
 ) {
     val isFinished: Boolean get() = position >= order.size
 
     val current: Question? get() = order.getOrNull(position)?.let { id -> stack.questions.firstOrNull { it.id == id } }
 
     fun outcomeOf(id: QuestionId): Outcome? = outcomes[id.value]
+
+    fun answerOf(id: QuestionId): Answer? = answers[id.value]
+
+    /** Cards already answered or marked, counting immediately upon submission rather than after advancing. */
+    val answeredCount: Int get() = order.count { it.value in outcomes }
+
+    val canGoPrevious: Boolean get() = position > 0 && !isFinished
 
     val correctCount: Int get() = outcomes.values.count { it == Outcome.CORRECT || it == Outcome.GOT_IT }
 
@@ -80,7 +89,10 @@ object Review {
         val question = checkNotNull(attempt.current) { "The review has finished." }
         val correct = Grading.isCorrect(question, answer)
         val outcome = if (correct) Outcome.CORRECT else Outcome.INCORRECT
-        return attempt.copy(outcomes = attempt.outcomes + (question.id.value to outcome)) to correct
+        return attempt.copy(
+            outcomes = attempt.outcomes + (question.id.value to outcome),
+            answers = attempt.answers + (question.id.value to answer),
+        ) to correct
     }
 
     /** Records a Flashcard Review mark and moves to the next card. */
@@ -91,6 +103,13 @@ object Review {
     }
 
     fun next(attempt: ReviewAttempt): ReviewAttempt = attempt.copy(position = (attempt.position + 1).coerceAtMost(attempt.order.size))
+
+    /** Steps back to the previous card so the learner can inspect past answers. */
+    fun previous(attempt: ReviewAttempt): ReviewAttempt =
+        if (attempt.isFinished) attempt else attempt.copy(position = (attempt.position - 1).coerceAtLeast(0))
+
+    /** Ends an ongoing review at its current progress. */
+    fun finish(attempt: ReviewAttempt): ReviewAttempt = attempt.copy(position = attempt.order.size)
 
     /** A new attempt with only the missed or marked cards, in the same order. */
     fun retry(id: String, attempt: ReviewAttempt): ReviewAttempt =

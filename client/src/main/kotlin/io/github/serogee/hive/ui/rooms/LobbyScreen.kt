@@ -24,16 +24,21 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.HostCommand
+import io.github.serogee.hive.core.api.PlayerCommand
+import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.RoomState
+import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
+import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveDialog
+import io.github.serogee.hive.ui.common.LocalAnswerInput
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
@@ -54,9 +59,70 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     var editing by remember { mutableStateOf(false) }
 
     val room = state.room
+    val liveQuestion = room?.live
+    var draftAnswer by remember(liveQuestion?.question?.id) { mutableStateOf<Answer?>(null) }
+    val answerInput = LocalAnswerInput.current
+    val playerAnswering = room != null &&
+        room.room.status == RoomStatus.LIVE &&
+        room.you.role == RoomRole.PLAYER &&
+        liveQuestion != null &&
+        (room.room.mode == RoomMode.DISCUSSION || room.attempt?.finished != true)
+
+    val bottomBar: (@Composable () -> Unit)? = if (playerAnswering && room != null && liveQuestion != null) {
+        val sendingThis = state.pending?.takeIf { it.questionId == liveQuestion.question.id }
+        val received = liveQuestion.yourAnswer
+        val isAsync = room.room.mode == RoomMode.ASYNCHRONOUS
+        val last = liveQuestion.question.number == liveQuestion.questionCount
+        val showConfirm = received == null &&
+            sendingThis == null &&
+            liveQuestion.isOpen &&
+            (liveQuestion.question is PlayerQuestion.Identification || answerInput != AnswerInput.LOCK_ON_TAP)
+        val hasBarContent = isAsync || sendingThis?.failed == true || showConfirm
+        if (!hasBarContent) {
+            null
+        } else {
+            {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (isAsync && received == null && liveQuestion.isOpen) {
+                        HiveButton(
+                            text = if (last) "Skip and finish" else "Skip",
+                            onClick = { viewModel.attempt(PlayerCommand.NextQuestion) },
+                            enabled = !state.busy && sendingThis == null,
+                            style = HiveButtonStyle.SECONDARY,
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    when {
+                        sendingThis?.failed == true -> HiveButton(
+                            text = "Send again",
+                            onClick = viewModel::retrySubmit,
+                        )
+                        showConfirm -> HiveButton(
+                            text = "Confirm",
+                            onClick = { draftAnswer?.let { viewModel.submit(liveQuestion.question.id, it) } },
+                            enabled = draftAnswer != null,
+                        )
+                        isAsync && (received != null || !liveQuestion.isOpen) -> HiveButton(
+                            text = if (last) "Finish" else "Next",
+                            onClick = { viewModel.attempt(PlayerCommand.NextQuestion) },
+                            enabled = !state.busy,
+                        )
+                    }
+                }
+            }
+        }
+    } else {
+        null
+    }
+
     Page(
         title = room?.room?.title ?: "Sessions",
         subtitle = room?.let { "${it.room.mode.label()}, ${it.room.questionCount} questions" },
+        bottomBar = bottomBar,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (room?.room?.status != RoomStatus.ENDED) {
@@ -109,6 +175,8 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                         onSubmit = { answer -> live?.let { viewModel.submit(it.question.id, answer) } },
                         onRetry = viewModel::retrySubmit,
                         onTimeUp = { viewModel.refreshNow() },
+                        externalActions = true,
+                        onDraftAnswer = { draftAnswer = it },
                     )
                     live == null -> Text("Waiting for the first question.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     isHost -> HostLiveContent(live, state.busy, onCommand = viewModel::command, onTimeUp = { viewModel.refreshNow() })
@@ -118,6 +186,8 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                         onSubmit = { viewModel.submit(live.question.id, it) },
                         onRetry = viewModel::retrySubmit,
                         onTimeUp = { viewModel.refreshNow() },
+                        externalActions = true,
+                        onDraftAnswer = { draftAnswer = it },
                     )
                 }
             }

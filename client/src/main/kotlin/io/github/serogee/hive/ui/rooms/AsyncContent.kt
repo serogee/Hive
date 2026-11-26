@@ -93,6 +93,8 @@ fun PlayerAsyncContent(
     onSubmit: (Answer) -> Unit,
     onRetry: () -> Unit,
     onTimeUp: () -> Unit,
+    externalActions: Boolean = false,
+    onDraftAnswer: (Answer?) -> Unit = {},
 ) {
     val attempt = room.attempt
     val live = room.live
@@ -106,7 +108,7 @@ fun PlayerAsyncContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 HiveButton(
-                    text = "Start Quiz",
+                    text = "Start quiz",
                     onClick = { onAttempt(PlayerCommand.StartAttempt) },
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
@@ -121,25 +123,37 @@ fun PlayerAsyncContent(
             )
         }
         else -> {
-            PlayerLiveContent(live, pending, onSubmit, onRetry, onTimeUp, hostPaced = false)
-            val last = live.question.number == live.questionCount
-            val label = if (last) "Finish" else "Next Question"
-            Spacer(Modifier.height(8.dp))
-            if (live.yourAnswer != null || !live.isOpen) {
-                HiveButton(
-                    text = label,
-                    onClick = { onAttempt(PlayerCommand.NextQuestion) },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                HiveButton(
-                    text = if (last) "Skip and Finish" else "Skip This Question",
-                    onClick = { onAttempt(PlayerCommand.NextQuestion) },
-                    enabled = !busy && pending == null,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = HiveButtonStyle.SECONDARY,
-                )
+            PlayerLiveContent(
+                live = live,
+                pending = pending,
+                onSubmit = onSubmit,
+                onRetry = onRetry,
+                onTimeUp = onTimeUp,
+                hostPaced = false,
+                externalActions = externalActions,
+                onDraftAnswer = onDraftAnswer,
+            )
+            if (!externalActions) {
+                val last = live.question.number == live.questionCount
+                val label = if (last) "Finish" else "Next"
+                Spacer(Modifier.height(8.dp))
+                val sendingThis = pending?.takeIf { it.questionId == live.question.id }
+                if (live.yourAnswer != null || !live.isOpen) {
+                    HiveButton(
+                        text = label,
+                        onClick = { onAttempt(PlayerCommand.NextQuestion) },
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    HiveButton(
+                        text = if (last) "Skip and finish" else "Skip",
+                        onClick = { onAttempt(PlayerCommand.NextQuestion) },
+                        enabled = !busy && sendingThis == null,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = HiveButtonStyle.SECONDARY,
+                    )
+                }
             }
         }
     }

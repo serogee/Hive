@@ -27,7 +27,7 @@ class ActivityStatsTest {
         return FinishedReview(attempt, at(day))
     }
 
-    private fun quiz(day: LocalDate, role: RoomRole, room: String, correct: Int? = null, questions: Int = 4) = QuizResult(
+    private fun quiz(day: LocalDate, role: RoomRole, room: String, correct: Int? = null, questions: Int = 4, ended: Boolean = true) = QuizResult(
         roomId = room,
         code = "ABCDEF",
         title = "Quiz",
@@ -36,6 +36,7 @@ class ActivityStatsTest {
         playedAt = at(day),
         questionCount = questions,
         playerCount = 3,
+        ended = ended,
         correctCount = correct,
     )
 
@@ -93,5 +94,32 @@ class ActivityStatsTest {
         )
         assertEquals(3, stats.roomsHosted)
         assertEquals(1, stats.quizzesPlayed)
+    }
+
+    @Test
+    fun `unended online sessions do not count toward streaks or quizzes played`() {
+        val stats = stats(
+            quizzes = listOf(
+                quiz(today, RoomRole.PLAYER, "live-1", ended = false),
+                quiz(today, RoomRole.HOST, "lobby-1", ended = false),
+            ),
+        )
+        assertEquals(0, stats.streakDays)
+        assertEquals(0, stats.quizzesPlayed)
+        assertEquals(List(7) { false }, stats.weekActive)
+        assertEquals(1, stats.roomsHosted)
+    }
+
+    @Test
+    fun `duplicate played entries for one room count once in average score`() {
+        val stats = stats(
+            quizzes = listOf(
+                quiz(today, RoomRole.PLAYER, "room-1", correct = 4, questions = 4),
+                quiz(today, RoomRole.PLAYER, "room-1", correct = 0, questions = 4),
+                quiz(today, RoomRole.PLAYER, "room-2", correct = 2, questions = 4),
+            ),
+        )
+        assertEquals(2, stats.quizzesPlayed)
+        assertEquals(75, stats.averagePercent)
     }
 }

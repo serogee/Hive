@@ -12,6 +12,7 @@ import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.api.RoomSummary
 import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomStatus
@@ -36,6 +37,7 @@ data class RoomOptions(
     val timeTiebreak: Boolean,
     /** Epoch milliseconds when the quiz stops accepting answers, or null for no deadline. */
     val deadlineAt: Long?,
+    val revealPolicy: RevealPolicy = RevealPolicy.AT_END,
 ) {
     fun request(stack: StackSnapshot, hostDisplayName: String? = null) = CreateRoomRequest(
         stack = stack,
@@ -43,6 +45,7 @@ data class RoomOptions(
         admission = admission,
         hostDisplayName = hostDisplayName,
         deadlineAt = deadlineAt,
+        revealPolicy = revealPolicy,
         speedScoring = speedScoring,
         timeTiebreak = timeTiebreak,
     )
@@ -157,6 +160,8 @@ class RoomRepository(
                 displayName = membership.participant.displayName,
                 participantToken = membership.participantToken,
                 participantId = membership.participant.id,
+                isGuest = membership.participant.isGuest,
+                isOnline = hostAddress == null,
             ),
         )
         return membership
@@ -214,9 +219,9 @@ class RoomRepository(
     suspend fun results(roomId: RoomId): RoomResults {
         val (server, token) = access(roomId)
         val results = api.results(roomId, token, server)
-        // Online rooms are in the account's own list. A room on this phone is recorded when it ends.
+        // Signed-in online rooms come from the account's own list; nearby rooms and guest online rooms are recorded here.
         val joined = preferences.joinedRoom.first()?.takeIf { it.roomId == roomId }
-        if (server != null && joined != null && !isHostedHere(roomId)) onNearbyResults(results, joined)
+        if (joined != null && !isHostedHere(roomId) && (!joined.isOnline || joined.isGuest)) onNearbyResults(results, joined)
         return results
     }
 }

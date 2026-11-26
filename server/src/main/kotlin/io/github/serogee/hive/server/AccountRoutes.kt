@@ -18,7 +18,12 @@ import io.ktor.server.routing.put
  * The signed-in account. Mount inside `route("/v1")`. [deleter] is null when this server cannot delete
  * accounts, and [profiles] is null when it keeps no accounts.
  */
-fun Route.accountRoutes(accounts: AccountVerifier, deleter: AccountDeleter? = null, profiles: AccountProfiles? = null) {
+fun Route.accountRoutes(
+    accounts: AccountVerifier,
+    deleter: AccountDeleter? = null,
+    profiles: AccountProfiles? = null,
+    onRoomsEnded: suspend (List<EndedRoom>) -> Unit = {},
+) {
     get("/me") {
         call.respond(call.requireAccount(accounts, "You are not signed in."))
     }
@@ -41,7 +46,7 @@ fun Route.accountRoutes(accounts: AccountVerifier, deleter: AccountDeleter? = nu
     delete("/account") {
         val account = call.requireAccount(accounts, "Sign in to delete your account.")
         val delete = deleter ?: throw HiveException(ErrorCode.AUTH_NOT_CONFIGURED, "This server cannot delete accounts yet.")
-        delete.delete(account.id)
+        onRoomsEnded(delete.delete(account.id))
         call.respond(HttpStatusCode.NoContent)
     }
 }

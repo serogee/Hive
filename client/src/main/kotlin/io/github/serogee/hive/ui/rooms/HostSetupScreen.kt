@@ -35,6 +35,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.Membership
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.StackId
@@ -103,6 +104,7 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
     var useMyName by rememberSaveable { mutableStateOf(true) }
     var speedScoring by rememberSaveable { mutableStateOf(false) }
     var timeTiebreak by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var revealAfterEach by rememberSaveable { mutableStateOf(false) }
     var deadlineMinutes by rememberSaveable { mutableStateOf("") }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -205,6 +207,16 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 )
             }
             ToggleRow("Order equal scores by answer time", tiebreak) { timeTiebreak = it }
+            ToggleRow("Show answer and explanation after each question", revealAfterEach) { revealAfterEach = it }
+            Text(
+                if (revealAfterEach) {
+                    "Players see the correct answer and explanation right after each question."
+                } else {
+                    "Correct answers and explanations appear when the session ends."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             Spacer(Modifier.height(4.dp))
             HiveTextField(
@@ -231,7 +243,8 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                     notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 val deadline = deadlineMinutes.toLongOrNull()?.takeIf { it > 0 }?.let { System.currentTimeMillis() + it * 60_000 }
-                viewModel.create(stack, RoomOptions(mode, effectiveAdmission, speedScoring, tiebreak, deadline), onPhone, name.trim())
+                val revealPolicy = if (revealAfterEach) RevealPolicy.AFTER_EACH_QUESTION else RevealPolicy.AT_END
+                viewModel.create(stack, RoomOptions(mode, effectiveAdmission, speedScoring, tiebreak, deadline, revealPolicy), onPhone, name.trim())
             },
             enabled = !state.creating && (if (onPhone) name.isNotBlank() else session != null && gate == null),
             modifier = Modifier.fillMaxWidth(),

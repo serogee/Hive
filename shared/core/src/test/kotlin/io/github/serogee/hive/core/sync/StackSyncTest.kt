@@ -54,5 +54,10 @@ class StackSyncTest {
         val tombstone = SyncedStack("s1", 4, 50, deleted = true)
         assertEquals(StackDecision.Keep(tombstone, PushOutcome.APPLIED), StackSync.decide(tombstone, StackChange("s1", 3, deleted = true), now = 60))
         assertEquals(StackDecision.Keep(tombstone, PushOutcome.CONFLICT), StackSync.decide(tombstone, StackChange("s1", 3, document = second), now = 60))
+        // An unlinked re-sync revives a deleted stack without spawning a conflict copy.
+        assertEquals(
+            StackDecision.Apply(SyncedStack("s1", 5, 70, document = second)),
+            StackSync.decide(tombstone, StackChange("s1", null, document = second), now = 70),
+        )
     }
 }

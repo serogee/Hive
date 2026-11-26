@@ -22,6 +22,9 @@ data class FinishedReview(val attempt: ReviewAttempt, val finishedAt: Long) {
 class ReviewRepository(private val dao: ReviewDao, private val now: () -> Long = System::currentTimeMillis) {
     val latestUnfinished: Flow<ReviewAttempt?> = dao.observeLatestUnfinished().map { it?.decode() }
 
+    /** Up to [MAX_ONGOING] ongoing reviews, newest first. */
+    val ongoing: Flow<List<ReviewAttempt>> = dao.observeUnfinished(MAX_ONGOING).map { rows -> rows.map { it.decode() } }
+
     /** Newest first. */
     val finished: Flow<List<FinishedReview>> = dao.observeFinished().map { rows ->
         rows.map { FinishedReview(it.decode(), it.updatedAt) }
@@ -32,11 +35,20 @@ class ReviewRepository(private val dao: ReviewDao, private val now: () -> Long =
     fun observe(id: String): Flow<ReviewAttempt?> = dao.observe(id).map { it?.decode() }
 
     suspend fun start(stack: StackSnapshot, settings: ReviewSettings): ReviewAttempt =
-        Review.start(UUID.randomUUID().toString(), stack, settings, Random.Default).also { save(it) }
+        Review.start(UUID.randomUUID().toString(), stack, settings, Random.Default).also {
+            save(it)
+            autoEndExcess()
+        }
 
     /** Starts a new attempt with only the missed or marked cards of [attempt]. */
     suspend fun retry(attempt: ReviewAttempt): ReviewAttempt =
-        Review.retry(UUID.randomUUID().toString(), attempt).also { save(it) }
+        Review.retry(UUID.randomUUID().toString(), attempt).also {
+            save(it)
+            autoEndExcess()
+        }
+
+    /** Deletes an unfinished review without saving it to history. */
+    suspend fun abandon(id: String) = dao.delete(id)
 
     suspend fun save(attempt: ReviewAttempt) = dao.upsert(
         ReviewAttemptEntity(
@@ -48,5 +60,24 @@ class ReviewRepository(private val dao: ReviewDao, private val now: () -> Long =
         ),
     )
 
+    /** Keeps at most [MAX_ONGOING] ongoing reviews; older ones automatically end. */
+    private suspend fun autoEndExcess() {
+        val excess = dao.unfinished().drop(MAX_ONGOING)
+        excess.forEach { row ->
+            val ended = Review.finish(row.decode())
+            dao.upsert(
+                row.copy(
+                    attemptJson = HiveJson.encodeToString(ReviewAttempt.serializer(), ended),
+                    finished = true,
+                    updatedAt = now(),
+                ),
+            )
+        }
+    }
+
     private fun ReviewAttemptEntity.decode() = HiveJson.decodeFromString(ReviewAttempt.serializer(), attemptJson)
+
+    companion object {
+        const val MAX_ONGOING = 5
+    }
 }

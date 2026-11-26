@@ -1,35 +1,33 @@
 package io.github.serogee.hive.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Devices
-import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +43,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,6 +57,7 @@ import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HexBadge
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
+import io.github.serogee.hive.ui.common.HiveDialog
 import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LazyPage
 import io.github.serogee.hive.ui.common.LocalAppContainer
@@ -72,18 +70,7 @@ import io.github.serogee.hive.ui.common.watchOnline
 import io.github.serogee.hive.ui.rooms.NEARBY_HELP
 import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
-import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.launch
-
-/** The icons that stacks take turns using on Home. */
-private val StackIcons = listOf(
-    Icons.Outlined.Psychology,
-    Icons.Outlined.Code,
-    Icons.Outlined.Analytics,
-    Icons.Outlined.Hub,
-    Icons.Outlined.Devices,
-    Icons.Outlined.School,
-)
 
 enum class SortMode(val label: String) {
     RECENT("Recent"),
@@ -106,14 +93,18 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val joined by container.joinedRoom.collectAsStateWithLifecycle()
     val loadedStacks by container.stackList.collectAsStateWithLifecycle()
-    val review by container.latestUnfinishedReview.collectAsStateWithLifecycle()
+    val ongoingReviews by container.ongoingReviews.collectAsStateWithLifecycle()
     val preferredName by container.preferredName.collectAsStateWithLifecycle()
     val session by container.session.collectAsStateWithLifecycle()
+    val accountName by container.preferences.accountName.collectAsStateWithLifecycle(initialValue = null)
     val stacks = loadedStacks.orEmpty()
+    val existingStackIds = stacks.map { it.id }.toSet()
+    val activeReviews = ongoingReviews.orEmpty()
+    var abandonId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val displayName = session?.account?.displayName
-        ?: preferredName?.takeIf { it.isNotBlank() }
-        ?: "Guest"
+    val displayName = session?.account?.let { account ->
+        accountName?.takeIf { it.accountId == account.id.value }?.name ?: account.displayName
+    } ?: preferredName?.takeIf { it.isNotBlank() } ?: "Guest"
 
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var sortMode by rememberSaveable { mutableStateOf(SortMode.RECENT) }
@@ -153,41 +144,77 @@ fun HomeScreen(
             item { JoinedRoomCard(membership, "Active session", "Return to session") { onReturnToRoom(membership) } }
         }
 
-        // Continue Review in Progress (if any)
-        review?.let { attempt ->
+        // Continue Review in Progress (swipeable up to 5 ongoing sessions, with gallery dots)
+        if (activeReviews.isNotEmpty()) {
             item {
-                SleekCard(onClick = { onContinueReview(attempt.id) }) {
-                    Row(
+                val pagerState = rememberPagerState(pageCount = { activeReviews.size })
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    HorizontalPager(
+                        state = pagerState,
+                        pageSpacing = 12.dp,
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        CountBadge(
-                            topText = "${attempt.position + 1}",
-                            bottomText = "CARD",
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Caption("Continue review", color = MaterialTheme.colorScheme.primary)
-                            Text(
-                                text = attempt.stack.title.ifBlank { "Untitled stack" },
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = "${attempt.position} of ${attempt.order.size} questions reviewed",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            ProgressCells(done = attempt.position, total = attempt.order.size)
+                    ) { page ->
+                        val attempt = activeReviews[page]
+                        val deleted = loadedStacks != null && attempt.stack.id !in existingStackIds
+                        SleekCard(onClick = { onContinueReview(attempt.id) }) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                CountBadge(
+                                    topText = "${attempt.position + 1}",
+                                    bottomText = "CARD",
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Caption(
+                                        if (deleted) "Continue review · stack deleted" else "Continue review",
+                                        color = if (deleted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(
+                                        text = attempt.stack.title.ifBlank { "Untitled stack" },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = "${attempt.answeredCount} of ${attempt.order.size} questions answered",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(Modifier.height(6.dp))
+                                    ProgressCells(done = attempt.answeredCount, total = attempt.order.size)
+                                }
+                                IconButton(onClick = { abandonId = attempt.id }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Abandon review",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                         }
-                        Icon(
-                            imageVector = Icons.Outlined.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    }
+                    if (activeReviews.size > 1) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            repeat(activeReviews.size) { index ->
+                                val selected = pagerState.currentPage == index
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (selected) 8.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .background(if (selected) Honey else MaterialTheme.colorScheme.outline),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -245,56 +272,7 @@ fun HomeScreen(
             }
         }
 
-        // 4. MY STACKS ROW: [see all] action + Horizontal row of icon boxes with label underneath
-        if (stacks.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    title = "My Stacks",
-                    actionText = "[see all]",
-                    onActionClick = onOpenStacks,
-                )
-            }
-            item {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp),
-                ) {
-                    itemsIndexed(stacks.take(6)) { index, stack ->
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .width(76.dp)
-                                .clip(MaterialTheme.shapes.small)
-                                .clickable { onOpenStack(stack.id) }
-                                .padding(vertical = 4.dp),
-                        ) {
-                            HexBadge(size = 72.dp) {
-                                Icon(
-                                    imageVector = StackIcons[index % StackIcons.size],
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(30.dp),
-                                )
-                            }
-
-                            Spacer(Modifier.height(8.dp))
-
-                            Text(
-                                text = stack.title.ifBlank { "Untitled stack" },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // 5. RECENT STACKS SECTION: List of Stacks
+        // 4. RECENT STACKS SECTION: List of Stacks
         item {
             SectionHeader(
                 title = "Recent stacks",
@@ -345,10 +323,26 @@ fun HomeScreen(
                     icon = Icons.Outlined.Layers,
                     title = stack.title.ifBlank { "Untitled stack" },
                     subtitle = if (stack.questionCount == 1) "1 Question" else "${stack.questionCount} Questions",
+                    unsynced = session != null && stack.localOnly,
                     onClick = { onOpenStack(stack.id) },
                 )
             }
         }
+    }
+
+    abandonId?.let { id ->
+        HiveDialog(
+            title = "Abandon this review?",
+            message = "Your progress in this review session will be deleted.",
+            confirmText = "Abandon",
+            onConfirm = {
+                abandonId = null
+                scope.launch { container.reviews.abandon(id) }
+            },
+            dismissText = "Keep",
+            onDismiss = { abandonId = null },
+            danger = true,
+        )
     }
 }
 
@@ -468,6 +462,7 @@ private fun HomeCard(
     subtitle: String,
     /** Shows the icon by itself, without a hexagon behind it. */
     standaloneIcon: Boolean = false,
+    unsynced: Boolean = false,
     onClick: () -> Unit,
 ) {
     SleekCard(onClick = onClick) {
@@ -510,6 +505,15 @@ private fun HomeCard(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (unsynced) {
+                Icon(
+                    imageVector = Icons.Outlined.CloudOff,
+                    contentDescription = "Not synced",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
                 )
             }
 

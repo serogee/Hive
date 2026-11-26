@@ -7,10 +7,15 @@ import io.github.serogee.hive.core.api.DemoLoginRequest
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.api.HealthMode
+import io.github.serogee.hive.core.api.HostCommand
+import io.github.serogee.hive.core.api.JoinRoomRequest
+import io.github.serogee.hive.core.api.Membership
 import io.github.serogee.hive.core.api.PushStacksRequest
+import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.StackChange
 import io.github.serogee.hive.core.api.StackDocument
 import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.host.HiveException
 import io.github.serogee.hive.server.demo.DemoAccounts
 import io.github.serogee.hive.server.demo.DemoDatabase
@@ -20,9 +25,12 @@ import io.github.serogee.hive.server.demo.demoAuthRoutes
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -31,15 +39,22 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import io.ktor.websocket.Frame
+import io.ktor.websocket.readText
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 
 class AccountDeletionTest {
     private val directory = Files.createTempDirectory("hive-account-deletion")
@@ -55,7 +70,10 @@ class AccountDeletionTest {
     private fun ApplicationTestBuilder.client(deleter: AccountDeleter?): HttpClient {
         val accounts = DemoAccounts(db) { now }
         application { hiveModule(Backend(SqliteRoomStore(db), accounts, HealthMode.DEMO, db.syncStore(), deleter) { demoAuthRoutes(accounts) }) }
-        return createClient { install(ContentNegotiation) { json(HiveJson) } }
+        return createClient {
+            install(ContentNegotiation) { json(HiveJson) }
+            install(WebSockets)
+        }
     }
 
     private suspend fun HttpClient.token(username: String): String = post(ApiPaths.DEMO_LOGIN) {
@@ -99,6 +117,87 @@ class AccountDeletionTest {
         assertEquals(listOf("Sam Cruz"), query("SELECT display_name FROM participants WHERE id = 'demo-p-ended-sam' AND account_id IS NULL"))
         // Sam's token no longer works.
         assertEquals(HttpStatusCode.Unauthorized, client.get(ApiPaths.ME) { bearerAuth(sam) }.status)
+    }
+
+    @Test
+    fun deletingClosesOpenHostedQuestionsBroadcastsEndAndRevokesParticipantTokens() = testApplication {
+        val client = client(AccountDeleter(db.accountData(), signIn = {}))
+        val alex = client.token("alex")
+        val sam = client.token("sam")
+        // Alex starts the discussion room so question 1 is open; Sam joins as an account player and a guest listens.
+        client.post(ApiPaths.commands("demo-room-discussion")) {
+            bearerAuth(alex)
+            contentType(ContentType.Application.Json)
+            setBody<HostCommand>(HostCommand.Start)
+        }
+        val samMembership = client.post(ApiPaths.participants("demo-room-discussion")) {
+            bearerAuth(sam)
+            contentType(ContentType.Application.Json)
+            setBody(JoinRoomRequest(asGuest = false))
+        }.body<Membership>()
+        val guest = client.post(ApiPaths.participants("demo-room-discussion")) {
+            contentType(ContentType.Application.Json)
+            setBody(JoinRoomRequest("Jamie", asGuest = true))
+        }.body<Membership>()
+
+        // Deleting Sam revokes Sam's participant token even though Sam's name stays in the room.
+        assertEquals(HttpStatusCode.NoContent, client.delete(ApiPaths.ACCOUNT) { bearerAuth(sam) }.status)
+        val revoked = client.get(ApiPaths.state("demo-room-discussion")) {
+            header(ApiPaths.PARTICIPANT_TOKEN_HEADER, samMembership.participantToken)
+        }
+        assertEquals(HttpStatusCode.Forbidden, revoked.status)
+
+        // Deleting Alex ends the open room, closes the open question, and broadcasts RoomEnded to connected guests.
+        val subscribed = CompletableDeferred<Unit>()
+        val endedEvent = CompletableDeferred<RoomEvent>()
+        val received = coroutineScope {
+            val listener = launch {
+                client.webSocket(ApiPaths.events("demo-room-discussion"), request = {
+                    header(ApiPaths.PARTICIPANT_TOKEN_HEADER, guest.participantToken)
+                }) {
+                    for (frame in incoming) {
+                        if (frame !is Frame.Text) continue
+                        val event = HiveJson.decodeFromString(RoomEvent.serializer(), frame.readText())
+                        if (event is RoomEvent.Subscribed) subscribed.complete(Unit)
+                        if (event is RoomEvent.RoomEnded) {
+                            endedEvent.complete(event)
+                            break
+                        }
+                    }
+                }
+            }
+            withTimeout(5_000) { subscribed.await() }
+            assertEquals(HttpStatusCode.NoContent, client.delete(ApiPaths.ACCOUNT) { bearerAuth(alex) }.status)
+            val event = withTimeout(5_000) { endedEvent.await() }
+            listener.join()
+            event
+        }
+
+        assertIs<RoomEvent.RoomEnded>(received)
+        assertEquals(RoomId("demo-room-discussion"), received.roomId)
+        assertEquals(listOf("ENDED|0|Alex Rivera"), query("SELECT status || '|' || question_open || '|' || host_name FROM rooms WHERE id = 'demo-room-discussion'"))
+    }
+
+    @Test
+    fun aFailedSignInDeleteLeavesServerDataUntouched() = testApplication {
+        val client = client(
+            AccountDeleter(
+                db.accountData(),
+                signIn = { throw HiveException(ErrorCode.AUTH_UNAVAILABLE, "Supabase down") },
+            ),
+        )
+        val sam = client.token("sam")
+        client.post(ApiPaths.SYNC_STACKS) {
+            bearerAuth(sam)
+            contentType(ContentType.Application.Json)
+            setBody(PushStacksRequest(listOf(StackChange("s1", document = StackDocument("Biology")))))
+        }
+
+        val failed = client.delete(ApiPaths.ACCOUNT) { bearerAuth(sam) }
+        assertEquals(HttpStatusCode.ServiceUnavailable, failed.status)
+        assertEquals(listOf("2"), query("SELECT COUNT(*) FROM accounts"))
+        assertEquals(listOf("1"), query("SELECT COUNT(*) FROM sync_stacks"))
+        assertEquals(listOf("LIVE"), query("SELECT status FROM rooms WHERE id = 'demo-room-async'"))
     }
 
     @Test

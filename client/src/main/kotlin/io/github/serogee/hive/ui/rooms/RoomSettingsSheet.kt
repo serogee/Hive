@@ -27,6 +27,7 @@ import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.RoomSummary
 import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveSegment
@@ -50,6 +51,7 @@ fun RoomSettingsSheet(room: RoomSummary, onSave: (HostCommand.UpdateSettings) ->
     var admission by rememberSaveable { mutableStateOf(room.admission) }
     var speedScoring by rememberSaveable { mutableStateOf(room.speedScoring) }
     var timeTiebreak by rememberSaveable { mutableStateOf(room.timeTiebreak) }
+    var revealAfterEach by rememberSaveable { mutableStateOf(room.revealPolicy == RevealPolicy.AFTER_EACH_QUESTION) }
     var timers by rememberSaveable { mutableStateOf(Timers.KEEP) }
     var seconds by rememberSaveable { mutableStateOf("") }
     var changeDeadline by rememberSaveable { mutableStateOf(false) }
@@ -97,6 +99,7 @@ fun RoomSettingsSheet(room: RoomSummary, onSave: (HostCommand.UpdateSettings) ->
             Caption("Scoring")
             ToggleRow("Speed bonus for timed questions", speedScoring) { speedScoring = it }
             ToggleRow("Order equal scores by answer time", timeTiebreak) { timeTiebreak = it }
+            ToggleRow("Show answer and explanation after each question", revealAfterEach) { revealAfterEach = it }
 
             Caption("Deadline")
             ToggleRow("Change the deadline", changeDeadline) { changeDeadline = it }
@@ -126,6 +129,7 @@ fun RoomSettingsSheet(room: RoomSummary, onSave: (HostCommand.UpdateSettings) ->
                                 Timers.OFF -> 0
                                 Timers.SAME -> limit
                             },
+                            revealPolicy = if (revealAfterEach) RevealPolicy.AFTER_EACH_QUESTION else RevealPolicy.AT_END,
                         ),
                     )
                 },

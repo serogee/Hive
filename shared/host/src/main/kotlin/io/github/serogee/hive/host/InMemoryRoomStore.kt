@@ -49,6 +49,7 @@ class InMemoryRoomStore : RoomStore {
                 admission = room.admission,
                 stack = room.stack,
                 deadlineAt = room.deadlineAt,
+                revealPolicy = room.revealPolicy,
                 speedScoring = room.speedScoring,
                 timeTiebreak = room.timeTiebreak,
                 revision = room.revision,

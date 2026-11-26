@@ -197,6 +197,9 @@ fun PlayerLiveContent(
     onTimeUp: () -> Unit,
     /** False in an Asynchronous room, where the Player moves on without the Host. */
     hostPaced: Boolean = true,
+    /** When true, the caller renders Confirm / Send again in a pinned bottom bar instead of inside the card. */
+    externalActions: Boolean = false,
+    onDraftAnswer: (Answer?) -> Unit = {},
 ) {
     val question = live.question
     val received = live.yourAnswer
@@ -207,6 +210,14 @@ fun PlayerLiveContent(
     val locked = received != null || sendingThis != null || !live.isOpen
     val input = LocalAnswerInput.current
     val taps = remember(question.id, input) { AnswerTaps(input) }
+
+    val answer: Answer? = when (question) {
+        is PlayerQuestion.MultipleChoice -> choice?.let { id -> question.choices.firstOrNull { it.id.value == id } }
+            ?.let { Answer.SelectedChoice(it.id) }
+        is PlayerQuestion.TrueFalse -> truth?.let { Answer.TrueFalse(it) }
+        is PlayerQuestion.Identification -> text.trim().takeIf { it.isNotEmpty() }?.let { Answer.Text(it) }
+    }
+    LaunchedEffect(question.id, answer) { onDraftAnswer(answer) }
 
     SleekCard(active = true) {
         QuestionHeader(live, onTimeUp)
@@ -256,13 +267,6 @@ fun PlayerLiveContent(
             )
         }
 
-        val answer: Answer? = when (question) {
-            is PlayerQuestion.MultipleChoice -> choice?.let { id -> question.choices.firstOrNull { it.id.value == id } }
-                ?.let { Answer.SelectedChoice(it.id) }
-            is PlayerQuestion.TrueFalse -> truth?.let { Answer.TrueFalse(it) }
-            is PlayerQuestion.Identification -> text.trim().takeIf { it.isNotEmpty() }?.let { Answer.Text(it) }
-        }
-
         Spacer(Modifier.height(4.dp))
         when {
             received != null -> NoteBox {
@@ -270,10 +274,12 @@ fun PlayerLiveContent(
             }
             sendingThis?.failed == true -> {
                 Text("Not sent yet. Check your connection.", color = MaterialTheme.colorScheme.error)
-                HiveButton(
-                    text = "Send again",
-                    onClick = onRetry,
-                )
+                if (!externalActions) {
+                    HiveButton(
+                        text = "Send again",
+                        onClick = onRetry,
+                    )
+                }
             }
             sendingThis != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
@@ -285,7 +291,7 @@ fun PlayerLiveContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
-            else -> HiveButton(
+            !externalActions -> HiveButton(
                 text = "Confirm",
                 onClick = { answer?.let(onSubmit) },
                 enabled = answer != null,
@@ -293,10 +299,10 @@ fun PlayerLiveContent(
             )
         }
 
-        if (!live.isOpen) {
-            if (hostPaced) Text("Wait for the Host to continue.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            RevealedAnswer(live)
+        if (!live.isOpen && hostPaced) {
+            Text("Wait for the Host to continue.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
+        RevealedAnswer(live)
     }
 }
 

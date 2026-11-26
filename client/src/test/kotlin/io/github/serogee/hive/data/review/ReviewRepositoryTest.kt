@@ -36,6 +36,33 @@ class ReviewRepositoryTest {
         assertEquals(1_000L + stack.questions.size * 1_000L, finished.finishedAt)
         assertEquals("${stack.questions.size - 1}/${stack.questions.size}", finished.score)
     }
+
+    @Test
+    fun `starting more than five ongoing reviews auto-ends the oldest one`() = runTest {
+        val started = (1..6).map { index ->
+            time = index * 1_000L
+            reviews.start(stack, ReviewSettings(ReviewMode.QUIZ))
+        }
+
+        val ongoing = reviews.ongoing.first()
+        val finished = reviews.finished.first()
+
+        assertEquals(ReviewRepository.MAX_ONGOING, ongoing.size)
+        assertEquals(started.drop(1).reversed().map { it.id }, ongoing.map { it.id })
+        assertEquals(listOf(started.first().id), finished.map { it.attempt.id })
+    }
+
+    @Test
+    fun `abandon deletes an ongoing review without finishing it`() = runTest {
+        time = 1_000
+        val attempt = reviews.start(stack, ReviewSettings(ReviewMode.QUIZ))
+        assertEquals(1, reviews.ongoing.first().size)
+
+        reviews.abandon(attempt.id)
+
+        assertEquals(emptyList(), reviews.ongoing.first())
+        assertEquals(emptyList(), reviews.finished.first())
+    }
 }
 
 private class FakeReviewDao : ReviewDao {
@@ -50,6 +77,10 @@ private class FakeReviewDao : ReviewDao {
 
     override fun observeLatestUnfinished() = select { !it.finished }.map { it.firstOrNull() }
 
+    override fun observeUnfinished(limit: Int) = select { !it.finished }.map { it.take(limit) }
+
+    override suspend fun unfinished() = rows.value.values.filter { !it.finished }.sortedByDescending { it.updatedAt }
+
     override fun observeUnfinishedFor(stackId: String) =
         select { !it.finished && it.stackId == stackId }.map { it.firstOrNull() }
 
@@ -57,6 +88,10 @@ private class FakeReviewDao : ReviewDao {
 
     override suspend fun upsert(attempt: ReviewAttemptEntity) {
         rows.value += attempt.id to attempt
+    }
+
+    override suspend fun delete(id: String) {
+        rows.value -= id
     }
 
     override suspend fun deleteForStack(stackId: String) {

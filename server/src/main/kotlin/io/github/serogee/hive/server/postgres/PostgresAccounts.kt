@@ -13,19 +13,33 @@ import java.util.concurrent.ConcurrentHashMap
 class PostgresAccounts(private val db: PostgresDatabase, private val verifier: AccountVerifier) : AccountVerifier, AccountProfiles {
     /** The account from the sign-in, and the account with its display name, so that most requests read nothing. */
     private val saved = ConcurrentHashMap<AccountId, Pair<Account, Account>>()
+    private val deleted = ConcurrentHashMap.newKeySet<AccountId>()
 
     override val configured: Boolean get() = verifier.configured
 
     override suspend fun verify(accessToken: String): Account? {
         val account = verifier.verify(accessToken) ?: return null
+        if (account.id in deleted) return null
         saved[account.id]?.let { (signedIn, named) -> if (signedIn == account) return named }
-        val named = account.copy(displayName = save(account))
+        val displayName = save(account) ?: run {
+            deleted += account.id
+            saved.remove(account.id)
+            return null
+        }
+        val named = account.copy(displayName = displayName)
+        if (account.id in deleted) return null
         saved[account.id] = account to named
         return named
     }
 
-    /** After the account changed or was deleted, so that its next request reads it again. */
+    /** After the account changed, so that its next request reads it again. */
     fun forget(accountId: AccountId) {
+        saved.remove(accountId)
+    }
+
+    /** After the account was deleted, so unexpired access tokens cannot save it again. */
+    fun markDeleted(accountId: AccountId) {
+        deleted += accountId
         saved.remove(accountId)
     }
 
@@ -47,8 +61,13 @@ class PostgresAccounts(private val db: PostgresDatabase, private val verifier: A
         forget(accountId)
     }
 
-    /** Saves the account, and returns its display name. */
-    private suspend fun save(account: Account): String = db.write { connection ->
+    /** Saves the account, and returns its display name, or null when the account was deleted. */
+    private suspend fun save(account: Account): String? = db.write { connection ->
+        val wasDeleted = connection.prepareStatement("SELECT 1 FROM hive.deleted_accounts WHERE account_id = ?").use {
+            it.setString(1, account.id.value)
+            it.executeQuery().use { rows -> rows.next() }
+        }
+        if (wasDeleted) return@write null
         connection.prepareStatement(
             """
             INSERT INTO hive.accounts (id, display_name) VALUES (?, ?)
