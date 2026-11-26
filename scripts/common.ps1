@@ -1,4 +1,4 @@
-# Shared by the scripts that the .cmd files in the repository root start.
+# Shared by the scripts that run.cmd in the repository root starts.
 # Works in Windows PowerShell 5.1. Keep this file and the others ASCII only.
 
 $ErrorActionPreference = 'Stop'
@@ -22,18 +22,21 @@ function Invoke-Script([scriptblock]$Work) {
     exit $code
 }
 
-# Keeps the window open when the .cmd file was double-clicked in Explorer.
-function Wait-IfDoubleClicked {
+# Whether run.cmd was double-clicked in Explorer, rather than typed in a terminal.
+function Test-DoubleClicked {
     try {
         $self = Get-CimInstance Win32_Process -Filter "ProcessId=$PID"
         $cmd = Get-CimInstance Win32_Process -Filter "ProcessId=$($self.ParentProcessId)"
         $starter = Get-CimInstance Win32_Process -Filter "ProcessId=$($cmd.ParentProcessId)"
-        if ($cmd.Name -eq 'cmd.exe' -and $starter.Name -eq 'explorer.exe') {
-            Read-Host 'Press Enter to close' | Out-Null
-        }
+        return $cmd.Name -eq 'cmd.exe' -and $starter.Name -eq 'explorer.exe'
     } catch {
-        # The window closes by itself, which is the normal behavior.
+        return $false
     }
+}
+
+# Keeps the window open when run.cmd was double-clicked.
+function Wait-IfDoubleClicked {
+    if (Test-DoubleClicked) { Read-Host 'Press Enter to close' | Out-Null }
 }
 
 function Write-Step([string]$Text) {

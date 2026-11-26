@@ -1,12 +1,12 @@
 # Starts the demo server on port 8080.
-# Usage: server-dev [--reset]
+# Usage: .\run server dev [--reset]
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 $options = @($args)
 
 Invoke-Script {
     foreach ($option in $options) {
-        if ($option -ne '--reset') { throw "Unknown option $option. Use: server-dev [--reset]" }
+        if ($option -ne '--reset') { throw "Unknown option $option. Use: .\run server dev [--reset]" }
     }
     $env:HIVE_MODE = 'demo'
     $env:HIVE_PORT = '8080'

@@ -1,5 +1,5 @@
 # Installs the debug app on the connected phones or emulators, and opens it.
-# Usage: app-dev [server URL]
+# Usage: .\run app dev [server URL]
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 $serverUrl = $args | Select-Object -First 1

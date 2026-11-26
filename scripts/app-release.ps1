@@ -1,6 +1,6 @@
 # Makes a release from main: tests, a signed app, a tag, and a GitHub release.
-# Usage: app-release <version>, for example app-release 0.1.0
-#        app-release --setup-key, once, to make the signing key
+# Usage: .\run app release <version>, for example .\run app release 0.1.0
+#        .\run app release --setup-key, once, to make the signing key
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 $command = $args | Select-Object -First 1
@@ -84,7 +84,7 @@ function Get-Version([string]$Text) {
 function Test-SigningKey {
     $properties = Read-Properties (Get-UserGradleProperties)
     foreach ($name in $SigningNames) {
-        if (-not $properties[$name]) { throw 'The signing key is not set up. Run app-release --setup-key one time.' }
+        if (-not $properties[$name]) { throw 'The signing key is not set up. Run .\run app release --setup-key one time.' }
     }
     if (-not (Test-Path $properties['hive.signing.storeFile'])) {
         throw "The signing key is missing: $($properties['hive.signing.storeFile']). Restore it from your backup."
@@ -164,6 +164,6 @@ function New-Release([string]$Text) {
 }
 
 Invoke-Script {
-    if (-not $command) { throw 'Give a version, for example: app-release 0.1.0. Run app-release --setup-key one time first.' }
+    if (-not $command) { throw 'Give a version, for example: .\run app release 0.1.0. Run .\run app release --setup-key one time first.' }
     if ($command -eq '--setup-key') { New-SigningKey } else { New-Release $command }
 }
