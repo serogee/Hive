@@ -74,6 +74,7 @@ import io.github.serogee.hive.ui.theme.HexagonShape
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
 import io.github.serogee.hive.ui.welcome.WelcomeScreen
+import io.github.serogee.hive.ui.accounts.SyncChoiceDialog
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.serialization.Serializable
@@ -361,6 +362,8 @@ fun HiveApp() {
         val activity = LocalActivity.current
         BackHandler(enabled = onTab) { activity?.finish() }
     }
+
+    SyncChoiceDialog()
 }
 
 /** A honey hexagon rises behind the icon of the selected tab. */

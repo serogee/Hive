@@ -57,7 +57,11 @@ import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.data.auth.UserSession
+import io.github.serogee.hive.core.model.RoomRole
+import io.github.serogee.hive.data.history.ActivityStats
+import io.github.serogee.hive.data.history.QuizResult
 import io.github.serogee.hive.data.server.OnlineFacts
+import io.github.serogee.hive.data.sync.SignOutSummary
 import io.github.serogee.hive.data.server.ServerState
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.Caption
@@ -85,6 +89,8 @@ import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.SheetShape
 import io.github.serogee.hive.ui.theme.ThemePreference
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -100,6 +106,9 @@ data class AccountsUiState(
     val busy: Boolean = false,
     val signInError: String? = null,
     val serverStatus: String? = null,
+    /** Set while the sign-out question is open. */
+    val signOut: SignOutSummary? = null,
+    val resetError: String? = null,
 )
 
 class AccountsViewModel(private val container: AppContainer) : ViewModel() {
@@ -125,7 +134,26 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun signOut() = viewModelScope.launch { container.auth.signOut() }
+    val syncStatus = container.sync.status
+
+    /** Checks the server too, because the user may have just come back online. */
+    fun syncNow() {
+        container.server.checkNow()
+        container.sync.requestSync()
+    }
+
+    /** Asks about the synced stacks first, when this phone has any. */
+    fun startSignOut() = viewModelScope.launch {
+        val summary = container.sync.signOutSummary()
+        if (summary.syncedStacks == 0) container.signOut() else _state.update { it.copy(signOut = summary) }
+    }
+
+    fun signOut(removeSyncedStacks: Boolean) = viewModelScope.launch {
+        _state.update { it.copy(signOut = null) }
+        container.signOut(removeSyncedStacks)
+    }
+
+    fun cancelSignOut() = _state.update { it.copy(signOut = null) }
 
     fun setTheme(theme: ThemePreference) = viewModelScope.launch { container.preferences.setTheme(theme) }
 
@@ -145,7 +173,7 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
             val health = container.api.health(url)
             if (url != serverUrl.value) {
                 // Sessions belong to one server, so end the old one there first.
-                container.auth.signOut()
+                container.signOut()
                 container.preferences.setServerUrl(url)
             }
             _state.update { it.copy(serverStatus = "Connected to $url (API v${health.apiVersion})") }
@@ -154,8 +182,23 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Leaves the joined room on its server too, so that the Host sees the Player leave. */
-    fun resetData() = viewModelScope.launch { container.rooms.leaveJoinedRoom() }
+    /**
+     * Leaves the joined room on its server too, so that the Host sees the Player leave. With [account], it
+     * first deletes what the account synced. Returns whether it worked.
+     */
+    fun resetData(account: Boolean, done: () -> Unit) = viewModelScope.launch {
+        _state.update { it.copy(resetError = null) }
+        if (account) {
+            try {
+                container.sync.deleteAccountData()
+            } catch (e: Exception) {
+                _state.update { it.copy(resetError = "The account data was not deleted. ${e.userMessage()}") }
+                return@launch
+            }
+        }
+        container.rooms.leaveJoinedRoom()
+        done()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -178,6 +221,8 @@ fun AccountsScreen(
     val stacks by container.stackList.collectAsStateWithLifecycle()
     val hostedRooms by container.hostedRooms.collectAsStateWithLifecycle()
     val finishedReviews by container.finishedReviews.collectAsStateWithLifecycle()
+    val quizResults by container.quizResults.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
 
     val displayName = session?.account?.displayName
         ?: preferredName?.takeIf { it.isNotBlank() }
@@ -191,6 +236,8 @@ fun AccountsScreen(
     var showAnswerInput by rememberSaveable { mutableStateOf(false) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     var showAllHistory by rememberSaveable { mutableStateOf(false) }
+    var showAllQuizzes by rememberSaveable { mutableStateOf(false) }
+    var confirmAccountReset by rememberSaveable { mutableStateOf(false) }
 
     val online = watchOnline()
 
@@ -248,8 +295,16 @@ fun AccountsScreen(
         }
 
         ServerStatusLine(online, onRetry = container.server::retry)
+        if (session != null) SyncStatusLine(syncStatus, canSync = online.serverGate() == null, onSyncNow = viewModel::syncNow)
 
-        // 2. STAT CHIPS ROW: [stacks saved] [reviews finished] [rooms hosted], all from this phone
+        // 2. STAT CHIPS: what this phone and the account have
+        val stats = ActivityStats.of(
+            reviews = finishedReviews.orEmpty(),
+            quizzes = quizResults.orEmpty(),
+            hostedHereIds = hostedRooms.orEmpty().map { it.id.value }.toSet(),
+            today = LocalDate.now(),
+            zone = ZoneId.systemDefault(),
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -265,8 +320,28 @@ fun AccountsScreen(
                 modifier = Modifier.weight(1f),
             )
             MetricStatChip(
-                value = "${hostedRooms.orEmpty().size}",
+                value = "${stats.quizzesPlayed}",
+                label = "quizzes\nplayed",
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            MetricStatChip(
+                value = "${stats.roomsHosted}",
                 label = "rooms\nhosted",
+                modifier = Modifier.weight(1f),
+            )
+            MetricStatChip(
+                value = "${stats.streakDays}",
+                label = if (stats.streakDays == 1) "day\nstreak" else "days\nstreak",
+                modifier = Modifier.weight(1f),
+            )
+            MetricStatChip(
+                value = stats.averagePercent?.let { "$it%" } ?: "None",
+                label = "average\nscore",
                 modifier = Modifier.weight(1f),
             )
         }
@@ -328,6 +403,32 @@ fun AccountsScreen(
                 onClick = { onOpenReview(review.attempt.id) },
             )
         }
+
+        // 5. QUIZ HISTORY: hosted and played quizzes, from this phone and the account
+        val quizzes = quizResults.orEmpty()
+        SectionHeader(
+            title = "Quiz History",
+            actionText = if (quizzes.size <= HISTORY_PREVIEW) null else if (showAllQuizzes) "Show Less" else "Show All",
+            onActionClick = { showAllQuizzes = !showAllQuizzes },
+        )
+        if (quizResults?.isEmpty() == true) {
+            SleekCard {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("No quizzes yet", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "Host or play a quiz to see it here. Online quizzes show when you are signed in.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        (if (showAllQuizzes) quizzes else quizzes.take(HISTORY_PREVIEW)).forEach { quiz ->
+            QuizResultCard(quiz)
+        }
     }
 
     if (showAnswerColors) {
@@ -376,20 +477,75 @@ fun AccountsScreen(
         }
     }
 
-    // Reset Data Confirmation Dialog
+    // Reset Data: this phone only, or this phone and the account
     if (showResetDialog) {
+        val phoneOnly = "This leaves the room you joined and forgets it on this phone. Your stacks, reviews, hosted rooms, " +
+            "name, sign-in, and settings stay."
+        if (session == null) {
+            HiveDialog(
+                title = "Reset Data",
+                message = phoneOnly,
+                confirmText = "Reset",
+                onConfirm = { viewModel.resetData(account = false) { showResetDialog = false } },
+                dismissText = "Cancel",
+                onDismiss = { showResetDialog = false },
+                danger = true,
+            )
+        } else {
+            ChoiceDialog(
+                title = "Reset Data",
+                message = "$phoneOnly\n\nWith the account, it also deletes the stacks, reviews, and quiz results that your account " +
+                    "keeps for your other phones.",
+                choices = listOf(
+                    DialogChoice("This phone only", HiveButtonStyle.SECONDARY) {
+                        viewModel.resetData(account = false) { showResetDialog = false }
+                    },
+                    DialogChoice("This phone and the account", HiveButtonStyle.DANGER) {
+                        showResetDialog = false
+                        confirmAccountReset = true
+                    },
+                ),
+                dismissText = "Cancel",
+                onDismiss = { showResetDialog = false },
+            )
+        }
+    }
+
+    if (confirmAccountReset) {
         HiveDialog(
-            title = "Reset Data",
-            message = "This leaves the room you joined and forgets it on this phone. Your stacks, reviews, hosted rooms, " +
-                        "name, sign-in, and settings stay.",
-            confirmText = "Reset",
-            onConfirm = {
-                viewModel.resetData()
-                showResetDialog = false
-            },
+            title = "Delete the account data?",
+            confirmText = "Delete",
+            onConfirm = { viewModel.resetData(account = true) { confirmAccountReset = false } },
             dismissText = "Cancel",
-            onDismiss = { showResetDialog = false },
+            onDismiss = { confirmAccountReset = false },
             danger = true,
+        ) {
+            Text(
+                "Your account loses its stacks, reviews, and quiz results, and you cannot undo this. This phone keeps its " +
+                    "own, on this phone only. Your other phones keep theirs, and ask again whether to upload them.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            ErrorText(state.resetError)
+        }
+    }
+
+    state.signOut?.let { summary ->
+        val kept = if (summary.unsyncedStacks == 0) {
+            ""
+        } else {
+            " ${summary.unsyncedStacks} ${if (summary.unsyncedStacks == 1) "stack has" else "stacks have"} changes that your " +
+                "account does not have yet, so they stay either way."
+        }
+        ChoiceDialog(
+            title = "Log out",
+            message = "Keep the ${summary.syncedStacks} synced ${if (summary.syncedStacks == 1) "stack" else "stacks"} on this " +
+                "phone, or remove them? Your account keeps them either way.$kept",
+            choices = listOf(
+                DialogChoice("Keep on this phone", HiveButtonStyle.SECONDARY) { viewModel.signOut(removeSyncedStacks = false) },
+                DialogChoice("Remove from this phone", HiveButtonStyle.DANGER) { viewModel.signOut(removeSyncedStacks = true) },
+            ),
+            dismissText = "Cancel",
+            onDismiss = viewModel::cancelSignOut,
         )
     }
 
@@ -518,7 +674,7 @@ fun AccountsScreen(
                     HiveButton(
                         text = "Log Out",
                         onClick = {
-                            viewModel.signOut()
+                            viewModel.startSignOut()
                             scope.launch { sheetState.hide() }.invokeOnCompletion {
                                 showSettingsSheet = false
                             }
@@ -587,6 +743,35 @@ private fun QuizHistoryCard(
 
             // Score on right (e.g. "20/20")
             TagPill(text = score, selected = isHighlight)
+        }
+    }
+}
+
+/** A hosted or played quiz, with the Player's score once it ended. */
+@Composable
+private fun QuizResultCard(quiz: QuizResult) {
+    val score = when {
+        quiz.role == RoomRole.HOST -> if (quiz.playerCount == 1) "1 player" else "${quiz.playerCount} players"
+        !quiz.ended -> "Live"
+        quiz.correctCount != null -> "${quiz.correctCount}/${quiz.questionCount}"
+        else -> "Ended"
+    }
+    val rank = quiz.rank?.takeIf { quiz.role == RoomRole.PLAYER && quiz.ended }?.let { ", rank $it" }.orEmpty()
+    SleekCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(quiz.title.ifBlank { "Untitled quiz" }, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${historyDate(quiz.playedAt)}, ${quiz.label}$rank",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TagPill(text = score, selected = false)
         }
     }
 }
