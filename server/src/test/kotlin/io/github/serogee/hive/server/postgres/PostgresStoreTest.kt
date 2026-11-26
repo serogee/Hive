@@ -103,6 +103,25 @@ class PostgresStoreTest {
     }
 
     @Test
+    fun aChosenNameWinsOverTheSignInNameUntilTheAccountIsDeleted() = runBlocking {
+        var fromSignIn = alex
+        val accounts = PostgresAccounts(db) { fromSignIn }
+        assertEquals("Alex Rivera", accounts.verify("token")?.displayName)
+        assertEquals("Alex Rivera", accounts.displayName(alex.id))
+
+        accounts.setDisplayName(alex.id, "Ms. Rivera")
+        assertEquals("Ms. Rivera", accounts.verify("token")?.displayName)
+        // Google can change the name it sends. The chosen name stays.
+        fromSignIn = alex.copy(displayName = "Alexandra Rivera")
+        assertEquals("Ms. Rivera", accounts.verify("token")?.displayName)
+        reopen()
+        assertEquals("Ms. Rivera", PostgresAccounts(db) { fromSignIn }.verify("token")?.displayName)
+
+        db.accountData().delete(alex.id)
+        assertNull(PostgresAccounts(db) { fromSignIn }.displayName(alex.id))
+    }
+
+    @Test
     fun aDiscussionQuizSurvivesARestart() = runBlocking {
         val host = room()
         val guest = service().join(host.room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)

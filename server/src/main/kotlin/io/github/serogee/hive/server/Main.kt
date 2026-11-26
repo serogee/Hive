@@ -39,7 +39,7 @@ private fun runDemo(config: ServerConfig) {
     printAddresses(config.port)
     // A demo account has no sign-in elsewhere, so its rows are all there is.
     val deleter = AccountDeleter(db.accountData(), signIn = {})
-    serve(config, Backend(SqliteRoomStore(db), accounts, HealthMode.DEMO, db.syncStore(), deleter) { demoAuthRoutes(accounts) })
+    serve(config, Backend(SqliteRoomStore(db), accounts, HealthMode.DEMO, db.syncStore(), deleter, accounts) { demoAuthRoutes(accounts) })
 }
 
 private fun runProduction(config: ServerConfig) {
@@ -61,7 +61,7 @@ private fun runProduction(config: ServerConfig) {
         println("SUPABASE_SECRET_KEY is missing, so accounts cannot be deleted.")
         null
     }
-    serve(config, Backend(PostgresRoomStore(db), saved, HealthMode.PRODUCTION, db.syncStore(), deleter))
+    serve(config, Backend(PostgresRoomStore(db), saved, HealthMode.PRODUCTION, db.syncStore(), deleter, saved))
 }
 
 /** Checks Supabase tokens, or accepts nobody without a usable [supabaseUrl], so that the server always starts. */

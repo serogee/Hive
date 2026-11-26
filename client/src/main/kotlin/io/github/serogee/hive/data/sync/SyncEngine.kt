@@ -55,6 +55,8 @@ class SyncEngine(
     private val accountId: suspend () -> String?,
     private val server: () -> ServerStatus,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Runs at the end of each sync, such as for the display name. It must not fail the sync. */
+    private val afterSync: suspend (accountId: String) -> Unit = {},
 ) {
     private val mutex = Mutex()
     private val requests = Channel<Unit>(Channel.CONFLATED)
@@ -148,6 +150,7 @@ class SyncEngine(
                 break
             }
             local.saveOnlineRooms(remote.onlineRooms())
+            afterSync(account)
             state = state.copy(lastSyncedAt = now())
             states.setSyncState(state)
             _status.value = if (state.decided && local.hasPendingWork()) SyncStatus.Waiting(state.lastSyncedAt) else SyncStatus.UpToDate(now())

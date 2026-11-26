@@ -24,7 +24,11 @@ import io.github.serogee.hive.data.server.ServerTriggers
 import io.github.serogee.hive.data.stacks.StackRepository
 import io.github.serogee.hive.data.sync.ApiSyncRemote
 import io.github.serogee.hive.data.sync.RoomSyncLocal
+import io.github.serogee.hive.core.api.AccountProfile
+import io.github.serogee.hive.data.sync.ProfileRemote
+import io.github.serogee.hive.data.sync.ProfileSync
 import io.github.serogee.hive.data.sync.SyncEngine
+import kotlinx.coroutines.CancellationException
 import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.localhost.LocalHost
 import io.github.serogee.hive.localhost.NsdNearbyRooms
@@ -77,12 +81,33 @@ class AppContainer(application: Application) {
     val reviews = ReviewRepository(database.reviews())
 
     /** Signed-in accounts only. Guests keep everything on this phone. */
+    /** The signed-in account's display name, on the server and every phone. */
+    val profiles = ProfileSync(
+        remote = object : ProfileRemote {
+            override suspend fun displayName() = api.accountProfile().displayName
+
+            override suspend fun setDisplayName(name: String) {
+                api.setAccountProfile(AccountProfile(name))
+            }
+        },
+        store = preferences,
+    )
+
     val sync = SyncEngine(
         local = RoomSyncLocal(database),
         remote = ApiSyncRemote(api),
         states = preferences,
         accountId = { auth.session.first()?.account?.id?.value },
         server = { server.status.value },
+        afterSync = { account ->
+            try {
+                profiles.sync(account)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // An older server keeps no display names. The stacks synced all the same.
+            }
+        },
     )
 
     // What the tabs show. These are read and decoded off the main thread, and stay loaded for a while
@@ -121,6 +146,7 @@ class AppContainer(application: Application) {
     suspend fun signOut(removeSyncedStacks: Boolean = false) {
         auth.signOut()
         sync.forgetAccount(removeSyncedStacks)
+        profiles.forget()
     }
 
     /** Stops hosting after every room has ended, once Players have had time to get the results. */
