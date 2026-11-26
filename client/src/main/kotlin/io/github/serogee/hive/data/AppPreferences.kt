@@ -57,6 +57,11 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore {
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
 
+    /** Rooms whose "close it?" question waits until a time, by room ID. */
+    val roomSnoozes: Flow<Map<String, Long>> = store.data.map { prefs ->
+        prefs.decode(ROOM_SNOOZES, MapSerializer(String.serializer(), Long.serializer())).orEmpty()
+    }
+
     /** Whether Check for updates also offers test versions. */
     val includePrereleases: Flow<Boolean> = store.data.map { it[INCLUDE_PRERELEASES] ?: false }
 
@@ -97,6 +102,14 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore {
 
     suspend fun setIncludePrereleases(include: Boolean) = store.edit { it[INCLUDE_PRERELEASES] = include }
 
+    /** Waits with the question about [roomId] until [until]. Times that passed are forgotten. */
+    suspend fun snoozeRoom(roomId: RoomId, until: Long) = store.edit { prefs ->
+        val serializer = MapSerializer(String.serializer(), Long.serializer())
+        val now = System.currentTimeMillis()
+        val snoozes = prefs.decode(ROOM_SNOOZES, serializer).orEmpty().filterValues { it > now } + (roomId.value to until)
+        prefs[ROOM_SNOOZES] = HiveJson.encodeToString(serializer, snoozes)
+    }
+
     suspend fun setAnswerColors(choice: AnswerColorChoice) = store.edit { it[ANSWER_COLORS] = choice.name }
 
     suspend fun setAnswerInput(input: AnswerInput) = store.edit { it[ANSWER_INPUT] = input.name }
@@ -135,5 +148,6 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore {
         val HOST_TOKENS = stringPreferencesKey("host_tokens")
         val SYNC_STATE = stringPreferencesKey("sync_state")
         val INCLUDE_PRERELEASES = booleanPreferencesKey("include_prereleases")
+        val ROOM_SNOOZES = stringPreferencesKey("room_snoozes")
     }
 }

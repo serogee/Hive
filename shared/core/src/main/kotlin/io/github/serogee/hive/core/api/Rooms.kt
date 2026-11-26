@@ -44,6 +44,8 @@ data class RoomSummary(
     val timeTiebreak: Boolean = false,
     /** False when the room server cannot verify accounts, such as a room hosted on a phone. */
     val acceptsAccounts: Boolean = true,
+    /** Epoch milliseconds when the Host created the room. Null from servers that do not say. */
+    val createdAt: Long? = null,
 )
 
 @Serializable

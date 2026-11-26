@@ -83,6 +83,7 @@ import io.github.serogee.hive.ui.theme.WideHexagonShape
 import io.github.serogee.hive.ui.theme.hiveColors
 import io.github.serogee.hive.ui.welcome.WelcomeScreen
 import io.github.serogee.hive.ui.accounts.SyncChoiceDialog
+import io.github.serogee.hive.ui.rooms.StaleRoomDialog
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.serialization.Serializable
@@ -398,6 +399,7 @@ fun HiveApp() {
     }
 
     SyncChoiceDialog()
+    StaleRoomDialog()
 }
 
 /** The selected tab's icon sits in a honey hexagon, which slides to the tab that the user taps. */
