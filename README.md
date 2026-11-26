@@ -28,6 +28,8 @@ Run these from the repository root on Windows, or double-click the files.
 - `.\app-release.cmd --setup-key` makes the signing key for releases, one time. Back up the key and the settings file that it prints.
 - `.\app-release.cmd 0.1.0` tests and builds a signed app from `main`, asks, then publishes the tag and the app as a GitHub release. The notes come from `releases\0.1.0.md`, or from the merges on `main` when there is no such file.
 
+Installed apps find new releases with Check for updates in Account > Settings. It reads the releases of `serogee/Hive` on GitHub, or of the `owner/name` in `hive.updatesRepo` in `gradle.properties`. It downloads only the `hive-<version>.apk` that `app-release.cmd` attaches, and it installs the file only when the package, the version, and the signing key match the installed app. Phones read GitHub without an account, so the repository must be public. A debug app can check, but it cannot install a release.
+
 ## Common commands
 
 Run all JVM tests:
