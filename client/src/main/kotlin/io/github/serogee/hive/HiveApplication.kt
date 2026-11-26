@@ -15,6 +15,7 @@ import io.github.serogee.hive.data.remote.HiveApi
 import io.github.serogee.hive.data.remote.jsonHttpClient
 import io.github.serogee.hive.data.review.ReviewRepository
 import io.github.serogee.hive.data.rooms.RoomRepository
+import io.github.serogee.hive.data.rooms.StaleRoomChecker
 import io.github.serogee.hive.data.server.OnlineFacts
 import io.github.serogee.hive.data.server.ServerMonitor
 import io.github.serogee.hive.data.server.ServerState
@@ -70,6 +71,9 @@ class AppContainer(application: Application) {
         joined.participantId?.let { quizHistory.recordPlayedNearby(results, it) }
     }
     val stacks = StackRepository(database.stacks())
+
+    /** Asks the Host to close rooms that have been open for a day. */
+    val staleRooms = StaleRoomChecker(rooms, preferences, signedIn = { auth.session.first() != null })
     val reviews = ReviewRepository(database.reviews())
 
     /** Signed-in accounts only. Guests keep everything on this phone. */
