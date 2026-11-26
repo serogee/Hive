@@ -49,14 +49,14 @@ enum class HiveButtonStyle {
     /** Honey with ink text. */
     PRIMARY,
 
-    /** Graphite with honey text. */
+    /** A raised card color with a border: ink text in light, honey text in dark. */
     SECONDARY,
 
     /** For leave, delete, and end. */
     DANGER,
 }
 
-/** The app's button. [onSolid] keeps its border visible on a graphite card. */
+/** The app's button. [onSolid] is for a button on a raised card. */
 @Composable
 fun HiveButton(
     text: String,
@@ -107,7 +107,7 @@ private fun ButtonFrame(
     }
     val contentColor = when (style) {
         HiveButtonStyle.PRIMARY -> Graphite
-        HiveButtonStyle.SECONDARY -> Honey
+        HiveButtonStyle.SECONDARY -> MaterialTheme.hiveColors.onSecondaryButton
         HiveButtonStyle.DANGER -> MaterialTheme.colorScheme.onErrorContainer
     }
     val border = when {
@@ -145,7 +145,7 @@ fun HiveTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modif
     }
 }
 
-/** A single-line field unless [singleLine] is off. [onSolid] is for graphite cards. */
+/** A single-line field unless [singleLine] is off. [onSolid] is for raised cards. */
 @Composable
 fun HiveTextField(
     value: String,
@@ -163,7 +163,7 @@ fun HiveTextField(
 ) {
     val text = if (onSolid) MaterialTheme.hiveColors.onSolid else MaterialTheme.colorScheme.onSurface
     val muted = if (onSolid) MaterialTheme.hiveColors.onSolid.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
-    val focus = if (onSolid || MaterialTheme.hiveColors.isDark) Honey else MaterialTheme.hiveColors.border
+    val focus = if (MaterialTheme.hiveColors.isDark) Honey else MaterialTheme.hiveColors.border
     val quiet = if (onSolid) MaterialTheme.hiveColors.borderOnSolid.copy(alpha = 0.75f) else MaterialTheme.hiveColors.quietBorder
     val container = if (onSolid) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.surface
     OutlinedTextField(
@@ -187,11 +187,11 @@ fun HiveTextField(
             focusedContainerColor = container,
             unfocusedContainerColor = container,
             disabledContainerColor = container,
-            cursorColor = if (onSolid) Honey else MaterialTheme.colorScheme.primary,
+            cursorColor = if (onSolid) MaterialTheme.hiveColors.accentOnSolid else MaterialTheme.colorScheme.primary,
             focusedBorderColor = focus,
             unfocusedBorderColor = quiet,
             disabledBorderColor = MaterialTheme.colorScheme.outline,
-            focusedLabelColor = if (onSolid) Honey else MaterialTheme.colorScheme.primary,
+            focusedLabelColor = if (onSolid) MaterialTheme.hiveColors.accentOnSolid else MaterialTheme.colorScheme.primary,
             unfocusedLabelColor = muted,
             disabledLabelColor = muted,
             focusedPlaceholderColor = muted,
@@ -215,8 +215,8 @@ fun HiveSegment(
             .clip(MaterialTheme.shapes.small)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         shape = MaterialTheme.shapes.small,
-        color = if (selected) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.surface,
-        contentColor = if (selected) Honey else MaterialTheme.colorScheme.onSurface,
+        color = if (selected) Honey else MaterialTheme.colorScheme.surface,
+        contentColor = if (selected) Graphite else MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(2.dp, if (selected) MaterialTheme.hiveColors.border else MaterialTheme.colorScheme.outline),
     ) {
         Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
