@@ -12,6 +12,7 @@ import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.QuestionId
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.sample.SampleStacks
@@ -42,7 +43,11 @@ class AsyncRoomTest {
             service.submitAnswer(id, null, participantToken, SubmitAnswerRequest(QuestionId(question), answer, key))
     }
 
-    private suspend fun TestScope.room(deadlineInMillis: Long? = null, timeTiebreak: Boolean = false): Room {
+    private suspend fun TestScope.room(
+        deadlineInMillis: Long? = null,
+        timeTiebreak: Boolean = false,
+        revealPolicy: RevealPolicy = RevealPolicy.AT_END,
+    ): Room {
         val service = RoomService(
             store = InMemoryRoomStore(),
             clock = { testScheduler.currentTime },
@@ -55,6 +60,7 @@ class AsyncRoomTest {
                 SampleStacks.networkingFundamentals,
                 RoomMode.ASYNCHRONOUS,
                 deadlineAt = deadlineInMillis?.let { testScheduler.currentTime + it },
+                revealPolicy = revealPolicy,
                 timeTiebreak = timeTiebreak,
             ),
         )
@@ -181,5 +187,43 @@ class AsyncRoomTest {
 
         assertEquals(ErrorCode.ROOM_CLOSED, notOpen.code)
         assertEquals(ErrorCode.INVALID_COMMAND, hostNext.code)
+    }
+
+    @Test
+    fun revealAfterEachQuestionShowsAnswerAndExplanationRightAfterAnswering() = runTest {
+        val revealed = room(revealPolicy = RevealPolicy.AFTER_EACH_QUESTION)
+        val jamie = revealed.join("Jamie")
+        revealed.service.command(revealed.id, sam, null, HostCommand.Start)
+
+        with(revealed) {
+            val before = jamie.does(PlayerCommand.StartAttempt)
+            assertNull(before.live?.correctAnswer)
+            assertNull(before.live?.explanation)
+
+            // Timed Q1: answered while still open -> immediately revealed.
+            jamie.answers("nf-q1", Answer.SelectedChoice(ChoiceId("nf-q1-c3")), "k1")
+            val afterQ1 = jamie.state().live
+            assertEquals(Answer.SelectedChoice(ChoiceId("nf-q1-c3")), afterQ1?.correctAnswer)
+            assertTrue(!afterQ1?.explanation.isNullOrBlank())
+
+            // Untimed Q2: answered -> immediately revealed (not stuck waiting for a nonexistent timer).
+            jamie.does(PlayerCommand.NextQuestion)
+            assertNull(jamie.state().live?.correctAnswer)
+            jamie.answers("nf-q2", Answer.TrueFalse(true), "k2")
+            val afterQ2 = jamie.state().live
+            assertEquals(Answer.TrueFalse(true), afterQ2?.correctAnswer)
+            assertTrue(!afterQ2?.explanation.isNullOrBlank())
+        }
+
+        // With AT_END, answers and explanations stay hidden until the room ends.
+        val hidden = room(revealPolicy = RevealPolicy.AT_END)
+        val riley = hidden.join("Riley")
+        hidden.service.command(hidden.id, sam, null, HostCommand.Start)
+        with(hidden) {
+            riley.does(PlayerCommand.StartAttempt)
+            riley.answers("nf-q1", Answer.SelectedChoice(ChoiceId("nf-q1-c3")), "r1")
+            assertNull(riley.state().live?.correctAnswer)
+            assertNull(riley.state().live?.explanation)
+        }
     }
 }

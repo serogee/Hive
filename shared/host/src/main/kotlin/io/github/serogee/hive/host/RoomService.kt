@@ -334,6 +334,7 @@ class RoomService(
             admission = command.admission,
             stack = stack,
             deadlineAt = command.deadlineAt,
+            revealPolicy = command.revealPolicy ?: room.revealPolicy,
             speedScoring = command.speedScoring,
             timeTiebreak = command.timeTiebreak,
             revision = room.revision + 1,
@@ -596,14 +597,15 @@ class RoomService(
             val question = room.stack.questions[own.questionIndex]
             val cutoff = own.cutoff(room)
             val open = Timing.isBefore(now, cutoff)
-            val reveal = room.revealPolicy == RevealPolicy.AFTER_EACH_QUESTION && !open
+            val yourAnswer = submissions.firstOrNull { it.participantId == you.id && it.questionId == question.id }?.receipt()
+            val reveal = room.revealPolicy == RevealPolicy.AFTER_EACH_QUESTION && (!open || yourAnswer != null)
             LiveQuestion(
                 question = question.toPlayerQuestion(own.questionIndex + 1),
                 isOpen = open,
                 questionCount = room.stack.questions.size,
                 answeredCount = submissions.count { it.questionId == question.id },
                 playerCount = players.size,
-                yourAnswer = submissions.firstOrNull { it.participantId == you.id && it.questionId == question.id }?.receipt(),
+                yourAnswer = yourAnswer,
                 closesAt = cutoff,
                 serverTime = now,
                 correctAnswer = if (reveal) question.correctAnswer() else null,

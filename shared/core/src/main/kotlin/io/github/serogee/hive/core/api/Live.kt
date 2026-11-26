@@ -6,6 +6,7 @@ import io.github.serogee.hive.core.model.Choice
 import io.github.serogee.hive.core.model.ParticipantId
 import io.github.serogee.hive.core.model.Question
 import io.github.serogee.hive.core.model.QuestionId
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.SubmissionId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -111,6 +112,8 @@ sealed interface HostCommand {
         val deadlineAt: Long? = null,
         /** Seconds for every question, 0 for no time limits, or null to keep the limit of each question. */
         val questionSeconds: Int? = null,
+        /** When Players see correct answers and explanations. Null keeps the current setting. */
+        val revealPolicy: RevealPolicy? = null,
     ) : HostCommand
 
     /** Ends the room for everyone. Accepted answers are kept. */

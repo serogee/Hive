@@ -143,7 +143,7 @@ interface LocalRoomDao {
 
     @Query(
         "UPDATE local_rooms SET title = :title, admission = :admission, stackJson = :stackJson, deadlineAt = :deadlineAt, " +
-            "speedScoring = :speedScoring, timeTiebreak = :timeTiebreak, revision = :revision WHERE id = :id",
+            "revealPolicy = :revealPolicy, speedScoring = :speedScoring, timeTiebreak = :timeTiebreak, revision = :revision WHERE id = :id",
     )
     suspend fun setSettings(
         id: String,
@@ -151,6 +151,7 @@ interface LocalRoomDao {
         admission: String,
         stackJson: String,
         deadlineAt: Long?,
+        revealPolicy: String,
         speedScoring: Boolean,
         timeTiebreak: Boolean,
         revision: Long,
@@ -246,6 +247,7 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
         admission = room.admission.name,
         stackJson = HiveJson.encodeToString(StackSnapshot.serializer(), room.stack),
         deadlineAt = room.deadlineAt,
+        revealPolicy = room.revealPolicy.name,
         speedScoring = room.speedScoring,
         timeTiebreak = room.timeTiebreak,
         revision = room.revision,

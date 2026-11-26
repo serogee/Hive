@@ -12,6 +12,7 @@ import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.api.RoomSummary
 import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomStatus
@@ -36,6 +37,7 @@ data class RoomOptions(
     val timeTiebreak: Boolean,
     /** Epoch milliseconds when the quiz stops accepting answers, or null for no deadline. */
     val deadlineAt: Long?,
+    val revealPolicy: RevealPolicy = RevealPolicy.AT_END,
 ) {
     fun request(stack: StackSnapshot, hostDisplayName: String? = null) = CreateRoomRequest(
         stack = stack,
@@ -43,6 +45,7 @@ data class RoomOptions(
         admission = admission,
         hostDisplayName = hostDisplayName,
         deadlineAt = deadlineAt,
+        revealPolicy = revealPolicy,
         speedScoring = speedScoring,
         timeTiebreak = timeTiebreak,
     )

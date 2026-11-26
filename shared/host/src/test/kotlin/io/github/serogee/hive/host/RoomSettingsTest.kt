@@ -7,6 +7,7 @@ import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.sample.SampleStacks
@@ -28,6 +29,7 @@ class RoomSettingsTest {
         timeTiebreak = false,
         deadlineAt = 90_000L,
         questionSeconds = 20,
+        revealPolicy = RevealPolicy.AFTER_EACH_QUESTION,
     )
 
     private suspend fun room(mode: RoomMode = RoomMode.DISCUSSION) =
@@ -47,6 +49,7 @@ class RoomSettingsTest {
             assertTrue(state.room.speedScoring)
             assertEquals(false, state.room.timeTiebreak)
             assertEquals(90_000L, state.room.deadlineAt)
+            assertEquals(RevealPolicy.AFTER_EACH_QUESTION, state.room.revealPolicy)
             val stored = checkNotNull(store.findRoom(host.room.id))
             assertTrue(stored.stack.questions.all { it.durationSeconds == 20 })
             assertEquals(stored.revision, state.revision)

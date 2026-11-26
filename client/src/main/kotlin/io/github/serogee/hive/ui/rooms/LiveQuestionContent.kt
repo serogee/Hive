@@ -293,10 +293,10 @@ fun PlayerLiveContent(
             )
         }
 
-        if (!live.isOpen) {
-            if (hostPaced) Text("Wait for the Host to continue.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            RevealedAnswer(live)
+        if (!live.isOpen && hostPaced) {
+            Text("Wait for the Host to continue.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
+        RevealedAnswer(live)
     }
 }
 
