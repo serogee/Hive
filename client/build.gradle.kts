@@ -20,7 +20,7 @@ val googleWebClientId = providers.gradleProperty("hive.googleWebClientId").getOr
 /** The GitHub repository, as owner/name, whose releases Check for updates reads. */
 val updatesRepo = providers.gradleProperty("hive.updatesRepo").getOrElse("serogee/Hive").trim()
 
-/** Set by app-release.cmd, which takes the version from its argument. */
+/** Set by run app release, which takes the version from its argument. */
 val appVersionName = providers.gradleProperty("hive.versionName").getOrElse("0.1.0")
 val appVersionCode = providers.gradleProperty("hive.versionCode").map(String::toInt).getOrElse(1)
 

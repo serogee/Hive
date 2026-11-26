@@ -1,4 +1,4 @@
-# Runs the production server with Postgres on this computer: server-docker.cmd, or docker compose up --build.
+# Runs the production server with Postgres on this computer: .\run server docker, or docker compose up --build.
 # Settings come from .env, which Git ignores. Copy .env.example to make it.
 name: hive
 

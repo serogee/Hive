@@ -23,7 +23,7 @@ data class GitHubRepo private constructor(val owner: String, val name: String) {
     val releasesPage: String get() = "https://github.com/$path/releases"
     val apiUrl: String get() = "https://api.github.com/repos/$path/releases?per_page=100"
 
-    /** The file that app-release.cmd attaches to the release [tag]. */
+    /** The file that run app release attaches to the release [tag]. */
     fun apkFilename(tag: String): String = "hive-${tag.removePrefix("v").removePrefix("V")}.apk"
 
     /** Whether [url] is exactly the APK of the release [tag] in this repository. */
@@ -111,7 +111,7 @@ class GitHubReleaseSource(
         private const val UNREADABLE = "GitHub's release data could not be read. Try again later, or view the releases on GitHub."
 
         /**
-         * The newest published release, and its APK when the release has the file that app-release.cmd
+         * The newest published release, and its APK when the release has the file that run app release
          * attaches. Drafts, unpublished releases, and tags that are not versions are skipped.
          */
         internal fun parseReleases(body: String, repo: GitHubRepo, includePrereleases: Boolean = false): PublishedRelease? {

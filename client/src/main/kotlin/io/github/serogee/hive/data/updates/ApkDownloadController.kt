@@ -20,7 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** The APK of one release. Only the exact file that app-release.cmd publishes in [repo] is [valid]. */
+/** The APK of one release. Only the exact file that run app release publishes in [repo] is [valid]. */
 data class ApkTarget(val repo: GitHubRepo, val tag: String, val url: String) {
     val versionName: String get() = tag.removePrefix("v").removePrefix("V")
 

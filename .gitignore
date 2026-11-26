@@ -9,7 +9,8 @@ local.properties
 # IDEs
 .idea/
 *.iml
-.vscode/
+.vscode/*
+!.vscode/tasks.json
 .DS_Store
 
 # Demo server data

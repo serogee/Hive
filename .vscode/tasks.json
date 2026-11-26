@@ -1,0 +1,89 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "app build",
+            "detail": "Runs the JVM tests and builds the debug app.",
+            "type": "shell",
+            "command": ".\\run.cmd",
+            "args": ["app", "build"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "app dev",
+            "detail": "Installs the debug app on the connected phone or emulator and opens it.",
+            "type": "shell",
+            "command": ".\\run.cmd",
+            "args": ["app", "dev"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "app release",
+            "detail": "Publishes a signed release from main, or makes the signing key one time.",
+            "type": "shell",
+            "command": ".\\run.cmd",
+            "args": ["app", "release", "${input:releaseVersion}"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "server dev",
+            "detail": "Starts the demo server on port 8080.",
+            "type": "shell",
+            "command": ".\\run.cmd",
+            "args": ["server", "dev"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "server dev --reset",
+            "detail": "Starts the demo server on port 8080 with fresh demo data.",
+            "type": "shell",
+            "command": ".\\run.cmd",
+            "args": ["server", "dev", "--reset"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "server run",
+            "detail": "Builds the server and runs it with the settings in server\\.env.",
+            "type": "shell",
+            "command": ".\\run.cmd",
+            "args": ["server", "run"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "server docker",
+            "detail": "Runs the server image with Postgres in Docker.",
+            "type": "shell",
+            "command": ".\\run.cmd",
+            "args": ["server", "docker"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "server docker --down",
+            "detail": "Stops the server and Postgres in Docker, and keeps the data.",
+            "type": "shell",
+            "command": ".\\run.cmd",
+            "args": ["server", "docker", "--down"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "releaseVersion",
+            "type": "promptString",
+            "description": "The version to release, such as 0.1.0, or --setup-key to make the signing key one time."
+        }
+    ]
+}

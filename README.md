@@ -18,17 +18,19 @@ Hive is an offline-first Android app for creating question stacks, reviewing the
 
 ## Scripts
 
-Run these from the repository root on Windows, or double-click the files.
+Run `.\run` in the repository root on Windows to list the commands, or double-click `run.cmd` for a menu. Each command runs a script in `scripts`, and every option after the command goes to that script unchanged.
 
-- `.\app-build.cmd` runs the JVM tests, builds the debug app, and prints where it is.
-- `.\app-dev.cmd [server URL]` installs the debug app on the connected phone or emulator and opens it.
-- `.\server-dev.cmd [--reset]` starts the demo server on port 8080, with fresh demo data after `--reset`.
-- `.\server-docker.cmd [--down | --reset]` builds the server image and runs it with Postgres in Docker, as it runs when it is hosted. `--down` stops both, and `--reset` also deletes the local database. Copy `.env.example` to `.env` to change the port or the local password.
-- `.\server-run.cmd` builds the server and runs it with the settings in `server\.env`. Copy `server\.env.example` to make that file.
-- `.\app-release.cmd --setup-key` makes the signing key for releases, one time. Back up the key and the settings file that it prints.
-- `.\app-release.cmd 0.1.0` tests and builds a signed app from `main`, asks, then publishes the tag and the app as a GitHub release. The notes come from `releases\0.1.0.md`, or from the merges on `main` when there is no such file.
+- `.\run app build` runs the JVM tests, builds the debug app, and prints where it is.
+- `.\run app dev [server URL]` installs the debug app on the connected phone or emulator and opens it.
+- `.\run server dev [--reset]` starts the demo server on port 8080, with fresh demo data after `--reset`.
+- `.\run server docker [--down | --reset]` builds the server image and runs it with Postgres in Docker, as it runs when it is hosted. `--down` stops both, and `--reset` also deletes the local database. Copy `.env.example` to `.env` to change the port or the local password.
+- `.\run server run` builds the server and runs it with the settings in `server\.env`. Copy `server\.env.example` to make that file.
+- `.\run app release --setup-key` makes the signing key for releases, one time. Back up the key and the settings file that it prints.
+- `.\run app release 0.1.0` tests and builds a signed app from `main`, asks, then publishes the tag and the app as a GitHub release. The notes come from `releases\0.1.0.md`, or from the merges on `main` when there is no such file.
 
-Installed apps find new releases with Check for updates in Account > Settings. It reads the releases of `serogee/Hive` on GitHub, or of the `owner/name` in `hive.updatesRepo` in `gradle.properties`. It downloads only the `hive-<version>.apk` that `app-release.cmd` attaches, and it installs the file only when the package, the version, and the signing key match the installed app. Phones read GitHub without an account, so the repository must be public. A debug app can check, but it cannot install a release.
+To add a command, add one line to the table at the top of `scripts\run.ps1`, and put its script in `scripts`. In VS Code, the same commands are in Terminal > Run Task.
+
+Installed apps find new releases with Check for updates in Account > Settings. It reads the releases of `serogee/Hive` on GitHub, or of the `owner/name` in `hive.updatesRepo` in `gradle.properties`. It downloads only the `hive-<version>.apk` that `.\run app release` attaches, and it installs the file only when the package, the version, and the signing key match the installed app. Phones read GitHub without an account, so the repository must be public. A debug app can check, but it cannot install a release.
 
 ## Common commands
 
