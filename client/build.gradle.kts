@@ -17,6 +17,9 @@ val supabaseUrl = providers.gradleProperty("hive.supabaseUrl").getOrElse("").tri
 val supabaseKey = providers.gradleProperty("hive.supabaseKey").getOrElse("").trim()
 val googleWebClientId = providers.gradleProperty("hive.googleWebClientId").getOrElse("").trim()
 
+/** The GitHub repository, as owner/name, whose releases Check for updates reads. */
+val updatesRepo = providers.gradleProperty("hive.updatesRepo").getOrElse("serogee/Hive").trim()
+
 /** Set by app-release.cmd, which takes the version from its argument. */
 val appVersionName = providers.gradleProperty("hive.versionName").getOrElse("0.1.0")
 val appVersionCode = providers.gradleProperty("hive.versionCode").map(String::toInt).getOrElse(1)
@@ -38,6 +41,7 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_KEY", "\"$supabaseKey\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        buildConfigField("String", "UPDATES_REPO", "\"$updatesRepo\"")
     }
 
     signingConfigs {
