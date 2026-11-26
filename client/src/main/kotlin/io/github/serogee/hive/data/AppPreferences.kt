@@ -43,6 +43,8 @@ data class SavedMembership(
     val ended: Boolean = false,
     /** Null for a membership saved before it was kept. */
     val participantId: ParticipantId? = null,
+    val isGuest: Boolean = true,
+    val isOnline: Boolean = false,
 )
 
 /** Small settings and credentials stored on this device. */

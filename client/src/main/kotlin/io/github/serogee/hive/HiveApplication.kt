@@ -9,6 +9,7 @@ import io.github.serogee.hive.data.auth.GoogleIdTokens
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.data.auth.SupabaseAuth
 import io.github.serogee.hive.data.history.QuizHistory
+import io.github.serogee.hive.data.history.QuizPlace
 import io.github.serogee.hive.data.local.HiveDatabase
 import io.github.serogee.hive.data.local.LocalRoomStore
 import io.github.serogee.hive.data.remote.HiveApi
@@ -72,7 +73,9 @@ class AppContainer(application: Application) {
     val nearbyRooms = NsdNearbyRooms(application)
     val quizHistory = QuizHistory(database.sync())
     val rooms = RoomRepository(api, preferences, localHost, localRoomStore, nearbyRooms) { results, joined ->
-        joined.participantId?.let { quizHistory.recordPlayedNearby(results, it) }
+        joined.participantId?.let {
+            quizHistory.recordPlayed(results, it, if (joined.isOnline) QuizPlace.ONLINE else QuizPlace.NEARBY)
+        }
     }
     val stacks = StackRepository(database.stacks())
 
