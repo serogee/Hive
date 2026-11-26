@@ -42,6 +42,13 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
         connection.queryRooms("SELECT * FROM rooms WHERE host_account_id = ?", accountId.value)
     }
 
+    override suspend fun roomsPlayedBy(accountId: AccountId) = db.read { connection ->
+        connection.queryRooms(
+            "SELECT * FROM rooms WHERE id IN (SELECT room_id FROM participants WHERE account_id = ? AND role = 'PLAYER')",
+            accountId.value,
+        )
+    }
+
     override suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long) = db.write { connection ->
         connection.prepareStatement(
             "UPDATE rooms SET status = ?, question_index = ?, question_open = ?, question_opened_at = ?, revision = ? WHERE id = ?",

@@ -257,6 +257,8 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
 
     override suspend fun roomsHostedBy(accountId: AccountId): List<RoomRecord> = emptyList()
 
+    override suspend fun roomsPlayedBy(accountId: AccountId): List<RoomRecord> = emptyList()
+
     override suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long) =
         dao.setProgress(roomId.value, progress.status.name, progress.questionIndex, progress.questionOpen, progress.openedAt, revision)
 

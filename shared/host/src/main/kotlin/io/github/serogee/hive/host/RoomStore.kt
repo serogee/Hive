@@ -141,6 +141,9 @@ interface RoomStore {
 
     suspend fun roomsHostedBy(accountId: AccountId): List<RoomRecord>
 
+    /** Rooms where the account is a Player, left or not. */
+    suspend fun roomsPlayedBy(accountId: AccountId): List<RoomRecord>
+
     /** Stores the room's new progress and revision. */
     suspend fun updateProgress(roomId: RoomId, progress: Progress, revision: Long)
 

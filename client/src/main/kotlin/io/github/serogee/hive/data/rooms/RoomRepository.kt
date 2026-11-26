@@ -58,6 +58,8 @@ class RoomRepository(
     private val localHost: LocalHost,
     private val localRooms: LocalRoomStore,
     nearby: NearbyRooms,
+    /** Called with each result of a room on another Host's phone, for the history. */
+    private val onNearbyResults: suspend (RoomResults, SavedMembership) -> Unit = { _, _ -> },
 ) {
     private val finder = RoomFinder(api::lookupRoom, nearby)
 
@@ -154,6 +156,7 @@ class RoomRepository(
                 roomTitle = room.title,
                 displayName = membership.participant.displayName,
                 participantToken = membership.participantToken,
+                participantId = membership.participant.id,
             ),
         )
         return membership
@@ -208,6 +211,12 @@ class RoomRepository(
     suspend fun submitAnswer(roomId: RoomId, request: SubmitAnswerRequest): AnswerReceipt =
         access(roomId).let { (server, token) -> api.submitAnswer(roomId, request, token, server) }
 
-    suspend fun results(roomId: RoomId): RoomResults =
-        access(roomId).let { (server, token) -> api.results(roomId, token, server) }
+    suspend fun results(roomId: RoomId): RoomResults {
+        val (server, token) = access(roomId)
+        val results = api.results(roomId, token, server)
+        // Online rooms are in the account's own list. A room on this phone is recorded when it ends.
+        val joined = preferences.joinedRoom.first()?.takeIf { it.roomId == roomId }
+        if (server != null && joined != null && !isHostedHere(roomId)) onNearbyResults(results, joined)
+        return results
+    }
 }

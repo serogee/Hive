@@ -25,6 +25,8 @@ data class ServerStatus(
     val state: ServerState,
     val mode: HealthMode? = null,
     val auth: HealthAuth = HealthAuth.NOT_CONFIGURED,
+    /** Whether the server keeps signed-in accounts' stacks and history. */
+    val sync: Boolean = false,
 )
 
 /**
@@ -82,7 +84,7 @@ class ServerMonitor(
             checkedAt = now()
             if (health != null) {
                 failures = 0
-                _status.value = ServerStatus(ServerState.ONLINE, health.mode, health.auth)
+                _status.value = ServerStatus(ServerState.ONLINE, health.mode, health.auth, health.sync)
             } else {
                 failures++
                 _status.update { it.copy(state = ServerState.UNREACHABLE) }

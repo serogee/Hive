@@ -3,6 +3,7 @@ package io.github.serogee.hive.ui.stacks
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.data.local.QuestionEntity
 import io.github.serogee.hive.data.local.StackDao
+import io.github.serogee.hive.data.local.StackDeletionEntity
 import io.github.serogee.hive.data.local.StackEntity
 import io.github.serogee.hive.data.local.StackRow
 import io.github.serogee.hive.data.stacks.StackRepository
@@ -146,5 +147,7 @@ class StackEditorViewModelTest {
             stacks.remove(id)
             questions.remove(id)
         }
+
+        override suspend fun upsertDeletion(deletion: StackDeletionEntity) = Unit
     }
 }

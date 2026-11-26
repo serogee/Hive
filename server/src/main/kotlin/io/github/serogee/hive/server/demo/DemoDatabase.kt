@@ -1,5 +1,9 @@
 package io.github.serogee.hive.server.demo
 
+import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.server.sync.JdbcSyncStore
+import io.github.serogee.hive.server.sync.SyncDatabase
+import io.github.serogee.hive.server.sync.SyncStore
 import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.Connection
@@ -43,7 +47,7 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
     }
 
     fun dropAll() = connection.createStatement().use { statement ->
-        listOf("attempts", "submissions", "participants", "rooms", "sessions", "accounts").forEach {
+        listOf("sync_sequence", "sync_accounts", "sync_records", "sync_stacks", "attempts", "submissions", "participants", "rooms", "sessions", "accounts").forEach {
             statement.executeUpdate("DROP TABLE IF EXISTS $it")
         }
     }
@@ -56,6 +60,22 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
     private fun schemaVersion(): Int = connection.createStatement().use { statement ->
         statement.executeQuery("PRAGMA user_version").use { if (it.next()) it.getInt(1) else 0 }
     }
+
+    /** Account data that phones sync. One connection writes at a time, which also orders the changes. */
+    fun syncStore(): SyncStore = JdbcSyncStore(
+        object : SyncDatabase {
+            override val tables = ""
+
+            override suspend fun <T> read(block: (Connection) -> T): T = this@DemoDatabase.read(block)
+
+            override suspend fun <T> writeForAccount(accountId: AccountId, block: (Connection) -> T): T = write(block)
+
+            override fun nextChange(connection: Connection): Long = connection.createStatement().use { statement ->
+                statement.executeUpdate("UPDATE sync_sequence SET value = value + 1")
+                statement.executeQuery("SELECT value FROM sync_sequence").use { it.next(); it.getLong(1) }
+            }
+        },
+    )
 
     override fun close() = connection.close()
 
@@ -71,7 +91,7 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
             }
         }
 
-        const val SCHEMA_VERSION = 5
+        const val SCHEMA_VERSION = 6
 
         private val SCHEMA = listOf(
             """
@@ -152,6 +172,34 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
                 PRIMARY KEY (room_id, participant_id)
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS sync_stacks (
+                account_id TEXT NOT NULL REFERENCES accounts(id),
+                stack_id TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                deleted INTEGER NOT NULL,
+                document TEXT,
+                change_seq INTEGER NOT NULL,
+                PRIMARY KEY (account_id, stack_id)
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS sync_stacks_by_change ON sync_stacks(account_id, change_seq)",
+            """
+            CREATE TABLE IF NOT EXISTS sync_records (
+                account_id TEXT NOT NULL REFERENCES accounts(id),
+                kind TEXT NOT NULL,
+                id TEXT NOT NULL,
+                happened_at INTEGER NOT NULL,
+                data TEXT NOT NULL,
+                change_seq INTEGER NOT NULL,
+                PRIMARY KEY (account_id, kind, id)
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS sync_records_by_change ON sync_records(account_id, change_seq)",
+            "CREATE TABLE IF NOT EXISTS sync_accounts (account_id TEXT PRIMARY KEY REFERENCES accounts(id), generation INTEGER NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS sync_sequence (value INTEGER NOT NULL)",
+            "INSERT INTO sync_sequence (value) SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM sync_sequence)",
         ).map { it.trimIndent() }
     }
 }

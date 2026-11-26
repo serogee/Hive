@@ -2,6 +2,10 @@ package io.github.serogee.hive.server.postgres
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.server.sync.JdbcSyncStore
+import io.github.serogee.hive.server.sync.SyncDatabase
+import io.github.serogee.hive.server.sync.SyncStore
 import java.sql.Connection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,6 +18,28 @@ class PostgresDatabase private constructor(private val pool: HikariDataSource) :
     suspend fun <T> write(block: (Connection) -> T): T = withContext(Dispatchers.IO) {
         pool.connection.use { it.transaction(block) }
     }
+
+    /** Account data that phones sync. */
+    fun syncStore(): SyncStore = JdbcSyncStore(
+        object : SyncDatabase {
+            override val tables = "hive."
+
+            override suspend fun <T> read(block: (Connection) -> T): T = this@PostgresDatabase.read(block)
+
+            override suspend fun <T> writeForAccount(accountId: AccountId, block: (Connection) -> T): T = write { connection ->
+                // Held until the transaction ends.
+                connection.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))").use {
+                    it.setString(1, "sync:${accountId.value}")
+                    it.executeQuery().close()
+                }
+                block(connection)
+            }
+
+            override fun nextChange(connection: Connection): Long = connection.createStatement().use { statement ->
+                statement.executeQuery("SELECT nextval('hive.sync_changes')").use { it.next(); it.getLong(1) }
+            }
+        },
+    )
 
     override fun close() = pool.close()
 

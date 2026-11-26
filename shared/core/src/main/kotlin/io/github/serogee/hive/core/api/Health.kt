@@ -37,6 +37,8 @@ data class HealthResponse(
     /** Null from a server that does not say. */
     val mode: HealthMode? = null,
     val auth: HealthAuth = HealthAuth.NOT_CONFIGURED,
+    /** Whether the server keeps signed-in accounts' stacks and history. */
+    val sync: Boolean = false,
 ) {
     val isOk: Boolean get() = status == OK
 

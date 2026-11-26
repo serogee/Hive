@@ -1,6 +1,8 @@
 package io.github.serogee.hive.data.remote
 
 import io.github.serogee.hive.core.api.Account
+import io.github.serogee.hive.core.api.AppendRecordsRequest
+import io.github.serogee.hive.core.api.AppendRecordsResponse
 import io.github.serogee.hive.core.api.AnswerReceipt
 import io.github.serogee.hive.core.api.ApiError
 import io.github.serogee.hive.core.api.ApiPaths
@@ -13,12 +15,17 @@ import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.Membership
+import io.github.serogee.hive.core.api.OnlineRoomEntry
 import io.github.serogee.hive.core.api.PlayerCommand
+import io.github.serogee.hive.core.api.PushStacksRequest
+import io.github.serogee.hive.core.api.PushStacksResponse
 import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.api.RoomSummary
 import io.github.serogee.hive.core.api.SubmitAnswerRequest
+import io.github.serogee.hive.core.api.SyncChanges
+import io.github.serogee.hive.core.api.SyncRecord
 import io.github.serogee.hive.core.model.RoomId
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -29,8 +36,10 @@ import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -157,6 +166,30 @@ class HiveApi(
             signedIn(server)
             participant(participantToken)
         }.unwrap()
+
+    suspend fun syncChanges(cursor: Long): SyncChanges = http.get(url(ApiPaths.SYNC_CHANGES)) {
+        signedIn(null)
+        parameter("cursor", cursor)
+    }.unwrap()
+
+    suspend fun pushStacks(request: PushStacksRequest): PushStacksResponse = http.post(url(ApiPaths.SYNC_STACKS)) {
+        signedIn(null)
+        contentType(ContentType.Application.Json)
+        setBody(request)
+    }.unwrap()
+
+    suspend fun appendRecords(path: String, records: List<SyncRecord>): AppendRecordsResponse = http.post(url(path)) {
+        signedIn(null)
+        contentType(ContentType.Application.Json)
+        setBody(AppendRecordsRequest(records))
+    }.unwrap()
+
+    suspend fun onlineRooms(): List<OnlineRoomEntry> = http.get(url(ApiPaths.SYNC_ROOMS)) { signedIn(null) }.unwrap()
+
+    /** Deletes everything the account synced. */
+    suspend fun deleteSyncData() {
+        http.delete(url(ApiPaths.SYNC)) { signedIn(null) }.also { if (!it.status.isSuccess()) it.unwrap<Unit>() }
+    }
 
     /** Live room events. The flow ends when the connection closes. */
     fun roomEvents(roomId: RoomId, participantToken: String?, server: String? = null): Flow<RoomEvent> = channelFlow {

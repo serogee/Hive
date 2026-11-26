@@ -8,9 +8,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.serogee.hive.BuildConfig
 import io.github.serogee.hive.core.api.HiveJson
+import io.github.serogee.hive.core.model.ParticipantId
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.data.auth.SessionStore
 import io.github.serogee.hive.data.auth.UserSession
+import io.github.serogee.hive.data.sync.SyncState
+import io.github.serogee.hive.data.sync.SyncStateStore
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.theme.AnswerColorChoice
 import io.github.serogee.hive.ui.theme.ThemePreference
@@ -36,10 +39,12 @@ data class SavedMembership(
     val participantToken: String,
     /** Set when the room ended. Its results stay open, but the Player is free to join another room. */
     val ended: Boolean = false,
+    /** Null for a membership saved before it was kept. */
+    val participantId: ParticipantId? = null,
 )
 
 /** Small settings and credentials stored on this device. */
-class AppPreferences(context: Context) : SessionStore {
+class AppPreferences(context: Context) : SessionStore, SyncStateStore {
     private val store = context.applicationContext.dataStore
 
     val serverUrl: Flow<String> = store.data.map { it[SERVER_URL] ?: BuildConfig.DEFAULT_SERVER_URL }
@@ -61,6 +66,14 @@ class AppPreferences(context: Context) : SessionStore {
     }
 
     suspend fun currentServerUrl(): String = serverUrl.first()
+
+    override suspend fun syncState(): SyncState? = store.data.first().decode(SYNC_STATE, SyncState.serializer())
+
+    override suspend fun setSyncState(state: SyncState?) {
+        store.edit { prefs ->
+            if (state == null) prefs.remove(SYNC_STATE) else prefs[SYNC_STATE] = HiveJson.encodeToString(SyncState.serializer(), state)
+        }
+    }
 
     override suspend fun currentSession(): UserSession? = session.first()
 
@@ -115,5 +128,6 @@ class AppPreferences(context: Context) : SessionStore {
         val PREFERRED_NAME = stringPreferencesKey("preferred_name")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val HOST_TOKENS = stringPreferencesKey("host_tokens")
+        val SYNC_STATE = stringPreferencesKey("sync_state")
     }
 }
