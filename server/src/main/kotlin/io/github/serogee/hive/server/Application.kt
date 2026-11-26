@@ -28,6 +28,8 @@ class Backend(
     val mode: HealthMode = HealthMode.DEMO,
     /** Account sync, or null on a server that keeps nothing. */
     val sync: SyncStore? = null,
+    /** Deletes accounts, or null on a server that cannot. */
+    val deleter: AccountDeleter? = null,
     /** Routes that exist only in this configuration, such as demo login. */
     val extraRoutes: Route.() -> Unit = {},
 )
@@ -41,7 +43,7 @@ fun Application.hiveModule(backend: Backend) {
     routing {
         route("/v1") {
             healthRoutes(backend.mode, backend.accounts, sync = backend.sync != null)
-            accountRoutes(backend.accounts)
+            accountRoutes(backend.accounts, backend.deleter)
             roomRoutes(roomService, backend.accounts)
             backend.sync?.let { syncRoutes(SyncService(it, backend.rooms, roomService), backend.accounts) }
             backend.extraRoutes(this)

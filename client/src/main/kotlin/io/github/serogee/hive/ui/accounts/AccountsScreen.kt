@@ -97,6 +97,8 @@ data class AccountsUiState(
     val signOut: SignOutSummary? = null,
     val unsyncing: Boolean = false,
     val unsyncError: String? = null,
+    /** Set after the account was deleted, until the user closes the message. */
+    val accountDeleted: Boolean = false,
 )
 
 class AccountsViewModel(private val container: AppContainer) : ViewModel() {
@@ -139,13 +141,18 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setPreferredName(name: String) = viewModelScope.launch { container.preferences.setPreferredName(name) }
 
-    /** Deletes what the account synced from the server, then signs out. This phone keeps its own copies. */
+    fun closeDeletedMessage() = _state.update { it.copy(accountDeleted = false) }
+
+    /**
+     * Deletes the account and everything the server keeps about it, then signs out. This phone keeps its
+     * stacks and history.
+     */
     fun unsync(done: () -> Unit) = viewModelScope.launch {
         _state.update { it.copy(unsyncing = true, unsyncError = null) }
         try {
-            container.sync.deleteAccountData()
-            container.signOut()
-            _state.update { it.copy(unsyncing = false) }
+            container.api.deleteAccount()
+            container.signOut(removeSyncedStacks = false)
+            _state.update { it.copy(unsyncing = false, accountDeleted = true) }
             done()
         } catch (e: Exception) {
             _state.update { it.copy(unsyncing = false, unsyncError = "Nothing was deleted. ${e.userMessage()}") }
@@ -280,8 +287,8 @@ fun AccountsScreen(
                 }
             }
             Text(
-                "Unsync and delete account removes your synced stacks, history, and online rooms from the server, and signs you out. " +
-                    "This phone keeps its own stacks.",
+                "Unsync and delete account deletes your account, and removes your synced stacks, history, and online rooms from " +
+                    "the server. This phone keeps everything it has.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -327,12 +334,23 @@ fun AccountsScreen(
             danger = true,
         ) {
             Text(
-                "Your synced stacks, reviews, and quiz results are deleted from the server, and you are signed out. " +
-                    "You cannot undo this. This phone keeps its own stacks.",
+                "Your account is deleted, with the stacks, reviews, quiz results, and online rooms that the server keeps for it. " +
+                    "You are signed out on every phone, and you cannot undo this. This phone keeps its stacks and history.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             ErrorText(state.unsyncError)
         }
+    }
+
+    if (state.accountDeleted) {
+        HiveDialog(
+            title = "Account deleted",
+            message = "Your account and its data on the server are gone. Everything on this phone is still here.",
+            confirmText = "OK",
+            onConfirm = viewModel::closeDeletedMessage,
+            dismissText = "Close",
+            onDismiss = viewModel::closeDeletedMessage,
+        )
     }
 
     state.signOut?.let { summary ->

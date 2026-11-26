@@ -30,6 +30,8 @@ object ApiPaths {
 
     fun results(roomId: String) = "$ROOMS/$roomId/results"
 
+    /** DELETE deletes the signed-in account and everything the server keeps about it. */
+    const val ACCOUNT = "$PREFIX/account"
     const val SYNC = "$PREFIX/sync"
     const val SYNC_CHANGES = "$SYNC/changes"
     const val SYNC_STACKS = "$SYNC/stacks"

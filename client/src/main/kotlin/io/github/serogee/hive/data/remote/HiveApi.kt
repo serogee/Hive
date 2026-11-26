@@ -186,6 +186,11 @@ class HiveApi(
 
     suspend fun onlineRooms(): List<OnlineRoomEntry> = http.get(url(ApiPaths.SYNC_ROOMS)) { signedIn(null) }.unwrap()
 
+    /** Deletes the signed-in account, and everything the server keeps about it. */
+    suspend fun deleteAccount() {
+        http.delete(url(ApiPaths.ACCOUNT)) { signedIn(null) }.also { if (!it.status.isSuccess()) it.unwrap<Unit>() }
+    }
+
     /** Deletes everything the account synced. */
     suspend fun deleteSyncData() {
         http.delete(url(ApiPaths.SYNC)) { signedIn(null) }.also { if (!it.status.isSuccess()) it.unwrap<Unit>() }

@@ -1,6 +1,8 @@
 package io.github.serogee.hive.server.demo
 
 import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.server.AccountData
+import io.github.serogee.hive.server.deleteAccountRows
 import io.github.serogee.hive.server.sync.JdbcSyncStore
 import io.github.serogee.hive.server.sync.SyncDatabase
 import io.github.serogee.hive.server.sync.SyncStore
@@ -76,6 +78,11 @@ class DemoDatabase private constructor(private val connection: Connection) : Aut
             }
         },
     )
+
+    /** Deletes a demo account, its sign-ins, and what it synced, in one transaction. */
+    fun accountData(): AccountData = AccountData { accountId ->
+        write { deleteAccountRows(it, "", accountId, extraTables = listOf("sessions")) }
+    }
 
     override fun close() = connection.close()
 
