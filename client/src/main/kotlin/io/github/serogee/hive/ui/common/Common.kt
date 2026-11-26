@@ -53,6 +53,7 @@ import io.github.serogee.hive.data.auth.SignInException
 import io.github.serogee.hive.data.remote.ApiException
 import io.github.serogee.hive.ui.theme.HEXAGON_RATIO
 import io.github.serogee.hive.ui.theme.HexagonShape
+import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
 import io.github.serogee.hive.ui.theme.honeyShadow
@@ -287,19 +288,19 @@ fun CountBadge(
         modifier = modifier
             .size(width = 52.dp, height = 48.dp)
             .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.hiveColors.solid),
+            .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = topText,
-                color = Honey,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 style = MaterialTheme.typography.labelLarge,
                 maxLines = 1,
             )
             Text(
                 text = bottomText.uppercase(),
-                color = MaterialTheme.hiveColors.onSolid,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
             )
@@ -400,7 +401,7 @@ fun MetricStatChip(
     }
 }
 
-/** A graphite card with an ink border. The [main] one on a screen has the honey shadow. */
+/** A raised card with an ink border. The [main] one on a screen has the honey shadow. */
 @Composable
 fun SolidCard(
     modifier: Modifier = Modifier,
@@ -448,7 +449,7 @@ fun HeroCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 if (badgeText != null) {
-                    Caption(badgeText, color = Honey)
+                    Caption(badgeText, color = MaterialTheme.hiveColors.accentOnSolid)
                     Spacer(Modifier.height(4.dp))
                 }
                 Text(
@@ -513,8 +514,8 @@ fun TagPill(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
-        color = if (selected) MaterialTheme.hiveColors.solid else MaterialTheme.colorScheme.primaryContainer,
-        contentColor = if (selected) Honey else MaterialTheme.colorScheme.onPrimaryContainer,
+        color = if (selected) Honey else MaterialTheme.colorScheme.primaryContainer,
+        contentColor = if (selected) Graphite else MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Text(
             text = text.uppercase(),

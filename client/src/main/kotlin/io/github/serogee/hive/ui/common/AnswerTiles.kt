@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.serogee.hive.ui.theme.AnswerColors
 import io.github.serogee.hive.ui.theme.AnswerTone
+import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.answerColors
 import io.github.serogee.hive.ui.theme.hiveColors
@@ -97,12 +98,12 @@ fun AnswerTile(
                     size = 34.dp,
                     color = when {
                         tone != null -> tone.chip
-                        selected -> MaterialTheme.hiveColors.solid
+                        selected -> Honey
                         else -> scheme.background
                     },
                     contentColor = when {
                         tone != null -> tone.onChip
-                        selected -> Honey
+                        selected -> Graphite
                         else -> scheme.onBackground
                     },
                 )

@@ -70,6 +70,7 @@ import io.github.serogee.hive.ui.common.SolidCard
 import io.github.serogee.hive.ui.common.ToggleRow
 import io.github.serogee.hive.ui.common.watchOnline
 import io.github.serogee.hive.ui.rooms.NEARBY_HELP
+import io.github.serogee.hive.ui.theme.Graphite
 import io.github.serogee.hive.ui.theme.Honey
 import io.github.serogee.hive.ui.theme.hiveColors
 import kotlinx.coroutines.launch
@@ -134,8 +135,8 @@ fun HomeScreen(
             HexBadge(
                 text = displayName.take(1).uppercase(),
                 size = 48.dp,
-                color = MaterialTheme.hiveColors.solid,
-                contentColor = Honey,
+                color = Honey,
+                contentColor = Graphite,
             )
         },
     ) {

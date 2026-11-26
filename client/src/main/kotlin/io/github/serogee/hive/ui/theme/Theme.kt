@@ -26,9 +26,9 @@ enum class ThemePreference {
 }
 
 // Wax and Graphite, light
-val Wax = Color(0xFFE4E6E0) // Background, and text on graphite
+val Wax = Color(0xFFE4E6E0) // Background
 val WaxCard = Color(0xFFFBFBF8)
-val Graphite = Color(0xFF202327) // Text, borders, and solid areas. Also the text on honey, in light and dark
+val Graphite = Color(0xFF202327) // Text, icons, and borders, never a fill. Also the text on honey, in light and dark
 val WaxMuted = Color(0xFF555B62)
 val WaxLine = Color(0xFFCDD0C8)
 val Honey = Color(0xFFF2A900) // The same in light and dark
@@ -38,14 +38,14 @@ val Bad = Color(0xFFA3301B) // Wrong answers, errors, leave, delete, and end
 val BadSoft = Color(0xFFF8DDD6)
 val EmptyCell = Color(0xFFD9CFA8) // Progress cells that are not filled yet
 
-// Wax and Graphite, dark
-val Night = Color(0xFF16181B)
-val NightCard = Color(0xFF202327)
+// Wax and Graphite, dark. The background is pure black, which saves power on AMOLED screens.
+val Night = Color(0xFF000000)
+val NightCard = Color(0xFF0E0F11)
 val NightInk = Color(0xFFECEDE8)
 val NightMuted = Color(0xFFA9AEA5)
-val NightLine = Color(0xFF363A40)
+val NightLine = Color(0xFF2A2D32)
 val NightBorder = Color(0xFF4A4F56) // Borders and bars, dimmer than the text
-val NightSolid = Color(0xFF2B2E33)
+val NightSolid = Color(0xFF16181B) // Raised cards, a little lighter than the other cards
 val NightHoneyInk = Color(0xFFFFD66B)
 val NightHoneySoft = Color(0xFF3A2F12)
 val NightBad = Color(0xFFFF9B85)
@@ -58,10 +58,14 @@ data class HiveColors(
     val isDark: Boolean,
     /** Borders of buttons, bars, and the main cards. Dimmed in dark, where a near-white line glares. */
     val border: Color,
-    /** Hero cards, secondary buttons, and the selected segment or tab. Its accent is [Honey]. */
+    /** Raised cards, such as the main card of a screen, and secondary buttons. Light in light mode. */
     val solid: Color,
     val onSolid: Color,
-    /** Borders of buttons and fields on a graphite card. */
+    /** Honey text and icons on [solid], dark enough to read in light mode. */
+    val accentOnSolid: Color,
+    /** Text of secondary buttons. */
+    val onSecondaryButton: Color,
+    /** Borders of buttons and fields on a [solid] card. */
     val borderOnSolid: Color,
     /** Borders of fields and switches that are not in use. */
     val quietBorder: Color,
@@ -71,9 +75,11 @@ data class HiveColors(
 internal val LightHiveColors = HiveColors(
     isDark = false,
     border = Graphite,
-    solid = Graphite,
-    onSolid = Wax,
-    borderOnSolid = Wax,
+    solid = WaxCard,
+    onSolid = Graphite,
+    accentOnSolid = HoneyInk,
+    onSecondaryButton = Graphite,
+    borderOnSolid = Graphite,
     quietBorder = WaxMuted,
     emptyCell = EmptyCell,
 )
@@ -82,7 +88,9 @@ internal val DarkHiveColors = HiveColors(
     isDark = true,
     border = NightBorder,
     solid = NightSolid,
-    onSolid = Wax,
+    onSolid = NightInk,
+    accentOnSolid = Honey,
+    onSecondaryButton = Honey,
     borderOnSolid = NightBorder,
     quietBorder = NightBorder,
     emptyCell = NightEmptyCell,
@@ -98,10 +106,10 @@ internal val SoftLight = lightColorScheme(
     onPrimary = HoneySoft,
     primaryContainer = HoneySoft,
     onPrimaryContainer = HoneyInk,
-    secondary = Graphite,
-    onSecondary = Honey,
-    secondaryContainer = Graphite,
-    onSecondaryContainer = Honey,
+    secondary = HoneyInk,
+    onSecondary = WaxCard,
+    secondaryContainer = HoneySoft,
+    onSecondaryContainer = HoneyInk,
     tertiary = Honey,
     onTertiary = Graphite,
     tertiaryContainer = HoneySoft,
@@ -113,9 +121,10 @@ internal val SoftLight = lightColorScheme(
     surfaceVariant = Wax,
     onSurfaceVariant = WaxMuted,
     surfaceTint = WaxCard,
-    inverseSurface = Graphite,
-    inverseOnSurface = Wax,
-    inversePrimary = Honey,
+    // Light too, because light mode has no dark areas.
+    inverseSurface = HoneySoft,
+    inverseOnSurface = HoneyInk,
+    inversePrimary = HoneyInk,
     error = Bad,
     onError = WaxCard,
     errorContainer = BadSoft,
@@ -136,10 +145,10 @@ internal val SoftDark = darkColorScheme(
     onPrimary = Graphite,
     primaryContainer = NightHoneySoft,
     onPrimaryContainer = NightHoneyInk,
-    secondary = NightSolid,
-    onSecondary = Honey,
-    secondaryContainer = NightSolid,
-    onSecondaryContainer = Honey,
+    secondary = NightHoneyInk,
+    onSecondary = Graphite,
+    secondaryContainer = NightHoneySoft,
+    onSecondaryContainer = NightHoneyInk,
     tertiary = Honey,
     onTertiary = Graphite,
     tertiaryContainer = NightHoneySoft,
