@@ -12,6 +12,8 @@ import io.github.serogee.hive.core.model.ParticipantId
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.data.auth.SessionStore
 import io.github.serogee.hive.data.auth.UserSession
+import io.github.serogee.hive.data.sync.AccountNameStore
+import io.github.serogee.hive.data.sync.SavedAccountName
 import io.github.serogee.hive.data.sync.SyncState
 import io.github.serogee.hive.data.sync.SyncStateStore
 import io.github.serogee.hive.ui.common.AnswerInput
@@ -44,7 +46,7 @@ data class SavedMembership(
 )
 
 /** Small settings and credentials stored on this device. */
-class AppPreferences(context: Context) : SessionStore, SyncStateStore {
+class AppPreferences(context: Context) : SessionStore, SyncStateStore, AccountNameStore {
     private val store = context.applicationContext.dataStore
 
     val serverUrl: Flow<String> = store.data.map { it[SERVER_URL] ?: BuildConfig.DEFAULT_SERVER_URL }
@@ -60,6 +62,17 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore {
     /** Rooms whose "close it?" question waits until a time, by room ID. */
     val roomSnoozes: Flow<Map<String, Long>> = store.data.map { prefs ->
         prefs.decode(ROOM_SNOOZES, MapSerializer(String.serializer(), Long.serializer())).orEmpty()
+    }
+
+    /** The signed-in account's display name, which can differ from the name of the sign-in. */
+    val accountName: Flow<SavedAccountName?> = store.data.map { it.decode(ACCOUNT_NAME, SavedAccountName.serializer()) }
+
+    override suspend fun accountName(): SavedAccountName? = accountName.first()
+
+    override suspend fun setAccountName(name: SavedAccountName?) {
+        store.edit { prefs ->
+            if (name == null) prefs.remove(ACCOUNT_NAME) else prefs[ACCOUNT_NAME] = HiveJson.encodeToString(SavedAccountName.serializer(), name)
+        }
     }
 
     /** Whether Check for updates also offers test versions. */
@@ -149,5 +162,6 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore {
         val SYNC_STATE = stringPreferencesKey("sync_state")
         val INCLUDE_PRERELEASES = booleanPreferencesKey("include_prereleases")
         val ROOM_SNOOZES = stringPreferencesKey("room_snoozes")
+        val ACCOUNT_NAME = stringPreferencesKey("account_name")
     }
 }

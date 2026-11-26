@@ -99,11 +99,14 @@ data class AccountsUiState(
     val unsyncError: String? = null,
     /** Set after the account was deleted, until the user closes the message. */
     val accountDeleted: Boolean = false,
+    /** Says that a new display name waits on this phone. */
+    val nameNote: String? = null,
 )
 
 class AccountsViewModel(private val container: AppContainer) : ViewModel() {
     val session: StateFlow<UserSession?> = container.session
     val preferredName = container.preferredName
+    val accountName = container.preferences.accountName
     val demoAvailable = container.auth.demoAvailable
     val syncStatus = container.sync.status
 
@@ -140,6 +143,14 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
     fun cancelSignOut() = _state.update { it.copy(signOut = null) }
 
     fun setPreferredName(name: String) = viewModelScope.launch { container.preferences.setPreferredName(name) }
+
+    /** Saves the account's display name here at once, and on the server now or with the next sync. */
+    fun renameAccount(accountId: String, name: String) = viewModelScope.launch {
+        val reached = container.profiles.rename(accountId, name)
+        _state.update { it.copy(nameNote = if (reached) null else "Saved on this phone. Your account gets it when you are online.") }
+    }
+
+    fun closeNameNote() = _state.update { it.copy(nameNote = null) }
 
     fun closeDeletedMessage() = _state.update { it.copy(accountDeleted = false) }
 
@@ -180,8 +191,12 @@ fun AccountsScreen(
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val online = watchOnline()
 
-    val displayName = session?.account?.displayName ?: preferredName?.takeIf { it.isNotBlank() } ?: "Guest"
-    val editNameLabel = if (session == null) "Edit name" else "Edit guest name"
+    val accountName by viewModel.accountName.collectAsStateWithLifecycle(initialValue = null)
+    val signedInAs = session?.account
+    // The name that the account chose wins over the name of the sign-in.
+    val accountDisplayName = signedInAs?.let { account -> accountName?.takeIf { it.accountId == account.id.value }?.name ?: account.displayName }
+    val displayName = accountDisplayName ?: preferredName?.takeIf { it.isNotBlank() } ?: "Guest"
+    val editNameLabel = if (session == null) "Edit name" else "Edit display name"
 
     var tab by rememberSaveable { mutableStateOf(AccountTab.ACTIVITY) }
     var filter by rememberSaveable { mutableStateOf(HistoryFilter.ALL) }
@@ -296,12 +311,15 @@ fun AccountsScreen(
     }
 
     if (showEditName) {
-        var nameInput by rememberSaveable { mutableStateOf(preferredName ?: "") }
+        var nameInput by rememberSaveable { mutableStateOf(accountDisplayName ?: preferredName ?: "") }
         HiveDialog(
             title = editNameLabel,
             confirmText = "Save",
             onConfirm = {
-                DisplayNames.normalize(nameInput)?.let { viewModel.setPreferredName(it) }
+                DisplayNames.normalize(nameInput)?.let { name ->
+                    val account = signedInAs
+                    if (account == null) viewModel.setPreferredName(name) else viewModel.renameAccount(account.id.value, name)
+                }
                 showEditName = false
             },
             dismissText = "Cancel",
@@ -311,7 +329,7 @@ fun AccountsScreen(
                 if (session == null) {
                     "Enter the display name you would like to use in Hive:"
                 } else {
-                    "This changes only the name you use as a guest. Your account name stays the same."
+                    "Other players see this name in sessions, and every phone where you sign in uses it. Your Google account stays the same."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -322,6 +340,17 @@ fun AccountsScreen(
                 placeholder = "Your Name",
             )
         }
+    }
+
+    state.nameNote?.let { note ->
+        HiveDialog(
+            title = "Display name saved",
+            message = note,
+            confirmText = "OK",
+            onConfirm = viewModel::closeNameNote,
+            dismissText = "Close",
+            onDismiss = viewModel::closeNameNote,
+        )
     }
 
     if (showUnsync) {

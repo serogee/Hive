@@ -1,6 +1,7 @@
 package io.github.serogee.hive.data.remote
 
 import io.github.serogee.hive.core.api.Account
+import io.github.serogee.hive.core.api.AccountProfile
 import io.github.serogee.hive.core.api.AppendRecordsRequest
 import io.github.serogee.hive.core.api.AppendRecordsResponse
 import io.github.serogee.hive.core.api.AnswerReceipt
@@ -41,6 +42,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
@@ -185,6 +187,14 @@ class HiveApi(
     }.unwrap()
 
     suspend fun onlineRooms(): List<OnlineRoomEntry> = http.get(url(ApiPaths.SYNC_ROOMS)) { signedIn(null) }.unwrap()
+
+    suspend fun accountProfile(): AccountProfile = http.get(url(ApiPaths.ACCOUNT_PROFILE)) { signedIn(null) }.unwrap()
+
+    suspend fun setAccountProfile(profile: AccountProfile): AccountProfile = http.put(url(ApiPaths.ACCOUNT_PROFILE)) {
+        signedIn(null)
+        contentType(ContentType.Application.Json)
+        setBody(profile)
+    }.unwrap()
 
     /** Deletes the signed-in account, and everything the server keeps about it. */
     suspend fun deleteAccount() {
