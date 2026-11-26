@@ -85,6 +85,24 @@ class PostgresStoreTest {
     }
 
     @Test
+    fun deletingAnAccountEndsItsRoomsAndLeavesItNamelessInOthers() = runBlocking {
+        val hosted = room()
+        signIn(sam)
+        val other = service().createRoom(sam, CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.DISCUSSION))
+        service().join(other.room.id, alex, JoinRoomRequest("Alex", asGuest = false), null)
+        db.syncStore().pushStacks(alex.id, 0, listOf(io.github.serogee.hive.core.api.StackChange("s1", document = io.github.serogee.hive.core.api.StackDocument("Biology"))), 1)
+
+        db.accountData().delete(alex.id)
+
+        assertEquals(1, count("accounts"))
+        assertEquals(0, count("sync_stacks"))
+        assertEquals(RoomStatus.ENDED, PostgresRoomStore(db).findRoom(hosted.room.id)?.status)
+        assertNull(PostgresRoomStore(db).findRoom(hosted.room.id)?.hostAccountId)
+        val left = PostgresRoomStore(db).participants(other.room.id).single { it.displayName == io.github.serogee.hive.server.DELETED_NAME }
+        assertNull(left.accountId)
+    }
+
+    @Test
     fun aDiscussionQuizSurvivesARestart() = runBlocking {
         val host = room()
         val guest = service().join(host.room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)

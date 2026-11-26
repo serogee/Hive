@@ -22,6 +22,8 @@ data class ServerConfig(
     val supabaseUrl: String? = null,
     /** Where production keeps rooms, or null to keep them in memory. */
     val database: DatabaseSettings? = null,
+    /** The Supabase secret key, which deletes accounts. Null when it is not set up. */
+    val supabaseSecretKey: Secret? = null,
     /** Replace the demo data with fresh seed data, then exit. */
     val resetDemo: Boolean = false,
 ) {
@@ -47,6 +49,7 @@ data class ServerConfig(
                 supabaseUrl = value("supabase-url", "SUPABASE_URL")?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() },
                 // Only from the environment, because other users of a computer can see command lines.
                 database = env["DATABASE_URL"]?.takeIf { it.isNotBlank() }?.let(DatabaseSettings::parse),
+                supabaseSecretKey = env["SUPABASE_SECRET_KEY"]?.trim()?.takeIf { it.isNotEmpty() }?.let(::Secret),
                 resetDemo = "--reset-demo" in args,
             )
         }

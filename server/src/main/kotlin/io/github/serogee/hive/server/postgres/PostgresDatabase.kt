@@ -3,6 +3,8 @@ package io.github.serogee.hive.server.postgres
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.server.AccountData
+import io.github.serogee.hive.server.deleteAccountRows
 import io.github.serogee.hive.server.sync.JdbcSyncStore
 import io.github.serogee.hive.server.sync.SyncDatabase
 import io.github.serogee.hive.server.sync.SyncStore
@@ -40,6 +42,9 @@ class PostgresDatabase private constructor(private val pool: HikariDataSource) :
             }
         },
     )
+
+    /** Deletes an account and what it synced, in one transaction. */
+    fun accountData(): AccountData = AccountData { accountId -> write { deleteAccountRows(it, "hive.", accountId) } }
 
     override fun close() = pool.close()
 

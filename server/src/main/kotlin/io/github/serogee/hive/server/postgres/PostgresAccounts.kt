@@ -21,6 +21,11 @@ class PostgresAccounts(private val db: PostgresDatabase, private val verifier: A
         return account
     }
 
+    /** After the account was deleted, so that its next sign-in saves it again. */
+    fun forget(accountId: AccountId) {
+        saved.remove(accountId)
+    }
+
     private suspend fun save(account: Account) = db.write { connection ->
         connection.prepareStatement(
             """

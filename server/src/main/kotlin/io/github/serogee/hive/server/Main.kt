@@ -37,7 +37,9 @@ private fun runDemo(config: ServerConfig) {
 
     val accounts = DemoAccounts(db)
     printAddresses(config.port)
-    serve(config, Backend(SqliteRoomStore(db), accounts, HealthMode.DEMO, db.syncStore()) { demoAuthRoutes(accounts) })
+    // A demo account has no sign-in elsewhere, so its rows are all there is.
+    val deleter = AccountDeleter(db.accountData(), signIn = {})
+    serve(config, Backend(SqliteRoomStore(db), accounts, HealthMode.DEMO, db.syncStore(), deleter) { demoAuthRoutes(accounts) })
 }
 
 private fun runProduction(config: ServerConfig) {
@@ -51,7 +53,15 @@ private fun runProduction(config: ServerConfig) {
         return
     }
     val db = PostgresDatabase.open(config.database)
-    serve(config, Backend(PostgresRoomStore(db), PostgresAccounts(db, accounts), HealthMode.PRODUCTION, db.syncStore()))
+    val saved = PostgresAccounts(db, accounts)
+    val secret = config.supabaseSecretKey
+    val deleter = if (config.supabaseUrl != null && secret != null) {
+        AccountDeleter(db.accountData(), SupabaseAdmin(config.supabaseUrl, secret), saved::forget)
+    } else {
+        println("SUPABASE_SECRET_KEY is missing, so accounts cannot be deleted.")
+        null
+    }
+    serve(config, Backend(PostgresRoomStore(db), saved, HealthMode.PRODUCTION, db.syncStore(), deleter))
 }
 
 /** Checks Supabase tokens, or accepts nobody without a usable [supabaseUrl], so that the server always starts. */
