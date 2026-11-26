@@ -55,6 +55,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import androidx.compose.material3.MaterialTheme
 import io.github.serogee.hive.ui.accounts.AccountsScreen
+import io.github.serogee.hive.ui.accounts.SettingsScreen
 import io.github.serogee.hive.ui.common.Crumb
 import io.github.serogee.hive.core.model.StackId
 import io.github.serogee.hive.ui.home.HomeScreen
@@ -98,6 +99,10 @@ object AccountsRoute
 /** Sign-in requested by another screen. Returns there afterwards. */
 @Serializable
 object SignInRoute
+
+/** Settings, from the gear button in Account. */
+@Serializable
+object SettingsRoute
 
 /** [hostAddress] is the Host phone's address for a room hosted on a phone. */
 @Serializable
@@ -320,13 +325,18 @@ fun HiveApp() {
             composable<AccountsRoute> {
                 AccountsScreen(
                     onOpenReview = { navController.navigate(ReviewRoute(it)) },
+                    onOpenSettings = { navController.navigate(SettingsRoute) },
                 )
+            }
+            composable<SettingsRoute> {
+                SettingsScreen(onBack = { navController.popBackStack() })
             }
             composable<SignInRoute> {
                 AccountsScreen(
                     signInRequested = true,
                     onSignedIn = { navController.popBackStack() },
                     onOpenReview = { navController.navigate(ReviewRoute(it)) },
+                    onOpenSettings = { navController.navigate(SettingsRoute) },
                 )
             }
             composable<SessionEntryRoute> { entry ->

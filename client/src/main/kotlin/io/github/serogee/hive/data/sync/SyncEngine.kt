@@ -71,6 +71,19 @@ class SyncEngine(
         requests.trySend(Unit)
     }
 
+    @Volatile
+    private var foregroundAt: Long? = null
+
+    /** Syncs when the app comes back to the foreground, at most once in [FOREGROUND_MILLIS]. Returns whether it asked. */
+    fun onForeground(): Boolean {
+        val time = now()
+        val last = foregroundAt
+        if (last != null && time - last < FOREGROUND_MILLIS) return false
+        foregroundAt = time
+        requestSync()
+        return true
+    }
+
     /**
      * Syncs after sign-in, at start, a few seconds after a local change, when the server can be reached
      * again, and on [requestSync].
@@ -287,6 +300,7 @@ class SyncEngine(
 
     companion object {
         const val DEBOUNCE_MILLIS = 3_000L
+        const val FOREGROUND_MILLIS = 30_000L
         const val BATCH = 100
 
         /** A sync that finds the account's data deleted starts over once. */

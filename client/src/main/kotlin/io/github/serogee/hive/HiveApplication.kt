@@ -140,7 +140,7 @@ class HiveApplication : Application() {
         container = AppContainer(this)
         container.appScope.launch { container.auth.restore() }
         container.startSync()
-        ServerTriggers(this, container.server)
+        ServerTriggers(this, container.server) { container.sync.onForeground() }
         // Keeps the app running while the embedded server runs, and lets it close afterwards.
         container.appScope.launch {
             container.rooms.localHostRunning.collect { running ->
