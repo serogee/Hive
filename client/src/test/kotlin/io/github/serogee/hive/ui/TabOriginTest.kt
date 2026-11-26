@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class TabOriginTest {
-    private val tabs = listOf("Home", "My Stacks", "Quiz Room", "Accounts")
+    private val tabs = listOf("Home", "Stacks", "Rooms", "Account")
 
     private fun origin(vararg below: String) = originTab(tabs) { it in below.toSet() + "Home" }
 
@@ -15,8 +15,8 @@ class TabOriginTest {
 
     @Test
     fun `a stack opened from another tab names that tab`() {
-        assertEquals("My Stacks", origin("My Stacks"))
-        assertEquals("Quiz Room", origin("Quiz Room"))
+        assertEquals("Stacks", origin("Stacks"))
+        assertEquals("Rooms", origin("Rooms"))
     }
 
     @Test
