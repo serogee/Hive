@@ -32,6 +32,9 @@ object ApiPaths {
 
     /** DELETE deletes the signed-in account and everything the server keeps about it. */
     const val ACCOUNT = "$PREFIX/account"
+
+    /** GET reads and PUT changes the signed-in account's display name. */
+    const val ACCOUNT_PROFILE = "$ACCOUNT/profile"
     const val SYNC = "$PREFIX/sync"
     const val SYNC_CHANGES = "$SYNC/changes"
     const val SYNC_STACKS = "$SYNC/stacks"

@@ -9,6 +9,10 @@ data class Account(
     val displayName: String,
 )
 
+/** What an account shows to others. [displayName] is the name in sessions, on every phone. */
+@Serializable
+data class AccountProfile(val displayName: String)
+
 @Serializable
 data class DemoLoginRequest(
     val username: String,

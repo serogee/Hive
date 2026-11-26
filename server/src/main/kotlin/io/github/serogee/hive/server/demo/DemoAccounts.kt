@@ -8,13 +8,14 @@ import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.host.AccountVerifier
 import io.github.serogee.hive.host.HiveException
 import io.github.serogee.hive.host.Tokens
+import io.github.serogee.hive.server.AccountProfiles
 
 /**
  * Simulated sign-in for the fictional demo accounts.
  *
  * Sessions are opaque tokens stored in the demo database, so they work only on this server.
  */
-class DemoAccounts(private val db: DemoDatabase, private val clock: Clock = Clock.System) : AccountVerifier {
+class DemoAccounts(private val db: DemoDatabase, private val clock: Clock = Clock.System) : AccountVerifier, AccountProfiles {
     suspend fun login(username: String, password: String): AuthSession {
         val account = db.read { connection ->
             connection.prepareStatement(
@@ -65,6 +66,24 @@ class DemoAccounts(private val db: DemoDatabase, private val clock: Clock = Cloc
             statement.setString(1, Tokens.hash(accessToken))
             statement.executeQuery().use { row ->
                 if (row.next()) Account(AccountId(row.getString(1)), row.getString(2)) else null
+            }
+        }
+    }
+
+    override suspend fun displayName(accountId: AccountId): String? = db.read { connection ->
+        connection.prepareStatement("SELECT display_name FROM accounts WHERE id = ?").use {
+            it.setString(1, accountId.value)
+            it.executeQuery().use { rows -> if (rows.next()) rows.getString(1) else null }
+        }
+    }
+
+    /** A demo account has no other name, so the chosen name replaces it. */
+    override suspend fun setDisplayName(accountId: AccountId, name: String) {
+        db.write { connection ->
+            connection.prepareStatement("UPDATE accounts SET display_name = ? WHERE id = ?").use {
+                it.setString(1, name)
+                it.setString(2, accountId.value)
+                it.executeUpdate()
             }
         }
     }
