@@ -74,7 +74,7 @@ fun StackDetailsScreen(
             badgeText = "KEY STATS",
             title = "${stack.questions.size} Questions",
             subtitle = if (issues.isEmpty()) "Ready for practice and multiplayer quiz" else "${issues.size} issues to fix before hosting",
-            buttonText = if (issues.isEmpty()) "PRACTICE" else null,
+            buttonText = if (issues.isEmpty()) "Practice" else null,
             onButtonClick = { reviewSetup = true },
         )
 

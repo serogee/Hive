@@ -73,7 +73,7 @@ fun HiveButton(
             Icon(icon, contentDescription = iconDescription, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
         }
-        Text(text.uppercase(), textAlign = TextAlign.Center)
+        Text(text, textAlign = TextAlign.Center)
     }
 }
 
@@ -137,11 +137,11 @@ private fun ButtonFrame(
     )
 }
 
-/** A caps text action, such as Pause or Cancel. */
+/** A text action, such as Pause or Cancel. */
 @Composable
 fun HiveTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     TextButton(onClick = onClick, modifier = modifier, enabled = enabled, shape = MaterialTheme.shapes.small) {
-        Text(text.uppercase())
+        Text(text)
     }
 }
 

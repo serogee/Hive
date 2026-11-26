@@ -178,7 +178,7 @@ internal val SoftDark = darkColorScheme(
     surfaceContainerHighest = NightCard,
 )
 
-/** Archivo at 75% width, for headings, captions, buttons, and numbers. Text in it is all caps. */
+/** Archivo at 75% width, for headings, captions, buttons, and numbers. Buttons use normal capitals; headings, captions, and badges stay in capitals. */
 val ArchivoCondensed = FontFamily(
     Font(R.font.archivo_condensed_extrabold, FontWeight.ExtraBold),
     Font(R.font.archivo_condensed_black, FontWeight.Black),
@@ -252,9 +252,9 @@ val HiveTypography = Typography(
     labelLarge = TextStyle(
         fontFamily = ArchivoCondensed,
         fontWeight = FontWeight.ExtraBold,
-        fontSize = 14.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 1.sp,
+        fontSize = 17.sp,
+        lineHeight = 21.sp,
+        letterSpacing = 0.25.sp,
     ),
     labelMedium = TextStyle(
         fontFamily = ArchivoCondensed,
