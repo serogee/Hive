@@ -47,7 +47,8 @@ fun StackDetailsScreen(
     onReview: (attemptId: String) -> Unit,
     onEdit: () -> Unit,
     onDeleted: () -> Unit,
-    onOpenStacks: () -> Unit,
+    /** The first breadcrumb: the tab that opened this stack. */
+    root: Crumb,
 ) {
     val container = LocalAppContainer.current
     val draft by remember(stackId) { container.stacks.observeDraft(stackId) }.collectAsStateWithLifecycle(null)
@@ -59,7 +60,7 @@ fun StackDetailsScreen(
     Page(
         title = stack?.title?.ifBlank { "Untitled stack" } ?: "Stack Details",
         subtitle = stack?.description?.takeIf { it.isNotBlank() } ?: "Question Stack",
-        crumbs = listOf(Crumb("My Stacks", onOpenStacks), Crumb(stack?.title?.ifBlank { "Untitled stack" } ?: "Stack")),
+        crumbs = listOf(root, Crumb(stack?.title?.ifBlank { "Untitled stack" } ?: "Stack")),
     ) {
         if (stack == null) return@Page
 

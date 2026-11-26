@@ -122,7 +122,11 @@ class ImportViewModel(private val stacks: StackRepository) : ViewModel() {
 
 /** Import from File: pick a Hive JSON or CSV file, preview it, then save a copy. */
 @Composable
-fun ImportScreen(onSaved: (StackId) -> Unit) {
+fun ImportScreen(
+    /** The first breadcrumb: the tab that opened the import. */
+    root: Crumb,
+    onSaved: (StackId) -> Unit,
+) {
     val container = LocalAppContainer.current
     val context = LocalContext.current
     val viewModel = viewModel { ImportViewModel(container.stacks) }
@@ -137,7 +141,7 @@ fun ImportScreen(onSaved: (StackId) -> Unit) {
     Page(
         title = "Import Stack",
         subtitle = "From JSON, CSV or AI-generated stacks",
-        crumbs = listOf(Crumb("My Stacks"), Crumb("Import")),
+        crumbs = listOf(root, Crumb("Import")),
     ) {
         SleekCard {
             Caption("Choose file")
