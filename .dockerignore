@@ -14,5 +14,8 @@ scripts
 local.properties
 server/data
 server/.env
+.env
+compose.yaml
+render.yaml
 *.jks
 *.keystore
