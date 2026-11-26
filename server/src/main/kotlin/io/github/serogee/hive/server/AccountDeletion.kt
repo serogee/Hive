@@ -23,8 +23,8 @@ class Secret(private val value: String) {
 /** What the server keeps about an account: its sync data, and its place in rooms. */
 fun interface AccountData {
     /**
-     * Deletes the account and its synced data, ends the rooms it hosts, and leaves it in other rooms
-     * without a name or a link to the account, so that their results still add up.
+     * Deletes the account and its synced data, and ends the rooms it hosts. In rooms that other people host,
+     * the player keeps their name without a link to the account, like a guest, so that results still add up.
      */
     suspend fun delete(accountId: AccountId)
 }
@@ -48,9 +48,6 @@ class AccountDeleter(
     }
 }
 
-/** The name that a deleted account leaves in rooms that other people host. */
-const val DELETED_NAME = "Deleted player"
-
 /** [AccountData] in SQL that SQLite and Postgres both understand. [tables] goes before each table name. */
 fun deleteAccountRows(connection: Connection, tables: String, accountId: AccountId, extraTables: List<String> = emptyList()) {
     fun update(sql: String) = connection.prepareStatement(sql).use {
@@ -58,7 +55,8 @@ fun deleteAccountRows(connection: Connection, tables: String, accountId: Account
         it.executeUpdate()
     }
     update("UPDATE ${tables}rooms SET status = 'ENDED', host_account_id = NULL WHERE host_account_id = ?")
-    update("UPDATE ${tables}participants SET account_id = NULL, display_name = '$DELETED_NAME' WHERE account_id = ?")
+    // Like a guest: the name stays, and the link to the account goes.
+    update("UPDATE ${tables}participants SET account_id = NULL WHERE account_id = ?")
     (listOf("sync_stacks", "sync_records", "sync_accounts") + extraTables).forEach { update("DELETE FROM $tables$it WHERE account_id = ?") }
     update("DELETE FROM ${tables}accounts WHERE id = ?")
 }
