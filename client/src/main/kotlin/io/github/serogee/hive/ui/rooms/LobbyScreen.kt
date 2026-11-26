@@ -55,7 +55,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
 
     val room = state.room
     Page(
-        title = room?.room?.title ?: "Quiz Room",
+        title = room?.room?.title ?: "Sessions",
         subtitle = room?.let { "${it.room.mode.label()}, ${it.room.questionCount} questions" },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -139,14 +139,14 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                     style = HiveButtonStyle.SECONDARY,
                 )
                 Text(
-                    "The room stays open. Come back to it in Quiz Room.",
+                    "The session stays open. Come back to it from the Sessions tab.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 // A live room has its own button for this.
                 if (room.room.status == RoomStatus.LOBBY) {
                     HiveButton(
-                        text = "End room for everyone",
+                        text = "End session for everyone",
                         onClick = { confirmEnd = true },
                         enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth(),
@@ -155,7 +155,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                 }
             }
             else -> HiveButton(
-                text = "Leave room",
+                text = "Leave session",
                 onClick = { confirmLeave = true },
                 modifier = Modifier.fillMaxWidth(),
                 style = HiveButtonStyle.DANGER,
@@ -176,9 +176,9 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
 
     if (confirmEnd) {
         HiveDialog(
-            title = "End the room for everyone?",
-            message = "Players leave the lobby, and nobody can join this room again.",
-            confirmText = "End room",
+            title = "End the session for everyone?",
+            message = "Players leave the lobby, and nobody can join this session again.",
+            confirmText = "End session",
             onConfirm = {
                 confirmEnd = false
                 viewModel.command(HostCommand.EndRoom)
@@ -191,8 +191,8 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
 
     if (confirmLeave) {
         HiveDialog(
-            title = "Leave this room?",
-            message = "You can rejoin with the room code, but this device will forget your place.",
+            title = "Leave this session?",
+            message = "You can rejoin with the session code, but this device will forget your place.",
             confirmText = "Leave",
             onConfirm = {
                 confirmLeave = false
@@ -213,9 +213,9 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
 private fun UnreachableRoom(hostedHere: Boolean, onBack: () -> Unit, onLeave: () -> Unit) {
     Text(
         if (hostedHere) {
-            "This phone could not open the room. Trying again."
+            "This phone could not open the session. Trying again."
         } else {
-            "The room cannot be reached. Trying again, also in case the Host's address changed. Check that you are on the Host's " +
+            "The session cannot be reached. Trying again, also in case the Host's address changed. Check that you are on the Host's " +
                 "network and that the Host is still hosting."
         },
         style = MaterialTheme.typography.bodyMedium,
@@ -223,7 +223,7 @@ private fun UnreachableRoom(hostedHere: Boolean, onBack: () -> Unit, onLeave: ()
     )
     HiveButton("Back", onClick = onBack, modifier = Modifier.fillMaxWidth(), style = HiveButtonStyle.SECONDARY)
     if (!hostedHere) {
-        HiveButton("Leave room", onClick = onLeave, modifier = Modifier.fillMaxWidth(), style = HiveButtonStyle.DANGER)
+        HiveButton("Leave session", onClick = onLeave, modifier = Modifier.fillMaxWidth(), style = HiveButtonStyle.DANGER)
     }
 }
 
@@ -233,13 +233,13 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
         HeroCard(
             badgeText = "ROOM CODE",
             title = room.room.code,
-            subtitle = "Players enter this code in Quiz Room.\nAdmission: ${room.room.admission.label()}",
+            subtitle = "Players enter this code in the Sessions tab.\nAdmission: ${room.room.admission.label()}",
         ) {
             if (!room.room.acceptsAccounts) {
                 val addresses = LocalAppContainer.current.rooms.playerAddresses()
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Players on this phone's Wi-Fi or hotspot need only the code. If their phone does not find the room, they also enter this address:",
+                    "Players on this phone's Wi-Fi or hotspot need only the code. If their phone does not find the session, they also enter this address:",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (addresses.isEmpty()) {
@@ -272,7 +272,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
 
     if (isHost) {
         val players = room.participants.count { it.role == RoomRole.PLAYER }
-        val start = if (room.room.mode == RoomMode.ASYNCHRONOUS) "Open room" else "Start quiz"
+        val start = if (room.room.mode == RoomMode.ASYNCHRONOUS) "Open session" else "Start quiz"
         HiveButton(
             text = if (players > 0) start else "Waiting for Players...",
             onClick = onStart,
@@ -280,7 +280,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
             modifier = Modifier.fillMaxWidth(),
         )
         HiveButton(
-            text = "Edit room",
+            text = "Edit session",
             onClick = onEdit,
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
@@ -289,7 +289,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
         )
     }
 
-    SectionHeader(title = "In this room (${room.participants.size})")
+    SectionHeader(title = "In this session (${room.participants.size})")
 
     room.participants.forEach { participant ->
         val you = if (participant.id == room.you.id) " (you)" else ""

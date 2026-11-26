@@ -33,7 +33,7 @@ fun StaleRoomDialog() {
 
     if (failed.isNotEmpty()) {
         HiveDialog(
-            title = if (failed.size == 1) "A room did not close" else "Some rooms did not close",
+            title = if (failed.size == 1) "A session did not close" else "Some sessions did not close",
             message = "${failed.joinToString(", ") { name(it) }} could not be closed. The others are closed. " +
                 "Check the connection, and Hive asks again the next time it opens.",
             confirmText = "OK",
@@ -47,13 +47,13 @@ fun StaleRoomDialog() {
     val list = due
     val now = checker.now()
     ChoiceDialog(
-        title = if (list.size == 1) "Close ${name(list.single())}?" else "Close ${list.size} open rooms?",
+        title = if (list.size == 1) "Close ${name(list.single())}?" else "Close ${list.size} open sessions?",
         message = if (list.size == 1) {
             val room = list.single()
             "It has been open for ${StaleRooms.openFor(room.createdAt ?: now, now)}, since ${openedAt(room.createdAt ?: now)}. " +
                 "Close it for everyone, or keep it open for another day?"
         } else {
-            "These rooms have been open for more than a day:\n" +
+            "These sessions have been open for more than a day:\n" +
                 list.joinToString("\n") { "${name(it)}, open for ${StaleRooms.openFor(it.createdAt ?: now, now)}" } +
                 "\n\nClose them all for everyone, or keep them open for another day?"
         },
@@ -64,4 +64,4 @@ fun StaleRoomDialog() {
     )
 }
 
-private fun name(room: RoomSummary) = room.title.ifBlank { "Untitled room" }
+private fun name(room: RoomSummary) = room.title.ifBlank { "Untitled session" }

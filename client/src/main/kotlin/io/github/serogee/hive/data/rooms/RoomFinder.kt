@@ -34,7 +34,7 @@ class RoomFinder(
             val found = first.getOrNull() ?: near.await().getOrNull()
             val result = if (found != null) Result.success(found) else online.await()
             coroutineContext.cancelChildren()
-            result.getOrThrow() ?: error("No room uses that code.")
+            result.getOrThrow() ?: error("No session uses that code.")
         }
     }
 

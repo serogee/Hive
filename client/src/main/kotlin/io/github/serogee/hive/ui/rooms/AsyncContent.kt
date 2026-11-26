@@ -35,7 +35,7 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
 
     HeroCard(
         badgeText = "ASYNC ROOM",
-        title = "Room ${room.room.code}",
+        title = "Session ${room.room.code}",
         subtitle = "Players move through the $questions questions at their own pace" +
             (room.room.deadlineAt?.let { "\nCloses at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))}" } ?: ""),
     )
@@ -61,7 +61,7 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
 
     Spacer(Modifier.height(4.dp))
     HiveButton(
-        text = "End Room and Show Results",
+        text = "End Session and Show Results",
         onClick = { confirmEnd = true },
         enabled = !busy,
         modifier = Modifier.fillMaxWidth(),
@@ -69,7 +69,7 @@ fun HostAsyncContent(room: RoomState, busy: Boolean, onCommand: (HostCommand) ->
 
     if (confirmEnd) {
         HiveDialog(
-            title = "End the room for everyone?",
+            title = "End the session for everyone?",
             message = "Players who have not finished can no longer answer. Answers already received are kept.",
             confirmText = "End for Everyone",
             onConfirm = {
@@ -117,7 +117,7 @@ fun PlayerAsyncContent(
             HeroCard(
                 badgeText = "COMPLETED",
                 title = "Quiz Finished!",
-                subtitle = "You answered ${attempt.answeredCount} of ${room.room.questionCount} questions. Results appear when the Host ends the room or the deadline passes.",
+                subtitle = "You answered ${attempt.answeredCount} of ${room.room.questionCount} questions. Results appear when the Host ends the session or the deadline passes.",
             )
         }
         else -> {

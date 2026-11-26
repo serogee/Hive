@@ -71,9 +71,9 @@ hive.serverUrl=https://your-hive-server.example
 
 `hive.serverUrl` is the server that the app uses at first. Without it, a release app has no server, and a debug app looks for a demo server on the computer of the emulator. Never put the Google client secret or a Supabase secret key in the app.
 
-On the server, set `HIVE_MODE=production` and `SUPABASE_URL` in `server\.env`. Without `SUPABASE_URL`, the server starts and guests can join rooms, but nobody can sign in.
+On the server, set `HIVE_MODE=production` and `SUPABASE_URL` in `server\.env`. Without `SUPABASE_URL`, the server starts and guests can join sessions, but nobody can sign in.
 
-Set `DATABASE_URL` to the session pooler address of the Supabase project to keep rooms in Postgres. The server makes and updates its tables when it starts, in a schema that the publishable key cannot read. Without `DATABASE_URL`, rooms are kept in memory and end when the server stops.
+Set `DATABASE_URL` to the session pooler address of the Supabase project to keep sessions in Postgres. The server makes and updates its tables when it starts, in a schema that the publishable key cannot read. Without `DATABASE_URL`, sessions are kept in memory and end when the server stops.
 
 Add `?sslmode=disable` only for a database on a private network, such as the one in `compose.yaml`. Every other address is encrypted.
 
@@ -96,7 +96,7 @@ Guests keep everything on their phone. A signed-in account syncs through a serve
 
 - Stacks, with every question. A deleted stack is deleted on the other phones too.
 - Finished reviews, and the results of quizzes hosted on a phone or played on a nearby Host's phone.
-- The account's online rooms, hosted and played, which come from the server itself.
+- The account's online sessions, hosted and played, which come from the server itself.
 
 The phone syncs after sign-in, when the app starts, a few seconds after a change, when the server can be reached again, and with Sync now in Account. Changes made offline wait on the phone. When two phones change the same stack, the account keeps the change that arrived first, and the other phone saves its own as a new stack, with "(from this phone)" after the title.
 
@@ -104,13 +104,13 @@ The first sign-in on a phone that already has stacks asks one time whether to up
 
 ## Two-phone demo with the demo server
 
-The demo server stores its data in `server/data/hive-demo.db`. It has two fictional accounts, `alex` and `sam`, both with the password `hive-demo`. The seeded rooms use the codes `NETDSC` (Discussion lobby hosted by Alex), `NETASY` (Asynchronous room hosted by Sam), and `NETEND` (ended room whose results include a tie). When a server update changes the database layout, the next start replaces the demo data.
+The demo server stores its data in `server/data/hive-demo.db`. It has two fictional accounts, `alex` and `sam`, both with the password `hive-demo`. The seeded sessions use the codes `NETDSC` (Discussion lobby hosted by Alex), `NETASY` (Asynchronous session hosted by Sam), and `NETEND` (ended session whose results include a tie). When a server update changes the database layout, the next start replaces the demo data.
 
 1. Connect the laptop and both phones to the same Wi-Fi network.
 2. Start the demo server. It prints the addresses that phones can use, such as `http://192.168.1.20:8080`. Allow Java through Windows Firewall when asked.
 3. On each phone, tap Use Hive without an account on the Welcome screen. Open Accounts, tap Settings, enter that address under Server Address, and tap Test and Save.
-4. On the Host phone, sign in as `alex` under Account Sign In in the same Settings, open Quiz Room, and tap the Discussion room under Online Rooms.
-5. On the Player phone, stay signed out, enter `NETDSC` as the room code on Home, tap Join, enter a name, and join as a guest.
+4. On the Host phone, sign in as `alex` under Account Sign In in the same Settings, open Sessions, and tap the Discussion session under Online Sessions.
+5. On the Player phone, stay signed out, enter `NETDSC` as the session code on Home, tap Join, enter a name, and join as a guest.
 6. Both lobbies now list Alex Rivera as Host and the guest's name below.
 7. On the Host phone, tap Start quiz. The Player phone shows the first question.
 8. On the Player phone, choose an answer and tap Confirm. It shows Answer received after the server saves it, and the Host phone counts the answer.
@@ -123,6 +123,6 @@ This checks that a fresh phone can create, review, and host a stack with no inte
 1. Turn off mobile data on both phones. On the Host phone, turn on the hotspot. Connect the Player phone to that hotspot.
 2. On both phones, tap Use Hive without an account on the Welcome screen. On the Host phone, tap Create Stack on Home and write a few questions. Tap Save.
 3. On Home, tap Review, choose the stack, choose Quiz Review or Flashcard Review, and answer the questions.
-4. On Home, tap Host Quiz and choose the stack. Keep On this phone selected, turn on Use my name or enter a name, and tap Create Room. The lobby shows the room code, and an address such as `192.168.43.1:8090`.
-5. On the Player phone, enter the code on Home, tap Join, enter a name, and join as a guest. If the room is not found, enter the address from the lobby.
-6. Run the quiz as in the demo above. After the quiz ends, the phone stops serving rooms by itself. To end a room early, open it in Quiz Room and tap End room for everyone.
+4. On Home, tap Host Quiz and choose the stack. Keep On this phone selected, turn on Use my name or enter a name, and tap Create Session. The lobby shows the session code, and an address such as `192.168.43.1:8090`.
+5. On the Player phone, enter the code on Home, tap Join, enter a name, and join as a guest. If the session is not found, enter the address from the lobby.
+6. Run the quiz as in the demo above. After the quiz ends, the phone stops serving sessions by itself. To end a session early, open it in Sessions and tap End session for everyone.

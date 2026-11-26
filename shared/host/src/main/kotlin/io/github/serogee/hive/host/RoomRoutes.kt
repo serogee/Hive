@@ -38,7 +38,7 @@ fun Route.roomRoutes(service: RoomService, accounts: AccountVerifier?) {
         }
 
         get("/hosted") {
-            val caller = call.requireAccount(accounts, "Sign in to see rooms you host.")
+            val caller = call.requireAccount(accounts, "Sign in to see sessions you host.")
             call.respond(service.hostedRooms(caller))
         }
 

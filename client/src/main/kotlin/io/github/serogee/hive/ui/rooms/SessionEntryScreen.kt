@@ -153,7 +153,7 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
 
     state.confirmLeave?.let { question ->
         HiveDialog(
-            title = "Leave your current room?",
+            title = "Leave your current session?",
             message = question,
             confirmText = "Leave and join",
             onConfirm = viewModel::confirmLeave,
@@ -163,7 +163,7 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
     }
 
     Page(
-        title = "Join Room",
+        title = "Join Session",
         subtitle = "Code $code",
     ) {
         val room = state.room
@@ -171,7 +171,7 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
             state.loading -> {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 Text(
-                    "Looking for the room nearby and online...",
+                    "Looking for the session nearby and online...",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -180,14 +180,14 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
             else -> {
                 RoomSummaryCard(room)
                 if (room.status == RoomStatus.ENDED) {
-                    Text("This room has ended.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
+                    Text("This session has ended.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
                     return@Page
                 }
 
                 val guestsAllowed = room.admission != AdmissionPolicy.SIGNED_IN_ONLY
                 val accountsAllowed = room.admission != AdmissionPolicy.GUESTS_ONLY && room.acceptsAccounts
                 if (!room.acceptsAccounts) {
-                    Text("This room is hosted on a phone, so everyone joins as a guest.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    Text("This session is hosted on a phone, so everyone joins as a guest.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
 
                 if (guestsAllowed) {
@@ -195,7 +195,7 @@ fun SessionEntryScreen(code: String, hostAddress: String?, onJoined: (Membership
                     val name = myName?.takeIf { useMyName } ?: typedName
                     SleekCard {
                         Caption("Join as guest")
-                        NameField("Your name in this room", typedName, { typedName = it }, myName, useMyName) { useMyName = it }
+                        NameField("Your name in this session", typedName, { typedName = it }, myName, useMyName) { useMyName = it }
                         HiveButton(
                             text = "Join as guest",
                             onClick = { viewModel.join(name, asGuest = true) },
@@ -240,12 +240,12 @@ private fun NotFound(error: String?, onlineGate: Gate?, onRetry: (address: Strin
     var address by rememberSaveable { mutableStateOf("") }
     ErrorText(error.takeIf { onlineGate == null })
     if (onlineGate != null) {
-        Text("No phone nearby hosts this code, and online rooms cannot be joined now.", style = MaterialTheme.typography.bodyMedium)
+        Text("No phone nearby hosts this code, and online sessions cannot be joined now.", style = MaterialTheme.typography.bodyMedium)
         GateNote(onlineGate)
     }
     HiveButton("Try again", onClick = { onRetry(null) }, modifier = Modifier.fillMaxWidth())
     SleekCard {
-        Caption("Is the room on a phone nearby?")
+        Caption("Is the session on a phone nearby?")
         Text(
             NEARBY_HELP,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -269,7 +269,7 @@ private fun NotFound(error: String?, onlineGate: Gate?, onRetry: (address: Strin
 
 /** Why a room on a phone may need its address. */
 const val NEARBY_HELP = "Connect to the Host's Wi-Fi or hotspot first. Some school, office, and guest networks keep phones from " +
-    "finding each other. If the room is still not found, enter the address from the Host's lobby."
+    "finding each other. If the session is still not found, enter the address from the Host's lobby."
 
 @Composable
 fun RoomSummaryCard(room: RoomSummary) {
