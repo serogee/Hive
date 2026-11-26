@@ -22,13 +22,16 @@ data class StackSummary(
     val description: String,
     val questionCount: Int,
     val updatedAt: Long,
+    val localOnly: Boolean = false,
 )
 
 /** Stacks saved on this phone. Works without an account or a network. */
 class StackRepository(private val dao: StackDao, private val now: () -> Long = System::currentTimeMillis) {
     val stacks: Flow<List<StackSummary>> = dao.observeStacks().map { rows ->
-        rows.map { StackSummary(StackId(it.id), it.title, it.description, it.questionCount, it.updatedAt) }
+        rows.map { StackSummary(StackId(it.id), it.title, it.description, it.questionCount, it.updatedAt, it.localOnly) }
     }
+
+    fun observeLocalOnly(id: StackId): Flow<Boolean> = dao.observeStack(id.value).map { it?.localOnly == true }
 
     fun observeDraft(id: StackId): Flow<StackDraft?> =
         combine(dao.observeStack(id.value), dao.observeQuestions(id.value)) { stack, questions ->

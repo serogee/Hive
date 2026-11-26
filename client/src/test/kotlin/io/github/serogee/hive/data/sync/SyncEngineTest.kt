@@ -305,4 +305,59 @@ class SyncEngineTest {
         assertEquals("account-ben", phone.states.state!!.accountId)
         assertEquals(Unlinked(stacks = 1, reviews = 0, results = 0), phone.engine.choice.value)
     }
+
+    @Test
+    fun `unsyncing one stack deletes it on the server, keeps it locally, and re-syncing restores it cleanly`() = runTest {
+        val first = signedIn()
+        val second = signedIn()
+        first.phone.create("s1", "Biology")
+        first.phone.create("s2", "Chemistry")
+        first.sync()
+        second.sync()
+        assertEquals(listOf("Biology", "Chemistry"), second.phone.titles())
+
+        // Mark s1 as unsynced on first phone: stays local-only there, deleted on server and second phone.
+        first.engine.unsyncStack("s1")
+        first.sync()
+        second.sync()
+        // Pulling our own tombstone on the next sync leaves s1 untouched with its original title.
+        first.sync()
+
+        assertEquals(listOf("Biology", "Chemistry"), first.phone.titles())
+        assertTrue(first.phone.stacks.getValue("s1").localOnly)
+        assertEquals(listOf("Chemistry"), account.titles())
+        assertEquals(listOf("Chemistry"), second.phone.titles())
+
+        // Re-syncing s1 revives it on the server and reaches the second phone without spawning a copy.
+        first.engine.syncStack("s1")
+        first.sync()
+        second.sync()
+
+        assertFalse(first.phone.stacks.getValue("s1").localOnly)
+        assertEquals(listOf("Biology", "Chemistry"), account.titles())
+        assertEquals(listOf("Biology", "Chemistry"), second.phone.titles())
+    }
+
+    @Test
+    fun `unsyncAll removes synced stacks from the server and syncAll brings everything back`() = runTest {
+        val phone = signedIn()
+        phone.phone.create("s1", "Biology")
+        phone.phone.create("s2", "Chemistry")
+        phone.sync()
+        assertEquals(listOf("Biology", "Chemistry"), account.titles())
+
+        phone.engine.unsyncAll()
+        phone.sync()
+        phone.sync()
+
+        assertEquals(listOf("Biology", "Chemistry"), phone.phone.titles())
+        assertTrue(phone.phone.stacks.values.all { it.localOnly })
+        assertTrue(account.titles().isEmpty())
+
+        phone.engine.syncAll()
+        phone.sync()
+
+        assertTrue(phone.phone.stacks.values.none { it.localOnly })
+        assertEquals(listOf("Biology", "Chemistry"), account.titles())
+    }
 }

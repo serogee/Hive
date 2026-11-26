@@ -20,6 +20,8 @@ object StackSync {
         return when {
             // A new stack, or a stack that the account no longer has at all.
             current == null -> StackDecision.Apply(next(1))
+            // A stack previously unsynced/deleted on the server, now explicitly re-synced from a phone.
+            current.deleted && !change.deleted && change.baseVersion == null -> StackDecision.Apply(next(current.version + 1))
             // A change that already arrived, sent again because its answer was lost.
             current.deleted == change.deleted && current.document == change.document.takeUnless { change.deleted } ->
                 StackDecision.Keep(current, PushOutcome.APPLIED)

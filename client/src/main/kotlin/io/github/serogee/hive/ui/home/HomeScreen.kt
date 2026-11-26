@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Hub
@@ -280,14 +281,27 @@ fun HomeScreen(
 
                             Spacer(Modifier.height(8.dp))
 
-                            Text(
-                                text = stack.title.ifBlank { "Untitled stack" },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            ) {
+                                if (session != null && stack.localOnly) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CloudOff,
+                                        contentDescription = "Not synced",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(12.dp),
+                                    )
+                                }
+                                Text(
+                                    text = stack.title.ifBlank { "Untitled stack" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
@@ -345,6 +359,7 @@ fun HomeScreen(
                     icon = Icons.Outlined.Layers,
                     title = stack.title.ifBlank { "Untitled stack" },
                     subtitle = if (stack.questionCount == 1) "1 Question" else "${stack.questionCount} Questions",
+                    unsynced = session != null && stack.localOnly,
                     onClick = { onOpenStack(stack.id) },
                 )
             }
@@ -468,6 +483,7 @@ private fun HomeCard(
     subtitle: String,
     /** Shows the icon by itself, without a hexagon behind it. */
     standaloneIcon: Boolean = false,
+    unsynced: Boolean = false,
     onClick: () -> Unit,
 ) {
     SleekCard(onClick = onClick) {
@@ -510,6 +526,15 @@ private fun HomeCard(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (unsynced) {
+                Icon(
+                    imageVector = Icons.Outlined.CloudOff,
+                    contentDescription = "Not synced",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
                 )
             }
 

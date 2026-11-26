@@ -188,6 +188,41 @@ class FakePhone : SyncLocal {
         }
     }
 
+    override suspend fun markStackUnsynced(id: String) {
+        val row = stacks[id] ?: return
+        if (row.accountVersion != null && !row.localOnly) deletions[id] = row.accountVersion
+        stacks[id] = row.copy(localOnly = true, accountVersion = null, pending = false)
+    }
+
+    override suspend fun markStackSynced(id: String) {
+        val row = stacks[id] ?: return
+        val restoredVersion = deletions.remove(id) ?: row.accountVersion
+        stacks[id] = row.copy(localOnly = false, accountVersion = restoredVersion, pending = true)
+    }
+
+    override suspend fun syncAllStacks() {
+        stacks.keys.toList().forEach { id ->
+            val row = stacks.getValue(id)
+            if (row.localOnly) {
+                val restoredVersion = deletions.remove(id) ?: row.accountVersion
+                stacks[id] = row.copy(localOnly = false, accountVersion = restoredVersion, pending = true)
+            }
+        }
+        listOf(reviews, results).forEach { map ->
+            map.replaceAll { _, value -> if (value.second == RecordSync.LOCAL_ONLY) value.first to RecordSync.UNSENT else value }
+        }
+    }
+
+    override suspend fun unsyncAllStacks() {
+        stacks.entries.forEach { (id, row) ->
+            if (row.accountVersion != null && !row.localOnly) deletions[id] = row.accountVersion
+        }
+        stacks.replaceAll { _, row -> row.copy(localOnly = true, accountVersion = null, pending = false) }
+        listOf(reviews, results).forEach { map ->
+            map.replaceAll { _, value -> if (value.second == RecordSync.UNSENT) value.first to RecordSync.LOCAL_ONLY else value }
+        }
+    }
+
     override suspend fun unlinkAll() {
         stacks.replaceAll { _, row -> if (row.localOnly) row else row.copy(accountVersion = null, pending = true) }
         deletions.clear()

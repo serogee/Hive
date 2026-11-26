@@ -43,6 +43,7 @@ class StackMergeTest {
     @Test
     fun `a stack kept on this phone is never replaced`() {
         assertEquals(PullDecision.KEEP_BOTH, StackMerge.onPulled(local(null, pending = false, localOnly = true), remote(1)))
+        assertEquals(PullDecision.SKIP, StackMerge.onPulled(local(null, pending = false, localOnly = true), remote(2, document = null)))
     }
 
     @Test

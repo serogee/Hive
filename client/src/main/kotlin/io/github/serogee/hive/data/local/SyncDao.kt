@@ -63,6 +63,72 @@ interface SyncDao {
     @Query("DELETE FROM stack_deletions WHERE stackId = :id")
     suspend fun clearDeletion(id: String)
 
+    @Upsert
+    suspend fun upsertDeletion(deletion: StackDeletionEntity)
+
+    @Query("UPDATE stacks SET localOnly = 1, accountVersion = NULL, pendingSync = 0 WHERE id = :id")
+    suspend fun setStackLocalOnly(id: String)
+
+    @Query("UPDATE stacks SET localOnly = 0, accountVersion = :accountVersion, pendingSync = 1 WHERE id = :id")
+    suspend fun setStackSynced(id: String, accountVersion: Long?)
+
+    @Query("SELECT * FROM stacks WHERE accountVersion IS NOT NULL AND localOnly = 0")
+    suspend fun syncedStacks(): List<StackEntity>
+
+    @Query("SELECT * FROM stacks WHERE localOnly = 1")
+    suspend fun localOnlyStacks(): List<StackEntity>
+
+    @Query("UPDATE stacks SET localOnly = 1, accountVersion = NULL, pendingSync = 0")
+    suspend fun setAllStacksLocalOnly()
+
+    @Query("UPDATE review_attempts SET syncState = 0 WHERE syncState = 2")
+    suspend fun syncLocalOnlyReviews()
+
+    @Query("UPDATE quiz_results SET syncState = 0 WHERE syncState = 2 AND online = 0")
+    suspend fun syncLocalOnlyResults()
+
+    /** Marks one stack as unsynced on this phone, and queues server deletion when the account has it. */
+    @Transaction
+    suspend fun markStackUnsynced(id: String) {
+        val existing = stack(id) ?: return
+        val version = existing.accountVersion
+        if (version != null && !existing.localOnly) upsertDeletion(StackDeletionEntity(id, version))
+        setStackLocalOnly(id)
+    }
+
+    /** Marks one stack to sync with the account again, restoring any unsent deletion baseVersion. */
+    @Transaction
+    suspend fun markStackSynced(id: String) {
+        val existing = stack(id) ?: return
+        val pendingDeletion = deletion(id)
+        if (pendingDeletion != null) clearDeletion(id)
+        setStackSynced(id, pendingDeletion?.baseVersion ?: existing.accountVersion)
+    }
+
+    /** Marks every local-only stack and history record to sync with the account. */
+    @Transaction
+    suspend fun syncAllStacks() {
+        localOnlyStacks().forEach { row ->
+            val pendingDeletion = deletion(row.id)
+            if (pendingDeletion != null) clearDeletion(row.id)
+            setStackSynced(row.id, pendingDeletion?.baseVersion ?: row.accountVersion)
+        }
+        syncLocalOnlyReviews()
+        syncLocalOnlyResults()
+    }
+
+    /** Marks every stack as unsynced on this phone, and queues server deletion for all synced stacks. */
+    @Transaction
+    suspend fun unsyncAllStacks() {
+        syncedStacks().forEach { row ->
+            val version = row.accountVersion
+            if (version != null) upsertDeletion(StackDeletionEntity(row.id, version))
+        }
+        setAllStacksLocalOnly()
+        keepReviewsOnPhone()
+        keepResultsOnPhone()
+    }
+
     @Query("SELECT COUNT(*) FROM stacks WHERE accountVersion IS NULL AND localOnly = 0")
     suspend fun unlinkedStackCount(): Int
 

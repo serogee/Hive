@@ -38,6 +38,7 @@ import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.GateNote
 import io.github.serogee.hive.ui.common.HiveButton
+import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveDialog
 import io.github.serogee.hive.ui.common.HiveIconButton
 import io.github.serogee.hive.ui.common.HiveSegment
@@ -59,6 +60,8 @@ import kotlinx.coroutines.launch
 
 /** The look of the app, the server, updates, and the data on this phone. */
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
+    val session = container.session
+    val stacks = container.stackList
     val serverUrl = container.preferences.serverUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val theme = container.preferences.theme.stateIn(viewModelScope, SharingStarted.Eagerly, ThemePreference.SYSTEM)
     val answerColors = container.preferences.answerColors
@@ -93,6 +96,10 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Leaves the joined room on its server too, so that the Host sees the Player leave. */
     fun resetPhone() = viewModelScope.launch { container.rooms.leaveJoinedRoom() }
+
+    fun syncAll() = viewModelScope.launch { container.sync.syncAll() }
+
+    fun unsyncAll() = viewModelScope.launch { container.sync.unsyncAll() }
 }
 
 /** Settings, opened from the gear button in Account. */
@@ -105,11 +112,14 @@ fun SettingsScreen(onBack: () -> Unit) {
     val answerInput by viewModel.answerInput.collectAsStateWithLifecycle()
     val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
     val serverStatus by viewModel.serverStatus.collectAsStateWithLifecycle()
+    val session by viewModel.session.collectAsStateWithLifecycle()
+    val stacks by viewModel.stacks.collectAsStateWithLifecycle()
     val online = watchOnline()
 
     var showAnswerColors by rememberSaveable { mutableStateOf(false) }
     var showAnswerInput by rememberSaveable { mutableStateOf(false) }
     var showReset by rememberSaveable { mutableStateOf(false) }
+    var showUnsyncAll by rememberSaveable { mutableStateOf(false) }
 
     Page(
         title = "Settings",
@@ -156,6 +166,44 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
         }
 
+        if (session != null) {
+            val allStacks = stacks.orEmpty()
+            val unsyncedCount = allStacks.count { it.localOnly }
+            val syncedCount = allStacks.size - unsyncedCount
+            Caption("Sync")
+            SleekCard {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SettingsNote(
+                        if (allStacks.isEmpty()) {
+                            "No stacks on this phone yet."
+                        } else {
+                            "$syncedCount of ${allStacks.size} ${if (allStacks.size == 1) "stack" else "stacks"} set to sync with your account."
+                        },
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        HiveButton(
+                            text = "Sync all",
+                            onClick = viewModel::syncAll,
+                            modifier = Modifier.weight(1f),
+                        )
+                        HiveButton(
+                            text = "Unsync all",
+                            onClick = { showUnsyncAll = true },
+                            style = HiveButtonStyle.SECONDARY,
+                            enabled = allStacks.isNotEmpty() && syncedCount > 0,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (unsyncedCount > 0) {
+                        SettingsNote("$unsyncedCount ${if (unsyncedCount == 1) "stack stays" else "stacks stay"} on this phone only.")
+                    }
+                }
+            }
+        }
+
         Caption("Updates")
         SleekCard { UpdatesSection() }
 
@@ -182,6 +230,20 @@ fun SettingsScreen(onBack: () -> Unit) {
     }
     if (showAnswerInput) {
         AnswerInputSheet(selected = answerInput, onSelect = viewModel::setAnswerInput, onDismiss = { showAnswerInput = false })
+    }
+    if (showUnsyncAll) {
+        HiveDialog(
+            title = "Unsync all stacks?",
+            message = "This keeps every stack on this phone and deletes your synced stacks from your account on the server.",
+            confirmText = "Unsync all",
+            onConfirm = {
+                viewModel.unsyncAll()
+                showUnsyncAll = false
+            },
+            dismissText = "Cancel",
+            onDismiss = { showUnsyncAll = false },
+            danger = true,
+        )
     }
     if (showReset) {
         HiveDialog(

@@ -82,13 +82,14 @@ data class StackRow(
     val description: String,
     val updatedAt: Long,
     val questionCount: Int,
+    val localOnly: Boolean = false,
 )
 
 @Dao
 interface StackDao {
     @Query(
         """
-        SELECT stacks.id, stacks.title, stacks.description, stacks.updatedAt,
+        SELECT stacks.id, stacks.title, stacks.description, stacks.updatedAt, stacks.localOnly,
             (SELECT COUNT(*) FROM questions WHERE questions.stackId = stacks.id) AS questionCount
         FROM stacks ORDER BY stacks.updatedAt DESC
         """,

@@ -70,6 +70,14 @@ interface SyncLocal {
 
     suspend fun keepUnlinkedOnPhone()
 
+    suspend fun markStackUnsynced(id: String)
+
+    suspend fun markStackSynced(id: String)
+
+    suspend fun syncAllStacks()
+
+    suspend fun unsyncAllStacks()
+
     suspend fun unlinkAll()
 
     suspend fun signOutSummary(): SignOutSummary
@@ -134,8 +142,9 @@ object StackMerge {
         val changedHere = local.pending || local.localOnly
         return when {
             base != null && base >= remote.version -> PullDecision.SKIP
+            local.localOnly && remote.deleted -> PullDecision.SKIP
             !changedHere -> PullDecision.TAKE
-            !remote.deleted && remote.document == local.document -> PullDecision.TAKE
+            !local.localOnly && !remote.deleted && remote.document == local.document -> PullDecision.TAKE
             else -> PullDecision.KEEP_BOTH
         }
     }

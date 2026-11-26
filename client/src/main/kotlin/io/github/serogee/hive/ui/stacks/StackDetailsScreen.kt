@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,9 +56,12 @@ fun StackDetailsScreen(
 ) {
     val container = LocalAppContainer.current
     val draft by remember(stackId) { container.stacks.observeDraft(stackId) }.collectAsStateWithLifecycle(null)
+    val localOnly by remember(stackId) { container.stacks.observeLocalOnly(stackId) }.collectAsStateWithLifecycle(false)
+    val session by container.session.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    var confirmDelete by remember { mutableStateOf(false) }
-    var reviewSetup by remember { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var confirmUnsync by rememberSaveable { mutableStateOf(false) }
+    var reviewSetup by rememberSaveable { mutableStateOf(false) }
 
     val stack = draft
     Page(
@@ -101,12 +108,47 @@ fun StackDetailsScreen(
                 contentDescription = "Edit",
                 onClick = onEdit,
             )
+            if (session != null) {
+                HiveIconButton(
+                    icon = if (localOnly) Icons.Outlined.CloudOff else Icons.Outlined.CloudDone,
+                    contentDescription = if (localOnly) "Not synced, tap to sync" else "Synced, tap to unsync",
+                    onClick = {
+                        if (localOnly) {
+                            scope.launch { container.sync.syncStack(stackId.value) }
+                        } else {
+                            confirmUnsync = true
+                        }
+                    },
+                )
+            }
             HiveIconButton(
                 icon = Icons.Outlined.Delete,
                 contentDescription = "Delete",
                 onClick = { confirmDelete = true },
                 style = HiveButtonStyle.DANGER,
             )
+        }
+
+        if (session != null && localOnly) {
+            SleekCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CloudOff,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Text(
+                        text = "Not synced. This stack stays on this phone only until you sync it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         if (issues.isNotEmpty()) {
@@ -188,6 +230,21 @@ fun StackDetailsScreen(
             reviewSetup = false
             onReview(attemptId)
         })
+    }
+
+    if (confirmUnsync && stack != null) {
+        HiveDialog(
+            title = "Unsync ${stack.title.ifBlank { "this stack" }}?",
+            message = "This keeps the stack on this phone and deletes it from your account on the server.",
+            confirmText = "Unsync",
+            onConfirm = {
+                confirmUnsync = false
+                scope.launch { container.sync.unsyncStack(stackId.value) }
+            },
+            dismissText = "Cancel",
+            onDismiss = { confirmUnsync = false },
+            danger = true,
+        )
     }
 
     if (confirmDelete && stack != null) {

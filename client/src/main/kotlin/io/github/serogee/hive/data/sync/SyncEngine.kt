@@ -174,6 +174,42 @@ class SyncEngine(
         requestSync()
     }
 
+    /** Marks one stack as unsynced on this phone and deletes it from the account on the next sync. */
+    suspend fun unsyncStack(stackId: String) {
+        mutex.withLock { local.markStackUnsynced(stackId) }
+        requestSync()
+    }
+
+    /** Marks one unsynced stack to sync with the account again. */
+    suspend fun syncStack(stackId: String) {
+        mutex.withLock {
+            local.markStackSynced(stackId)
+            states.syncState()?.takeIf { !it.decided }?.let { states.setSyncState(it.copy(decided = true)) }
+            _choice.value = null
+        }
+        requestSync()
+    }
+
+    /** Marks every unsynced stack and local-only history record on this phone to sync with the account. */
+    suspend fun syncAll() {
+        mutex.withLock {
+            local.syncAllStacks()
+            states.syncState()?.takeIf { !it.decided }?.let { states.setSyncState(it.copy(decided = true)) }
+            _choice.value = null
+        }
+        requestSync()
+    }
+
+    /** Marks every stack as unsynced on this phone and removes synced stacks from the account on the next sync. */
+    suspend fun unsyncAll() {
+        mutex.withLock {
+            local.unsyncAllStacks()
+            states.syncState()?.takeIf { !it.decided }?.let { states.setSyncState(it.copy(decided = true)) }
+            _choice.value = null
+        }
+        requestSync()
+    }
+
     suspend fun signOutSummary(): SignOutSummary = local.signOutSummary()
 
     /** Before sign-out. [removeStacks] deletes the stacks that the account keeps. Unsynced changes stay. */
@@ -237,14 +273,25 @@ class SyncEngine(
 
     private suspend fun applyPulled(remoteStack: SyncedStack) {
         val here = local.stack(remoteStack.stackId)
+        val deletion = local.deletion(remoteStack.stackId)
         if (here == null) {
-            val deletion = local.deletion(remoteStack.stackId)
             when {
                 deletion == null -> if (!remoteStack.deleted) local.takeAccountCopy(remoteStack)
                 remoteStack.deleted -> local.clearDeletion(remoteStack.stackId)
                 // Another phone changed the stack after this phone deleted it. The account keeps its copy.
                 remoteStack.version > deletion.baseVersion -> {
                     local.clearDeletion(remoteStack.stackId)
+                    local.takeAccountCopy(remoteStack)
+                }
+            }
+            return
+        }
+        if (here.localOnly && deletion != null) {
+            when {
+                remoteStack.deleted -> local.clearDeletion(remoteStack.stackId)
+                remoteStack.version > deletion.baseVersion -> {
+                    local.clearDeletion(remoteStack.stackId)
+                    if (here.document != remoteStack.document) local.saveAsCopy(here)
                     local.takeAccountCopy(remoteStack)
                 }
             }
@@ -275,7 +322,11 @@ class SyncEngine(
                 if (result.stackId in deletions) {
                     local.clearDeletion(result.stackId)
                     // A newer copy on the account wins over the deletion, so nothing is lost.
-                    if (result.outcome == PushOutcome.CONFLICT && !accountCopy.deleted) local.takeAccountCopy(accountCopy)
+                    if (result.outcome == PushOutcome.CONFLICT && !accountCopy.deleted) {
+                        val here = local.stack(result.stackId)
+                        if (here != null && here.document != accountCopy.document) local.saveAsCopy(here)
+                        local.takeAccountCopy(accountCopy)
+                    }
                 } else if (result.outcome == PushOutcome.APPLIED) {
                     pending[result.stackId]?.let { local.markPushed(it.id, accountCopy.version, it.updatedAt) }
                 } else {
