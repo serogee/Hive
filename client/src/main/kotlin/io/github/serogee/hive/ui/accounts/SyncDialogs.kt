@@ -5,14 +5,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +30,9 @@ import io.github.serogee.hive.data.sync.SyncStatus
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveTextButton
+import io.github.serogee.hive.ui.common.GateNote
+import io.github.serogee.hive.ui.common.SleekCard
+import io.github.serogee.hive.data.server.Gate
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.theme.hiveColors
 import java.time.Instant
@@ -103,54 +109,76 @@ internal fun choiceMessage(unlinked: Unlinked): String {
 
 private fun count(n: Int, noun: String) = if (n <= 0) null else if (n == 1) "1 $noun" else "$n ${noun}s"
 
-/** What the Account page says about sync, or null for a guest. */
-internal fun syncStatusText(
+/** The first line of the sync bar, or null for a guest, who has no sync. */
+internal fun syncHeadline(status: SyncStatus): String? = when (status) {
+    SyncStatus.Off -> null
+    SyncStatus.Unavailable -> "Sync is off on this server"
+    SyncStatus.Syncing -> "Syncing"
+    is SyncStatus.UpToDate -> "Up to date"
+    is SyncStatus.Waiting -> "Changes wait to sync"
+    is SyncStatus.Offline -> "Offline, will sync later"
+}
+
+/** The second line: that sync runs by itself, and when it last worked. */
+internal fun syncDetail(
     status: SyncStatus,
     zone: ZoneId = ZoneId.systemDefault(),
     today: LocalDate = LocalDate.now(zone),
-): String? = when (status) {
-    SyncStatus.Off -> null
-    SyncStatus.Unavailable -> "This server does not sync accounts"
-    SyncStatus.Syncing -> "Syncing"
-    is SyncStatus.UpToDate -> "Up to date"
-    is SyncStatus.Waiting -> status.lastSyncedAt?.let { "Last synced ${syncTime(it, zone, today)}" } ?: "Not synced yet"
-    is SyncStatus.Offline -> "Offline" + (status.lastSyncedAt?.let { ". Last synced ${syncTime(it, zone, today)}" } ?: "")
+): String {
+    val last = when (status) {
+        is SyncStatus.UpToDate -> status.at
+        is SyncStatus.Waiting -> status.lastSyncedAt
+        is SyncStatus.Offline -> status.lastSyncedAt
+        else -> null
+    }
+    return when {
+        status == SyncStatus.Unavailable -> "This server does not keep accounts"
+        last == null -> "Syncs automatically"
+        else -> "Syncs automatically. Last at ${syncTime(last, zone, today)}"
+    }
 }
 
+/** The time alone today, and the day too before that. */
 private fun syncTime(epochMillis: Long, zone: ZoneId, today: LocalDate): String {
-    val time = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalTime()
-    return "${historyDate(epochMillis, zone, today)} at ${time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))}"
+    val moment = Instant.ofEpochMilli(epochMillis).atZone(zone)
+    val time = moment.toLocalTime().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+    return if (moment.toLocalDate() == today) time else "${historyDate(epochMillis, zone, today)}, $time"
 }
 
-/** The account's sync status, with Sync now. */
+/** The account's sync across the page: what it is doing, and a button to sync now. */
 @Composable
-internal fun SyncStatusLine(status: SyncStatus, canSync: Boolean, onSyncNow: () -> Unit) {
-    val text = syncStatusText(status) ?: return
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Icon(
-            imageVector = when (status) {
-                is SyncStatus.Offline -> Icons.Outlined.CloudOff
-                SyncStatus.Syncing -> Icons.Outlined.Sync
-                else -> Icons.Outlined.CloudSync
-            },
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
-        Text(
-            "Sync: $text",
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (status != SyncStatus.Unavailable) {
-            HiveTextButton("Sync now", onClick = onSyncNow, enabled = canSync && status != SyncStatus.Syncing)
+internal fun SyncBar(status: SyncStatus, gate: Gate?, onSyncNow: () -> Unit) {
+    val headline = syncHeadline(status) ?: return
+    SleekCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                imageVector = when (status) {
+                    is SyncStatus.Offline -> Icons.Outlined.CloudOff
+                    SyncStatus.Syncing -> Icons.Outlined.Sync
+                    is SyncStatus.Waiting -> Icons.Outlined.CloudSync
+                    else -> Icons.Outlined.CloudDone
+                },
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(headline, style = MaterialTheme.typography.titleMedium)
+                Text(syncDetail(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (status != SyncStatus.Unavailable) {
+                val enabled = gate == null && status != SyncStatus.Syncing
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (enabled) 1f else 0.5f)) {
+                    IconButton(onClick = onSyncNow, enabled = enabled) {
+                        Icon(Icons.Outlined.Sync, contentDescription = "Sync now", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
         }
+        gate?.let { GateNote(it) }
     }
 }

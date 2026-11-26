@@ -63,6 +63,13 @@ class ActivityStatsTest {
     }
 
     @Test
+    fun `the week shows the active days from Monday to Sunday`() {
+        // 2026-11-26 is a Thursday.
+        val stats = stats(listOf(review(today, 1), review(today.minusDays(3), 1)), listOf(quiz(today.minusDays(7), RoomRole.PLAYER, "a", correct = 1)))
+        assertEquals(listOf(true, false, false, true, false, false, false), stats.weekActive)
+    }
+
+    @Test
     fun `reviews and quizzes make one streak`() {
         val stats = stats(listOf(review(today, 1)), listOf(quiz(today.minusDays(1), RoomRole.PLAYER, "a", correct = 2)))
         assertEquals(2, stats.streakDays)

@@ -15,6 +15,8 @@ data class ActivityStats(
     val streakDays: Int,
     /** Correct answers out of all, in percent, over finished reviews and played quizzes. Null without any. */
     val averagePercent: Int?,
+    /** Monday to Sunday of this week: whether each day had a finished review or a quiz. */
+    val weekActive: List<Boolean> = List(7) { false },
 ) {
     companion object {
         fun of(
@@ -36,6 +38,7 @@ data class ActivityStats(
                 roomsHosted = (quizzes.filter { it.role == RoomRole.HOST }.map { it.roomId } + hostedHereIds).toSet().size,
                 streakDays = streak(days, today),
                 averagePercent = scores.takeIf { it.isNotEmpty() }?.let { (it.average() * 100).roundToInt() },
+                weekActive = today.minusDays(today.dayOfWeek.value - 1L).let { monday -> List(7) { monday.plusDays(it.toLong()) in days } },
             )
         }
 

@@ -29,18 +29,26 @@ class SyncTextTest {
     @AfterTest
     fun restoreLocale() = Locale.setDefault(defaultLocale)
 
-    private fun text(status: SyncStatus) = syncStatusText(status, zone, today)
+    private fun detail(status: SyncStatus) = syncDetail(status, zone, today)
 
     @Test
     fun `each status has its words`() {
-        assertNull(text(SyncStatus.Off))
-        assertEquals("Syncing", text(SyncStatus.Syncing))
-        assertEquals("Up to date", text(SyncStatus.UpToDate(tenThirty)))
-        assertEquals("Last synced today at $time", text(SyncStatus.Waiting(tenThirty)))
-        assertEquals("Not synced yet", text(SyncStatus.Waiting(null)))
-        assertEquals("Offline. Last synced today at $time", text(SyncStatus.Offline(tenThirty)))
-        assertEquals("Offline", text(SyncStatus.Offline(null)))
-        assertEquals("This server does not sync accounts", text(SyncStatus.Unavailable))
+        assertNull(syncHeadline(SyncStatus.Off))
+        assertEquals("Syncing", syncHeadline(SyncStatus.Syncing))
+        assertEquals("Up to date", syncHeadline(SyncStatus.UpToDate(tenThirty)))
+        assertEquals("Changes wait to sync", syncHeadline(SyncStatus.Waiting(tenThirty)))
+        assertEquals("Offline, will sync later", syncHeadline(SyncStatus.Offline(null)))
+        assertEquals("Sync is off on this server", syncHeadline(SyncStatus.Unavailable))
+    }
+
+    @Test
+    fun `the second line says that sync is automatic, and when it last worked`() {
+        assertEquals("Syncs automatically. Last at $time", detail(SyncStatus.UpToDate(tenThirty)))
+        assertEquals("Syncs automatically. Last at $time", detail(SyncStatus.Offline(tenThirty)))
+        assertEquals("Syncs automatically", detail(SyncStatus.Waiting(null)))
+        val yesterday = today.minusDays(1).atTime(10, 30).atZone(zone).toInstant().toEpochMilli()
+        assertEquals("Syncs automatically. Last at yesterday, $time", detail(SyncStatus.UpToDate(yesterday)))
+        assertEquals("This server does not keep accounts", detail(SyncStatus.Unavailable))
     }
 
     @Test
