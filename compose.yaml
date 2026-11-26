@@ -25,6 +25,7 @@ services:
         environment:
             PORT: 8080
             SUPABASE_URL: ${SUPABASE_URL:-}
+            SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
             # The database is on the private network of these two containers, without encryption.
             DATABASE_URL: postgresql://postgres:${HIVE_DB_PASSWORD:-hive-local-only}@db:5432/postgres?sslmode=disable
         ports:
