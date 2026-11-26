@@ -4,6 +4,7 @@ import io.github.serogee.hive.data.server.ServerState
 import io.github.serogee.hive.data.server.ServerStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -14,6 +15,16 @@ class SyncEngineTest {
 
     /** A phone that signed in with nothing of its own, so it is not asked anything. */
     private suspend fun signedIn() = Device(account).also { it.sync() }
+
+    @Test
+    fun `coming back to the foreground syncs at most every 30 seconds`() = runTest {
+        val phone = Device(account)
+        assertTrue(phone.engine.onForeground())
+        phone.clock += 29_000
+        assertFalse(phone.engine.onForeground())
+        phone.clock += 1_000
+        assertTrue(phone.engine.onForeground())
+    }
 
     @Test
     fun `a guest never syncs`() = runTest {

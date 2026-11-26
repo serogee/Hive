@@ -7,7 +7,12 @@ import android.net.Network
 import android.os.Bundle
 
 /** Checks the server when the network changes and when the app returns to the foreground. */
-class ServerTriggers(application: Application, private val monitor: ServerMonitor) {
+class ServerTriggers(
+    application: Application,
+    private val monitor: ServerMonitor,
+    /** Called when the app comes back to the foreground. */
+    private val onForeground: () -> Unit = {},
+) {
     private var startedActivities = 0
 
     init {
@@ -24,7 +29,10 @@ class ServerTriggers(application: Application, private val monitor: ServerMonito
         application.registerActivityLifecycleCallbacks(
             object : Application.ActivityLifecycleCallbacks {
                 override fun onActivityStarted(activity: Activity) {
-                    if (startedActivities++ == 0) monitor.checkNow()
+                    if (startedActivities++ == 0) {
+                        monitor.checkNow()
+                        onForeground()
+                    }
                 }
 
                 override fun onActivityStopped(activity: Activity) {
