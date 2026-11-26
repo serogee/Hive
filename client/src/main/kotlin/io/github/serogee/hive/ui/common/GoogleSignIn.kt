@@ -91,6 +91,6 @@ private fun GoogleButton(enabled: Boolean, onClick: () -> Unit) {
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(10.dp))
-        Text("CONTINUE WITH GOOGLE")
+        Text("Continue with Google")
     }
 }

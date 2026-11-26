@@ -338,7 +338,7 @@ private fun ReviewSummary(attempt: ReviewAttempt, onRetry: () -> Unit, onRepeat:
         badgeText = "REVIEW COMPLETED",
         title = "$percent% Mastery",
         subtitle = if (quiz) "$correct of $total questions answered correctly" else "$correct cards mastered, $retry to review",
-        buttonText = if (retry > 0) "RETRY MISSED" else "REPEAT ALL",
+        buttonText = if (retry > 0) "Retry missed" else "Repeat all",
         onButtonClick = if (retry > 0) onRetry else onRepeat,
     )
 
