@@ -1,5 +1,8 @@
 package io.github.serogee.hive.ui.accounts
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,10 +22,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.serogee.hive.data.sync.Unlinked
@@ -171,10 +179,34 @@ internal fun SyncBar(status: SyncStatus, gate: Gate?, onSyncNow: () -> Unit) {
                 Text(syncDetail(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (status != SyncStatus.Unavailable) {
-                val enabled = gate == null && status != SyncStatus.Syncing
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (enabled) 1f else 0.5f)) {
-                    IconButton(onClick = onSyncNow, enabled = enabled) {
-                        Icon(Icons.Outlined.Sync, contentDescription = "Sync now", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                var spinTrigger by remember { mutableIntStateOf(0) }
+                val rotation = remember { Animatable(0f) }
+                LaunchedEffect(status == SyncStatus.Syncing, spinTrigger) {
+                    if (status == SyncStatus.Syncing) {
+                        while (true) {
+                            rotation.animateTo(rotation.value + 360f, animationSpec = tween(durationMillis = 800, easing = LinearEasing))
+                            rotation.snapTo(rotation.value % 360f)
+                        }
+                    } else if (spinTrigger > 0) {
+                        rotation.animateTo(rotation.value + 360f, animationSpec = tween(durationMillis = 600, easing = LinearEasing))
+                        rotation.snapTo(rotation.value % 360f)
+                    }
+                }
+                val enabled = status != SyncStatus.Syncing
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (enabled) 1f else 0.7f)) {
+                    IconButton(
+                        onClick = {
+                            spinTrigger++
+                            onSyncNow()
+                        },
+                        enabled = enabled,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Sync,
+                            contentDescription = "Sync now",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.rotate(rotation.value),
+                        )
                     }
                 }
             }

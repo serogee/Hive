@@ -57,6 +57,7 @@ fun StackDetailsScreen(
     val container = LocalAppContainer.current
     val draft by remember(stackId) { container.stacks.observeDraft(stackId) }.collectAsStateWithLifecycle(null)
     val localOnly by remember(stackId) { container.stacks.observeLocalOnly(stackId) }.collectAsStateWithLifecycle(false)
+    val ongoingReview by remember(stackId) { container.reviews.unfinishedFor(stackId.value) }.collectAsStateWithLifecycle(null)
     val session by container.session.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -81,9 +82,39 @@ fun StackDetailsScreen(
             badgeText = "KEY STATS",
             title = "${stack.questions.size} Questions",
             subtitle = if (issues.isEmpty()) "Ready for practice and multiplayer quiz" else "${issues.size} issues to fix before hosting",
-            buttonText = if (issues.isEmpty()) "Practice" else null,
-            onButtonClick = { reviewSetup = true },
+            buttonText = when {
+                ongoingReview != null -> "Continue review"
+                issues.isEmpty() -> "Practice"
+                else -> null
+            },
+            onButtonClick = {
+                val active = ongoingReview
+                if (active != null) onReview(active.id) else reviewSetup = true
+            },
         )
+
+        ongoingReview?.let { active ->
+            SleekCard(onClick = { onReview(active.id) }) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Ongoing review", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            "${active.answeredCount} of ${active.order.size} questions answered",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    HiveButton(
+                        text = "Continue",
+                        onClick = { onReview(active.id) },
+                    )
+                }
+            }
+        }
 
         // Action Buttons Row
         Row(

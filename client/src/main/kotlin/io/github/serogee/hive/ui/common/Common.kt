@@ -87,7 +87,7 @@ fun RoomStatus.label() = when (this) {
     RoomStatus.ENDED -> "Ended"
 }
 
-/** The bar at the top of a screen, with a caps title and an optional action. */
+/** The bar at the top of a screen, with a title and an optional action. */
 @Composable
 fun HiveTopBar(
     title: String,
@@ -110,7 +110,7 @@ fun HiveTopBar(
         ) {
             leading?.invoke()
             Text(
-                text = title.uppercase(),
+                text = title,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -173,7 +173,7 @@ fun Breadcrumbs(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
     }
 }
 
-/** A page with a top bar, an optional subtitle, and scrolling content. */
+/** A page with a top bar, an optional subtitle, scrolling content, and an optional pinned bottom bar. */
 @Composable
 fun Page(
     title: String,
@@ -182,6 +182,7 @@ fun Page(
     crumbs: List<Crumb> = emptyList(),
     leading: @Composable (() -> Unit)? = null,
     action: @Composable (() -> Unit)? = null,
+    bottomBar: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -193,7 +194,8 @@ fun Page(
         if (crumbs.isNotEmpty()) Breadcrumbs(crumbs)
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -207,6 +209,17 @@ fun Page(
             }
             content()
             Spacer(Modifier.height(16.dp))
+        }
+        if (bottomBar != null) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+            ) {
+                bottomBar()
+            }
         }
     }
 }
