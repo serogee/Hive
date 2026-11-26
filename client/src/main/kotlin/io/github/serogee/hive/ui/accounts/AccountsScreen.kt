@@ -359,11 +359,12 @@ fun AccountsScreen(
             confirmText = if (state.unsyncing) "Deleting" else "Delete",
             onConfirm = { if (!state.unsyncing) viewModel.unsync { showUnsync = false } },
             dismissText = "Cancel",
-            onDismiss = { showUnsync = false },
+            onDismiss = { if (!state.unsyncing) showUnsync = false },
             danger = true,
         ) {
             Text(
-                "Your account is deleted, with the stacks, reviews, quiz results, and online sessions that the server keeps for it. " +
+                "Your account is deleted, with the stacks, reviews, and quiz results that the server keeps for it. " +
+                    "Any open sessions you host end, and past session results keep your display name. " +
                     "You are signed out on every phone, and you cannot undo this. This phone keeps its stacks and history.",
                 style = MaterialTheme.typography.bodyMedium,
             )

@@ -16,7 +16,7 @@ object Migrations {
     const val SCHEMA = "hive"
 
     /** In order. Add new files at the end. */
-    private val FILES = listOf("V1__rooms.sql", "V2__sync.sql", "V3__display_name.sql")
+    private val FILES = listOf("V1__rooms.sql", "V2__sync.sql", "V3__display_name.sql", "V4__deleted_accounts.sql")
 
     private const val LOCK = 4_715_001L
 

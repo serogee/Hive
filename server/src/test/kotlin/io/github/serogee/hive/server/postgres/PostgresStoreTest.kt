@@ -119,6 +119,11 @@ class PostgresStoreTest {
 
         db.accountData().delete(alex.id)
         assertNull(PostgresAccounts(db) { fromSignIn }.displayName(alex.id))
+        // An unexpired JWT for a deleted account cannot save it again, even after a restart.
+        assertNull(PostgresAccounts(db) { fromSignIn }.verify("token"))
+        reopen()
+        assertNull(PostgresAccounts(db) { fromSignIn }.verify("token"))
+        assertEquals(0, count("accounts"))
     }
 
     @Test
@@ -271,7 +276,7 @@ class PostgresStoreTest {
         postgres.postgresDatabase.connection.use { connection ->
             connection.createStatement().use { statement ->
                 statement.execute("SET ROLE anon")
-                listOf("accounts", "rooms", "participants", "submissions", "attempts", "schema_migrations").forEach { table ->
+                listOf("accounts", "deleted_accounts", "rooms", "participants", "submissions", "attempts", "schema_migrations").forEach { table ->
                     val failure = assertFailsWith<SQLException> { statement.execute("SELECT * FROM hive.$table") }
                     assertEquals("42501", failure.sqlState, table)
                 }
