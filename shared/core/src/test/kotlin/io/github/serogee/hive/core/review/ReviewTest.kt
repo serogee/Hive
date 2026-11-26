@@ -90,4 +90,29 @@ class ReviewTest {
 
         assertEquals(cases.map { it.second }, results)
     }
+
+    @Test
+    fun answeringCountsImmediatelySavesAnswerAndPreviousStepsBack() {
+        var attempt = Review.start("a1", stack, ReviewSettings(), Random(1))
+        assertEquals(0, attempt.answeredCount)
+        assertFalse(attempt.canGoPrevious)
+
+        val firstAnswer = Answer.SelectedChoice(ChoiceId("nf-q1-c3"))
+        val (answered, correct) = Review.answer(attempt, firstAnswer)
+        assertTrue(correct)
+        // Counted right after submitting, before advancing to the next card.
+        assertEquals(0, answered.position)
+        assertEquals(1, answered.answeredCount)
+        assertEquals(firstAnswer, answered.answerOf(stack.questions[0].id))
+
+        attempt = Review.next(answered)
+        assertTrue(attempt.canGoPrevious)
+        val back = Review.previous(attempt)
+        assertEquals(0, back.position)
+        assertEquals(firstAnswer, back.answerOf(stack.questions[0].id))
+        assertEquals(Outcome.CORRECT, back.outcomeOf(stack.questions[0].id))
+
+        val finished = Review.finish(back)
+        assertTrue(finished.isFinished)
+    }
 }

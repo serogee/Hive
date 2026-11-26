@@ -164,6 +164,13 @@ interface ReviewDao {
     @Query("SELECT * FROM review_attempts WHERE finished = 0 ORDER BY updatedAt DESC LIMIT 1")
     fun observeLatestUnfinished(): Flow<ReviewAttemptEntity?>
 
+    /** Ongoing reviews, newest first, up to [limit]. */
+    @Query("SELECT * FROM review_attempts WHERE finished = 0 ORDER BY updatedAt DESC LIMIT :limit")
+    fun observeUnfinished(limit: Int = 5): Flow<List<ReviewAttemptEntity>>
+
+    @Query("SELECT * FROM review_attempts WHERE finished = 0 ORDER BY updatedAt DESC")
+    suspend fun unfinished(): List<ReviewAttemptEntity>
+
     @Query("SELECT * FROM review_attempts WHERE stackId = :stackId AND finished = 0 ORDER BY updatedAt DESC LIMIT 1")
     fun observeUnfinishedFor(stackId: String): Flow<ReviewAttemptEntity?>
 
@@ -173,6 +180,9 @@ interface ReviewDao {
 
     @Upsert
     suspend fun upsert(attempt: ReviewAttemptEntity)
+
+    @Query("DELETE FROM review_attempts WHERE id = :id")
+    suspend fun delete(id: String)
 
     @Query("DELETE FROM review_attempts WHERE stackId = :stackId")
     suspend fun deleteForStack(stackId: String)

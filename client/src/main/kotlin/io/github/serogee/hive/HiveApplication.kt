@@ -121,6 +121,7 @@ class AppContainer(application: Application) {
     val hostedRooms = rooms.localHostedRooms.kept()
     val stackList = stacks.stacks.kept()
     val latestUnfinishedReview = reviews.latestUnfinished.kept()
+    val ongoingReviews = reviews.ongoing.kept()
     val finishedReviews = reviews.finished.kept()
     val quizResults = quizHistory.results.kept()
 
