@@ -77,7 +77,9 @@ Set `DATABASE_URL` to the session pooler address of the Supabase project to keep
 
 Add `?sslmode=disable` only for a database on a private network, such as the one in `compose.yaml`. Every other address is encrypted.
 
-`render.yaml` deploys the server to Render from `server/Dockerfile`. Create a blueprint from the repository in the Render dashboard, and enter `SUPABASE_URL` and `DATABASE_URL` there.
+Set `SUPABASE_SECRET_KEY` so that people can delete their accounts with Unsync and delete account. Copy it from Supabase, in Project Settings > API Keys > Secret keys, and enter it only in Render's Environment, never in the app or the repository. The server sends it to the Supabase Admin API in the `apikey` header and never prints it. Without it, the server refuses to delete accounts.
+
+`render.yaml` deploys the server to Render from `server/Dockerfile`. Create a blueprint from the repository in the Render dashboard, and enter `SUPABASE_URL`, `DATABASE_URL`, and `SUPABASE_SECRET_KEY` there.
 
 | Situation                                    | What users see                                                                                              |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
