@@ -57,6 +57,9 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore {
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
 
+    /** Whether Check for updates also offers test versions. */
+    val includePrereleases: Flow<Boolean> = store.data.map { it[INCLUDE_PRERELEASES] ?: false }
+
     /** Whether the app opens to Home instead of Welcome. */
     val onboardingCompleted: Flow<Boolean> = store.data.map { it.onboardingCompleted() }
 
@@ -91,6 +94,8 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore {
     }
 
     suspend fun setTheme(theme: ThemePreference) = store.edit { it[THEME] = theme.name }
+
+    suspend fun setIncludePrereleases(include: Boolean) = store.edit { it[INCLUDE_PRERELEASES] = include }
 
     suspend fun setAnswerColors(choice: AnswerColorChoice) = store.edit { it[ANSWER_COLORS] = choice.name }
 
@@ -129,5 +134,6 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val HOST_TOKENS = stringPreferencesKey("host_tokens")
         val SYNC_STATE = stringPreferencesKey("sync_state")
+        val INCLUDE_PRERELEASES = booleanPreferencesKey("include_prereleases")
     }
 }

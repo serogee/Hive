@@ -634,6 +634,10 @@ fun AccountsScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
+                UpdatesSection()
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
                 // Reset Data Row
                 Row(
                     modifier = Modifier
