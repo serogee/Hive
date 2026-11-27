@@ -44,7 +44,6 @@ import io.github.serogee.hive.data.updates.GitHubRepo
 import io.github.serogee.hive.data.updates.PublishedRelease
 import io.github.serogee.hive.data.updates.UpdateChecker
 import io.github.serogee.hive.data.updates.UpdateState
-import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.LocalAppContainer
@@ -158,7 +157,6 @@ internal fun UpdatesSection() {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Caption("Updates")
         Note("This is Hive ${BuildConfig.VERSION_NAME}.")
         ToggleRow(label = "Include pre-releases", checked = includePrereleases, onChange = viewModel::setIncludePrereleases)
         Note("Test versions are offered too. They can have problems that releases do not.")

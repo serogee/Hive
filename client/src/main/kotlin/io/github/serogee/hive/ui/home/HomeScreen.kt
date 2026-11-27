@@ -155,9 +155,10 @@ fun HomeScreen(
                     HorizontalPager(
                         state = pagerState,
                         pageSpacing = 12.dp,
+                        key = { index -> activeReviews.getOrNull(index)?.id ?: index },
                         modifier = Modifier.fillMaxWidth(),
                     ) { page ->
-                        val attempt = activeReviews[page]
+                        val attempt = activeReviews.getOrNull(page) ?: return@HorizontalPager
                         val deleted = loadedStacks != null && attempt.stack.id !in existingStackIds
                         SleekCard(onClick = { onContinueReview(attempt.id) }) {
                             Row(

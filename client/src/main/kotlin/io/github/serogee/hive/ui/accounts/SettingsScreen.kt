@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
+import io.github.serogee.hive.data.rooms.HostAddress
 import io.github.serogee.hive.data.server.OnlineFacts
 import io.github.serogee.hive.data.server.ServerState
 import io.github.serogee.hive.ui.common.AnswerInput
@@ -86,7 +87,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Saves the address only when a Hive server answers there. */
     fun saveServer(rawUrl: String) = viewModelScope.launch {
-        val url = rawUrl.trim().trimEnd('/').let { if (it.startsWith("http")) it else "http://$it" }
+        val url = HostAddress.normalizeServerUrl(rawUrl)
+        if (url == null) {
+            _serverStatus.value = "Enter a server address."
+            return@launch
+        }
         _serverStatus.value = "Checking $url…"
         try {
             val health = container.api.health(url)

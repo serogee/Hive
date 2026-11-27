@@ -524,7 +524,7 @@ private fun QuestionFields(
                     },
                     label = "Correct answer",
                 )
-                var alternatives by remember(question.id) { mutableStateOf(question.acceptedAlternatives.joinToString(", ")) }
+                var alternatives by rememberSaveable(question.id.value) { mutableStateOf(question.acceptedAlternatives.joinToString(", ")) }
                 HiveTextField(
                     value = alternatives,
                     onValueChange = { text ->
@@ -549,7 +549,7 @@ private fun QuestionFields(
             singleLine = false,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            var points by remember(question.id) { mutableStateOf(question.points.toString()) }
+            var points by rememberSaveable(question.id.value) { mutableStateOf(question.points.toString()) }
             HiveTextField(
                 value = points,
                 onValueChange = { text ->
@@ -560,7 +560,7 @@ private fun QuestionFields(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f),
             )
-            var seconds by remember(question.id) { mutableStateOf(question.durationSeconds?.toString().orEmpty()) }
+            var seconds by rememberSaveable(question.id.value) { mutableStateOf(question.durationSeconds?.toString().orEmpty()) }
             HiveTextField(
                 value = seconds,
                 onValueChange = { text ->

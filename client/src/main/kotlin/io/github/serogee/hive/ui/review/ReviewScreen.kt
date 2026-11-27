@@ -70,6 +70,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class ReviewViewModel(
@@ -92,6 +94,10 @@ class ReviewViewModel(
     private val _next = MutableStateFlow<String?>(null)
     val next: StateFlow<String?> = _next.asStateFlow()
 
+    private val persistenceLock = Mutex()
+    @Volatile
+    private var abandoned = false
+
     init {
         viewModelScope.launch {
             val loaded = reviews.observe(attemptId).first()
@@ -113,7 +119,12 @@ class ReviewViewModel(
     fun mark(gotIt: Boolean) = update { Review.mark(it, gotIt) }
 
     fun abandon(onDone: () -> Unit) = viewModelScope.launch {
-        withContext(NonCancellable) { reviews.abandon(attemptId) }
+        abandoned = true
+        withContext(NonCancellable) {
+            persistenceLock.withLock {
+                reviews.abandon(attemptId)
+            }
+        }
         onDone()
     }
 
@@ -136,12 +147,21 @@ class ReviewViewModel(
         _stackRestored.value = true
     }
 
-    /** Applies a change and saves it on appScope so exiting right after answering never drops it. */
+    /**
+     * Applies a change and saves it on appScope so exiting right after answering never drops it.
+     * Serialized with [abandon] via [persistenceLock] so rapid taps never persist out of order and
+     * an in-flight save can never resurrect an abandoned review.
+     */
     private fun update(change: (ReviewAttempt) -> ReviewAttempt) {
+        if (abandoned) return
         val current = _attempt.value ?: return
         val updated = change(current)
         _attempt.value = updated
-        appScope.launch { reviews.save(updated) }
+        appScope.launch {
+            persistenceLock.withLock {
+                if (!abandoned) reviews.save(_attempt.value ?: updated)
+            }
+        }
     }
 }
 

@@ -52,11 +52,42 @@ class RoomFinder(
 
 /** Addresses that people type. */
 object HostAddress {
-    /** Accepts "192.168.43.1", "192.168.43.1:8090", or a full URL. Returns null for a blank address. */
+    /**
+     * Accepts "192.168.43.1", "192.168.43.1:8090", or a full URL. Appends [LocalHost.PORT] only
+     * for `http://` URLs without an explicit port, placing it on the host authority before any path.
+     * Returns null for a blank or hostless address.
+     */
     fun normalize(raw: String): String? {
         val address = raw.trim().ifEmpty { return null }
-        val withScheme = if (address.startsWith("http://") || address.startsWith("https://")) address else "http://$address"
-        val hostPart = withScheme.substringAfter("://").substringBefore('/')
-        return if (':' in hostPart) withScheme.trimEnd('/') else "${withScheme.trimEnd('/')}:${LocalHost.PORT}"
+        val lower = address.lowercase()
+        val (scheme, rest) = when {
+            lower.startsWith("https://") -> "https" to address.substring("https://".length)
+            lower.startsWith("http://") -> "http" to address.substring("http://".length)
+            else -> "http" to address
+        }
+        val slashIndex = rest.indexOf('/')
+        val authority = if (slashIndex >= 0) rest.substring(0, slashIndex) else rest
+        if (authority.isBlank()) return null
+        val path = if (slashIndex >= 0) rest.substring(slashIndex).trimEnd('/') else ""
+        val normalizedAuthority = if (scheme == "http" && ':' !in authority) "$authority:${LocalHost.PORT}" else authority
+        return "$scheme://$normalizedAuthority$path"
+    }
+
+    /**
+     * Normalizes an online server URL typed in Settings. Adds `http://` only when neither `http://`
+     * nor `https://` is present, and returns null when blank or hostless.
+     */
+    fun normalizeServerUrl(raw: String): String? {
+        val address = raw.trim().ifEmpty { return null }
+        val lower = address.lowercase()
+        val (scheme, rest) = when {
+            lower.startsWith("https://") -> "https" to address.substring("https://".length)
+            lower.startsWith("http://") -> "http" to address.substring("http://".length)
+            else -> "http" to address
+        }
+        val cleaned = rest.trimEnd('/')
+        val authority = cleaned.substringBefore('/')
+        if (authority.isBlank()) return null
+        return "$scheme://$cleaned"
     }
 }

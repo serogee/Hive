@@ -30,11 +30,19 @@ fun StaleRoomDialog() {
     }
     val due by checker.due.collectAsStateWithLifecycle()
     val failed by checker.failed.collectAsStateWithLifecycle()
+    val closedCount by checker.closedCount.collectAsStateWithLifecycle()
 
     if (failed.isNotEmpty()) {
+        val othersNote = if (closedCount > 0) " The others are closed." else ""
+        val title = when {
+            failed.size == 1 && closedCount == 0 -> "Session did not close"
+            failed.size == 1 -> "A session did not close"
+            closedCount == 0 -> "Sessions did not close"
+            else -> "Some sessions did not close"
+        }
         HiveDialog(
-            title = if (failed.size == 1) "A session did not close" else "Some sessions did not close",
-            message = "${failed.joinToString(", ") { name(it) }} could not be closed. The others are closed. " +
+            title = title,
+            message = "${failed.joinToString(", ") { name(it) }} could not be closed.$othersNote " +
                 "Check the connection, and Hive asks again the next time it opens.",
             confirmText = "OK",
             onConfirm = checker::clearFailed,
