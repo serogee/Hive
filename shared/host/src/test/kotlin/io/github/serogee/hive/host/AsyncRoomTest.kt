@@ -226,4 +226,31 @@ class AsyncRoomTest {
             assertNull(riley.state().live?.explanation)
         }
     }
+
+    @Test
+    fun expiredAsyncRoomReportsEndedEverywhereAndRejectsNewJoinsWithoutTimer() = runTest {
+        var now = 1_000L
+        val store = InMemoryRoomStore()
+        // Use a cancelled scope so no background timer writes ENDED to the store.
+        val stoppedTimers = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Job().apply { cancel() })
+        val service = RoomService(store, clock = { now }, requireAccountToHost = true, timers = stoppedTimers)
+
+        val host = service.createRoom(
+            sam,
+            CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.ASYNCHRONOUS, deadlineAt = 61_000L),
+        )
+        val jamie = service.join(host.room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
+        service.command(host.room.id, sam, null, HostCommand.Start)
+
+        // Advance clock past deadline without any timer firing.
+        now = 62_000L
+
+        assertEquals(RoomStatus.ENDED, service.lookup(host.room.code).status)
+        assertEquals(RoomStatus.ENDED, service.hostedRooms(sam).single().status)
+        assertEquals(RoomStatus.ENDED, service.results(host.room.id, null, jamie.participantToken).room.status)
+        val lateJoin = assertFailsWith<HiveException> {
+            service.join(host.room.id, null, JoinRoomRequest("Riley", asGuest = true), null)
+        }
+        assertEquals(ErrorCode.ROOM_CLOSED, lateJoin.code)
+    }
 }

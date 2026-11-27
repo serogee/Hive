@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HostCommand
+import io.github.serogee.hive.core.api.ParticipantView
 import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.RoomResults
@@ -194,7 +195,12 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
         val current = _state.value.room
         if (current != null && event.revision == current.revision + 1) {
             _state.update {
-                it.copy(room = current.copy(participants = current.participants + event.participant, revision = event.revision))
+                it.copy(
+                    room = current.copy(
+                        participants = mergeJoinedParticipant(current.participants, event.participant),
+                        revision = event.revision,
+                    ),
+                )
             }
         } else if (current == null || event.revision > current.revision) {
             refresh()
@@ -217,3 +223,14 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
         val FATAL = setOf(ErrorCode.ROOM_NOT_FOUND, ErrorCode.NOT_A_PARTICIPANT)
     }
 }
+
+/** Replaces an existing participant by ID on rejoin instead of appending a duplicate row. */
+internal fun mergeJoinedParticipant(
+    participants: List<ParticipantView>,
+    joined: ParticipantView,
+): List<ParticipantView> =
+    if (participants.any { it.id == joined.id }) {
+        participants.map { if (it.id == joined.id) joined else it }
+    } else {
+        participants + joined
+    }

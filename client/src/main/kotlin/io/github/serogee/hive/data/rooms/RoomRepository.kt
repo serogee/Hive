@@ -117,11 +117,13 @@ class RoomRepository(
         localRooms.endAbandonedRooms(preferences.hostTokens.first().keys, System.currentTimeMillis())
         if (!localRooms.hasActiveRooms()) return false
         localHost.start()
+        localHost.service.recoverTimers()
         return true
     }
 
     /** Stops the embedded server when every room on this phone has ended. */
     suspend fun stopHostingWhenIdle() {
+        localRooms.endAbandonedRooms(preferences.hostTokens.first().keys, System.currentTimeMillis())
         if (!localRooms.hasActiveRooms()) localHost.stop()
     }
 

@@ -3,12 +3,19 @@ package io.github.serogee.hive.host
 import io.github.serogee.hive.core.api.Account
 import io.github.serogee.hive.core.api.CreateRoomRequest
 import io.github.serogee.hive.core.api.ErrorCode
+import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
 import io.github.serogee.hive.core.api.RoomEvent
+import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.core.model.AdmissionPolicy
+import io.github.serogee.hive.core.model.Answer
+import io.github.serogee.hive.core.model.Question
+import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.core.model.RoomMode
 import io.github.serogee.hive.core.model.RoomRole
+import io.github.serogee.hive.core.model.StackId
+import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.core.sample.SampleStacks
 import kotlin.random.Random
 import kotlin.test.Test
@@ -148,5 +155,49 @@ class RoomServiceTest {
 
         assertEquals(room.id, service.lookup(room.code.lowercase()).id)
         assertNotEquals(room.code, service.createRoom(alex, createRequest()).room.code)
+    }
+
+    @Test
+    fun createRoomValidatesStackAndTextAnswersAreLengthCappedForAllTypes() = runTest {
+        val service = service()
+        val invalidStack = StackSnapshot(
+            id = StackId("bad"),
+            title = "Bad Stack",
+            questions = listOf(Question.TrueFalse(QuestionId("q1"), prompt = " ", answer = true)),
+        )
+        val badRoom = assertFailsWith<HiveException> {
+            service.createRoom(alex, CreateRoomRequest(invalidStack, RoomMode.DISCUSSION))
+        }
+        assertEquals(ErrorCode.INVALID_REQUEST, badRoom.code)
+
+        val host = service.createRoom(alex, createRequest())
+        val guest = service.join(host.room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
+        service.command(host.room.id, alex, null, HostCommand.Start)
+
+        val oversized = assertFailsWith<HiveException> {
+            service.submitAnswer(
+                host.room.id,
+                null,
+                guest.participantToken,
+                SubmitAnswerRequest(QuestionId("nf-q1"), Answer.Text("x".repeat(501)), "big"),
+            )
+        }
+        assertEquals(ErrorCode.INVALID_REQUEST, oversized.code)
+    }
+
+    @Test
+    fun endingARoomEvictsItsLockAndEventFlow() = runTest {
+        val hub = RoomEventHub()
+        val service = RoomService(InMemoryRoomStore(), hub = hub, clock = { 1_000L }, requireAccountToHost = true)
+        val host = service.createRoom(alex, createRequest())
+        service.join(host.room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
+
+        assertTrue(hub.activeRoomCount() > 0)
+        assertTrue(service.trackedLockCount() > 0)
+
+        service.command(host.room.id, alex, null, HostCommand.EndRoom)
+
+        assertEquals(0, hub.activeRoomCount())
+        assertEquals(0, service.trackedLockCount())
     }
 }

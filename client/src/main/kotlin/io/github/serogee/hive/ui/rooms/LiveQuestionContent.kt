@@ -103,7 +103,7 @@ private fun LiveQuestion.isCorrect(answer: Answer): Boolean? = correctAnswer?.le
 fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) -> Unit, onTimeUp: () -> Unit) {
     var confirm by rememberSaveable { mutableStateOf<String?>(null) }
     val isLast = live.question.number == live.questionCount
-    val waiting = live.playerCount - live.answeredCount
+    val waiting = (live.playerCount - live.answeredCount).coerceAtLeast(0)
 
     SleekCard(active = true) {
         QuestionHeader(live, onTimeUp)

@@ -35,6 +35,8 @@ import io.github.serogee.hive.core.engine.SpeedBonus
 import io.github.serogee.hive.core.engine.Timing
 import io.github.serogee.hive.core.engine.Transition
 import io.github.serogee.hive.core.editor.QuestionDraft
+import io.github.serogee.hive.core.editor.StackValidation
+import io.github.serogee.hive.core.editor.toDraft
 import io.github.serogee.hive.core.model.AdmissionPolicy
 import io.github.serogee.hive.core.model.withDuration
 import io.github.serogee.hive.core.model.AccountId
@@ -92,6 +94,59 @@ class RoomService(
 
     private fun lockFor(roomId: RoomId) = roomLocks.computeIfAbsent(roomId) { Mutex() }
 
+    /** Acquires locks for [roomIds] in ascending ID order so concurrent cross-room operations never deadlock. */
+    private suspend fun <T> withRoomLocks(roomIds: Collection<RoomId>, block: suspend () -> T): T {
+        val ordered = roomIds.distinct().sortedBy { it.value }
+        suspend fun acquire(index: Int): T =
+            if (index >= ordered.size) block() else lockFor(ordered[index]).withLock { acquire(index + 1) }
+        return acquire(0)
+    }
+
+    /** Holds locks on every open room hosted by [accountId] while [block] runs (such as account deletion). */
+    suspend fun <T> withHostedRoomLocks(accountId: AccountId, block: suspend () -> T): T {
+        val openHosted = store.roomsHostedBy(accountId).filter { it.status != RoomStatus.ENDED }.map { it.id }
+        return withRoomLocks(openHosted, block)
+    }
+
+    /** Evicts per-room locks and event flows for an ended room to prevent unbounded memory growth. */
+    fun evictEndedRoom(roomId: RoomId) {
+        hub.evict(roomId)
+        roomLocks.remove(roomId)
+    }
+
+    internal fun trackedLockCount(): Int = roomLocks.size
+
+    /**
+     * Restores deadline and open-question timers after a server or app restart, and immediately closes
+     * any room or question whose cutoff already passed while the process was down.
+     */
+    suspend fun recoverTimers() {
+        val now = clock.nowMillis()
+        store.activeRooms().forEach { room ->
+            lockFor(room.id).withLock {
+                val current = store.findRoom(room.id) ?: return@withLock
+                if (current.status == RoomStatus.ENDED) return@withLock
+                if (current.effectiveStatus(now) == RoomStatus.ENDED) {
+                    val revision = current.revision + 1
+                    store.updateProgress(current.id, Progress(RoomStatus.ENDED, null, false), revision)
+                    hub.publish(RoomEvent.RoomEnded(current.id, revision))
+                    evictEndedRoom(current.id)
+                    return@withLock
+                }
+                if (current.deadlineAt != null) scheduleDeadline(current)
+                if (current.mode == RoomMode.DISCUSSION && current.status == RoomStatus.LIVE && current.questionOpen) {
+                    if (!current.acceptsAnswers(now)) {
+                        val revision = current.revision + 1
+                        store.updateProgress(current.id, current.progress.copy(questionOpen = false), revision)
+                        hub.publish(RoomEvent.QuestionClosed(current.id, revision, (current.questionIndex ?: 0) + 1))
+                    } else {
+                        scheduleClose(current)
+                    }
+                }
+            }
+        }
+    }
+
     fun events(roomId: RoomId): SharedFlow<RoomEvent> = hub.events(roomId)
 
     suspend fun createRoom(caller: Account?, request: CreateRoomRequest): Membership {
@@ -101,9 +156,21 @@ class RoomService(
         if (request.stack.questions.isEmpty()) {
             throw HiveException(ErrorCode.INVALID_REQUEST, "The stack has no questions.")
         }
+        if (request.stack.questions.size > MAX_QUESTIONS) {
+            throw HiveException(ErrorCode.INVALID_REQUEST, "A session can have at most $MAX_QUESTIONS questions.")
+        }
+        if (!accountsSupported && request.admission == AdmissionPolicy.SIGNED_IN_ONLY) {
+            throw HiveException(ErrorCode.INVALID_REQUEST, "This session cannot check accounts.")
+        }
         val hostName = DisplayNames.normalize(caller?.displayName ?: request.hostDisplayName)
             ?: throw HiveException(ErrorCode.INVALID_REQUEST, "Enter a host name.")
-        val title = request.title?.trim()?.takeIf { it.isNotEmpty() } ?: request.stack.title
+        val title = request.title?.trim()?.takeIf { it.isNotEmpty() } ?: request.stack.title.trim()
+        if (title.isEmpty() || title.length > MAX_TITLE_LENGTH) {
+            throw HiveException(ErrorCode.INVALID_REQUEST, "The session needs a name of up to $MAX_TITLE_LENGTH characters.")
+        }
+        StackValidation.validate(request.stack.toDraft().copy(title = title)).firstOrNull()?.let { issue ->
+            throw HiveException(ErrorCode.INVALID_REQUEST, issue.message)
+        }
         val now = clock.nowMillis()
         if ((request.deadlineAt ?: Long.MAX_VALUE) <= now) {
             throw HiveException(ErrorCode.INVALID_REQUEST, "The quiz deadline has already passed.")
@@ -141,18 +208,21 @@ class RoomService(
                 joinedAt = now,
             )
             store.insertRoom(room, host)
-            Membership(room.publicSummary(), host.view(), token)
+            if (room.deadlineAt != null) scheduleDeadline(room)
+            Membership(room.publicSummary(now), host.view(), token)
         }
     }
 
     suspend fun lookup(rawCode: String): RoomSummary {
         val room = store.findRoomByCode(RoomCodes.normalize(rawCode))
             ?: throw HiveException(ErrorCode.ROOM_NOT_FOUND, "No session uses that code.")
-        return room.publicSummary()
+        return room.publicSummary(clock.nowMillis())
     }
 
-    suspend fun hostedRooms(caller: Account): List<RoomSummary> =
-        store.roomsHostedBy(caller.id).sortedByDescending { it.createdAt }.map { it.publicSummary() }
+    suspend fun hostedRooms(caller: Account): List<RoomSummary> {
+        val now = clock.nowMillis()
+        return store.roomsHostedBy(caller.id).sortedByDescending { it.createdAt }.map { it.publicSummary(now) }
+    }
 
     /**
      * Admits a participant, or returns the existing membership.
@@ -165,67 +235,94 @@ class RoomService(
         caller: Account?,
         request: JoinRoomRequest,
         existingToken: String?,
-    ): Membership = lockFor(roomId).withLock {
-        val room = requireRoom(roomId)
-        if (existingToken != null) {
-            val existing = store.findParticipantByToken(roomId, Tokens.hash(existingToken))
-            if (existing != null) {
-                val back = if (existing.leftAt != null) rejoin(existing, room) else existing
-                return Membership(room.publicSummary(), back.view(), existingToken)
+    ): Membership {
+        val initialLocks = buildSet {
+            add(roomId)
+            if (request.leaveOtherRoom && caller != null) {
+                store.activeMembershipsOf(caller.id).forEach { add(it.roomId) }
             }
         }
-        if (room.status == RoomStatus.ENDED) {
-            throw HiveException(ErrorCode.ROOM_CLOSED, "This session has ended.")
-        }
+        return withRoomLocks(initialLocks) {
+            val room = requireRoom(roomId)
+            val now = clock.nowMillis()
+            val ended = room.effectiveStatus(now) == RoomStatus.ENDED
+            if (existingToken != null) {
+                val existing = store.findParticipantByToken(roomId, Tokens.hash(existingToken))
+                if (existing != null) {
+                    if (existing.leftAt != null) {
+                        if (ended) throw HiveException(ErrorCode.ROOM_CLOSED, "This session has ended.")
+                        if (existing.role == RoomRole.PLAYER) {
+                            existing.accountId?.let { leaveOtherRooms(it, roomId, request.leaveOtherRoom, now, initialLocks) }
+                        }
+                        val back = rejoin(existing, room)
+                        return@withRoomLocks Membership(room.copy(revision = room.revision + 1).publicSummary(now), back.view(), existingToken)
+                    }
+                    return@withRoomLocks Membership(room.publicSummary(now), existing.view(), existingToken)
+                }
+            }
+            if (ended) {
+                throw HiveException(ErrorCode.ROOM_CLOSED, "This session has ended.")
+            }
 
-        val decision = Admission.decide(room.admission, signedIn = caller != null, asGuest = request.asGuest)
-        val name: String
-        val accountId = when (decision) {
-            is AdmissionDecision.Denied -> throw HiveException(decision.reason, deniedMessage(decision.reason))
-            AdmissionDecision.AsGuest -> {
-                name = DisplayNames.normalize(request.displayName)
-                    ?: throw HiveException(ErrorCode.INVALID_REQUEST, "Enter a display name.")
-                null
+            val decision = Admission.decide(room.admission, signedIn = caller != null, asGuest = request.asGuest)
+            val name: String
+            val accountId = when (decision) {
+                is AdmissionDecision.Denied -> throw HiveException(decision.reason, deniedMessage(decision.reason))
+                AdmissionDecision.AsGuest -> {
+                    name = DisplayNames.normalize(request.displayName)
+                        ?: throw HiveException(ErrorCode.INVALID_REQUEST, "Enter a display name.")
+                    null
+                }
+                AdmissionDecision.AsAccount -> {
+                    val account = checkNotNull(caller)
+                    name = DisplayNames.normalize(request.displayName) ?: account.displayName
+                    account.id
+                }
             }
-            AdmissionDecision.AsAccount -> {
-                val account = checkNotNull(caller)
-                name = DisplayNames.normalize(request.displayName) ?: account.displayName
-                account.id
-            }
-        }
 
-        val token = Tokens.newToken()
-        if (accountId != null) {
-            leaveOtherRooms(accountId, roomId, request.leaveOtherRoom)
-            val existing = store.findParticipantByAccount(roomId, accountId)
-            if (existing != null) {
-                store.replaceParticipantToken(existing.id, Tokens.hash(token))
-                val back = if (existing.leftAt != null) rejoin(existing, room) else existing
-                return Membership(room.publicSummary(), back.view(), token)
+            val token = Tokens.newToken()
+            if (accountId != null) {
+                val existing = store.findParticipantByAccount(roomId, accountId)
+                if (existing == null || existing.role == RoomRole.PLAYER) {
+                    leaveOtherRooms(accountId, roomId, request.leaveOtherRoom, now, initialLocks)
+                }
+                if (existing != null) {
+                    store.replaceParticipantToken(existing.id, Tokens.hash(token))
+                    if (existing.leftAt != null) {
+                        val back = rejoin(existing, room)
+                        return@withRoomLocks Membership(room.copy(revision = room.revision + 1).publicSummary(now), back.view(), token)
+                    }
+                    return@withRoomLocks Membership(room.publicSummary(now), existing.view(), token)
+                }
             }
-        }
 
-        val participant = ParticipantRecord(
-            id = ParticipantId(UUID.randomUUID().toString()),
-            roomId = roomId,
-            displayName = name,
-            role = RoomRole.PLAYER,
-            accountId = accountId,
-            tokenHash = Tokens.hash(token),
-            joinedAt = clock.nowMillis(),
-        )
-        val revision = room.revision + 1
-        store.insertParticipant(participant, revision)
-        hub.publish(RoomEvent.ParticipantJoined(roomId, revision, participant.view()))
-        Membership(room.copy(revision = revision).publicSummary(), participant.view(), token)
+            val participant = ParticipantRecord(
+                id = ParticipantId(UUID.randomUUID().toString()),
+                roomId = roomId,
+                displayName = name,
+                role = RoomRole.PLAYER,
+                accountId = accountId,
+                tokenHash = Tokens.hash(token),
+                joinedAt = now,
+            )
+            val revision = room.revision + 1
+            store.insertParticipant(participant, revision)
+            hub.publish(RoomEvent.ParticipantJoined(roomId, revision, participant.view()))
+            Membership(room.copy(revision = revision).publicSummary(now), participant.view(), token)
+        }
     }
 
     /**
      * Keeps an account in one active room as a Player. Joining another room fails unless the
      * Player chose to leave the current one.
      */
-    private suspend fun leaveOtherRooms(accountId: AccountId, joining: RoomId, leave: Boolean) {
-        val now = clock.nowMillis()
+    private suspend fun leaveOtherRooms(
+        accountId: AccountId,
+        joining: RoomId,
+        leave: Boolean,
+        now: Long,
+        heldLocks: Set<RoomId>,
+    ) {
         val others = store.activeMembershipsOf(accountId).filter { membership ->
             membership.roomId != joining && store.findRoom(membership.roomId)?.effectiveStatus(now)?.let { it != RoomStatus.ENDED } == true
         }
@@ -234,13 +331,17 @@ class RoomService(
             val title = store.findRoom(others.first().roomId)?.title ?: "another session"
             throw HiveException(ErrorCode.ALREADY_IN_ROOM, "You are in $title. Leave it to join this session.")
         }
-        others.forEach { markLeft(it) }
+        others.forEach { other ->
+            if (other.roomId in heldLocks) {
+                markLeft(other)
+            } else {
+                // Rare case: the account joined another room between initial lock discovery and lock acquisition.
+                lockFor(other.roomId).withLock { markLeft(other) }
+            }
+        }
     }
 
-    /**
-     * Marks a Player as left. It takes no room lock, because a join already holds the lock of the room
-     * being joined, and locking a second room could deadlock two crossing joins.
-     */
+    /** Marks a Player as left. Callers hold the lock for [participant.roomId]. */
     private suspend fun markLeft(participant: ParticipantRecord) {
         val room = store.findRoom(participant.roomId) ?: return
         val revision = room.revision + 1
@@ -280,8 +381,9 @@ class RoomService(
         val now = clock.nowMillis()
         if (command is HostCommand.UpdateSettings) return updateSettings(room, host, command, now)
         if (room.mode == RoomMode.ASYNCHRONOUS) return asyncCommand(room, host, command, now)
-        // A question whose time ran out counts as closed, so the Host can move on.
-        val current = room.progress.let { if (it.questionOpen && !room.acceptsAnswers(now)) it.copy(questionOpen = false) else it }
+        // A room past its deadline is ended; a question whose time ran out counts as closed.
+        val current = room.progress.copy(status = room.effectiveStatus(now))
+            .let { if (it.questionOpen && !room.acceptsAnswers(now)) it.copy(questionOpen = false) else it }
         val progress = when (val transition = RoomProgression.apply(current, command, room.stack.questions.size)) {
             is Transition.Rejected -> throw HiveException(ErrorCode.INVALID_COMMAND, transition.reason)
             is Transition.Accepted -> transition.progress
@@ -298,13 +400,14 @@ class RoomService(
                 is HostCommand.UpdateSettings -> RoomEvent.SettingsChanged(roomId, revision)
             },
         )
+        if (progress.status == RoomStatus.ENDED) evictEndedRoom(roomId)
         if (progress.questionOpen) scheduleClose(updated)
         stateFor(updated, host)
     }
 
     /** The Host changes the room in the lobby, before anyone has seen a question. */
     private suspend fun updateSettings(room: RoomRecord, host: ParticipantRecord, command: HostCommand.UpdateSettings, now: Long): RoomState {
-        if (room.status != RoomStatus.LOBBY) {
+        if (room.effectiveStatus(now) != RoomStatus.LOBBY) {
             throw HiveException(ErrorCode.INVALID_COMMAND, "Settings can change only before the quiz starts.")
         }
         val title = command.title.trim()
@@ -341,17 +444,19 @@ class RoomService(
         )
         store.updateSettings(updated)
         hub.publish(RoomEvent.SettingsChanged(room.id, updated.revision))
+        if (updated.deadlineAt != null && updated.deadlineAt != room.deadlineAt) scheduleDeadline(updated)
         return stateFor(updated, host)
     }
 
     /** In an Asynchronous room, the Host only opens and ends the room. Players set their own pace. */
     private suspend fun asyncCommand(room: RoomRecord, host: ParticipantRecord, command: HostCommand, now: Long): RoomState {
+        val effective = room.effectiveStatus(now)
         val progress = when {
-            command == HostCommand.Start && room.status == RoomStatus.LOBBY -> Progress(RoomStatus.LIVE, null, false)
-            command == HostCommand.EndRoom && room.effectiveStatus(now) != RoomStatus.ENDED ->
+            command == HostCommand.Start && effective == RoomStatus.LOBBY -> Progress(RoomStatus.LIVE, null, false)
+            command == HostCommand.EndRoom && effective != RoomStatus.ENDED ->
                 Progress(RoomStatus.ENDED, null, false)
             command == HostCommand.Start || command == HostCommand.EndRoom ->
-                throw HiveException(ErrorCode.INVALID_COMMAND, "The session is already ${if (command == HostCommand.Start) "open" else "closed"}.")
+                throw HiveException(ErrorCode.INVALID_COMMAND, "The session is already ${if (effective == RoomStatus.ENDED) "closed" else "open"}.")
             else -> throw HiveException(ErrorCode.INVALID_COMMAND, "Players move through this session at their own pace.")
         }
         val revision = room.revision + 1
@@ -360,21 +465,22 @@ class RoomService(
         hub.publish(
             if (progress.status == RoomStatus.ENDED) RoomEvent.RoomEnded(room.id, revision) else RoomEvent.QuestionOpened(room.id, revision, 1),
         )
-        if (progress.status == RoomStatus.LIVE) scheduleDeadline(updated)
+        if (progress.status == RoomStatus.ENDED) evictEndedRoom(room.id)
         return stateFor(updated, host)
     }
 
-    /** Ends an Asynchronous room for everyone when its deadline passes. */
+    /** Ends a room (Discussion, Asynchronous, or unstarted Lobby) for everyone when its deadline passes. */
     private fun scheduleDeadline(room: RoomRecord) {
         val deadline = room.deadlineAt ?: return
         timers.launch {
             delay((deadline - clock.nowMillis()).coerceAtLeast(0))
             lockFor(room.id).withLock {
                 val current = store.findRoom(room.id) ?: return@withLock
-                if (current.status != RoomStatus.LIVE) return@withLock
+                if (current.status == RoomStatus.ENDED || current.deadlineAt != deadline) return@withLock
                 val revision = current.revision + 1
                 store.updateProgress(room.id, Progress(RoomStatus.ENDED, null, false), revision)
                 hub.publish(RoomEvent.RoomEnded(room.id, revision))
+                evictEndedRoom(room.id)
             }
         }
     }
@@ -429,7 +535,10 @@ class RoomService(
             delay((cutoff - clock.nowMillis()).coerceAtLeast(0))
             lockFor(room.id).withLock {
                 val current = store.findRoom(room.id) ?: return@withLock
-                if (current.questionIndex != index || current.questionOpenedAt != openedAt || !current.questionOpen) return@withLock
+                if (current.status != RoomStatus.LIVE || current.questionIndex != index || current.questionOpenedAt != openedAt || !current.questionOpen) {
+                    return@withLock
+                }
+                if (current.effectiveStatus(clock.nowMillis()) == RoomStatus.ENDED) return@withLock
                 val revision = current.revision + 1
                 store.updateProgress(room.id, current.progress.copy(questionOpen = false), revision)
                 hub.publish(RoomEvent.QuestionClosed(room.id, revision, (index ?: 0) + 1))
@@ -509,7 +618,8 @@ class RoomService(
     suspend fun results(roomId: RoomId, caller: Account?, participantToken: String?): RoomResults {
         val room = requireRoom(roomId)
         val you = authorize(roomId, caller, participantToken)
-        if (you.role == RoomRole.PLAYER && room.effectiveStatus(clock.nowMillis()) != RoomStatus.ENDED) {
+        val now = clock.nowMillis()
+        if (you.role == RoomRole.PLAYER && room.effectiveStatus(now) != RoomStatus.ENDED) {
             throw HiveException(ErrorCode.RESULTS_NOT_READY, "Results appear when the quiz ends.")
         }
 
@@ -548,7 +658,7 @@ class RoomService(
         } else {
             emptyList()
         }
-        return RoomResults(room.publicSummary(), leaderboard, questions, yourAnswers)
+        return RoomResults(room.publicSummary(now), leaderboard, questions, yourAnswers)
     }
 
     private suspend fun stateFor(room: RoomRecord, you: ParticipantRecord): RoomState {
@@ -556,7 +666,8 @@ class RoomService(
         val participants = store.participants(room.id)
         val index = room.questionIndex
         val now = clock.nowMillis()
-        val live = if (room.status == RoomStatus.LIVE && index != null) {
+        val status = room.effectiveStatus(now)
+        val live = if (status == RoomStatus.LIVE && index != null) {
             val question = room.stack.questions[index]
             val answers = store.submissions(room.id).filter { it.questionId == question.id }
             val open = room.acceptsAnswers(now)
@@ -566,7 +677,7 @@ class RoomService(
                 isOpen = open,
                 questionCount = room.stack.questions.size,
                 answeredCount = answers.size,
-                playerCount = participants.count { it.role == RoomRole.PLAYER },
+                playerCount = participants.count { it.role == RoomRole.PLAYER && it.leftAt == null },
                 yourAnswer = answers.firstOrNull { it.participantId == you.id }?.receipt(),
                 closesAt = if (room.questionOpen) room.cutoff() else null,
                 serverTime = now,
@@ -577,7 +688,7 @@ class RoomService(
             null
         }
         return RoomState(
-            room = room.publicSummary(),
+            room = room.publicSummary(now),
             you = you.view(),
             participants = participants.map { it.view() },
             revision = room.revision,
@@ -604,7 +715,7 @@ class RoomService(
                 isOpen = open,
                 questionCount = room.stack.questions.size,
                 answeredCount = submissions.count { it.questionId == question.id },
-                playerCount = players.size,
+                playerCount = players.count { it.leftAt == null },
                 yourAnswer = yourAnswer,
                 closesAt = cutoff,
                 serverTime = now,
@@ -638,7 +749,7 @@ class RoomService(
             emptyList()
         }
         return RoomState(
-            room = room.publicSummary().copy(status = status),
+            room = room.publicSummary(now),
             you = you.view(),
             participants = participants.map { it.view() },
             revision = room.revision,
@@ -648,11 +759,14 @@ class RoomService(
         )
     }
     private fun validate(question: Question, answer: Answer) {
+        if (answer is Answer.Text && answer.text.length > MAX_ANSWER_LENGTH) {
+            throw HiveException(ErrorCode.INVALID_REQUEST, "Answers can be at most $MAX_ANSWER_LENGTH characters.")
+        }
         val valid = when (question) {
             is Question.MultipleChoice -> answer is Answer.Text ||
                 (answer is Answer.SelectedChoice && question.choices.any { it.id == answer.choiceId })
             is Question.TrueFalse -> answer is Answer.TrueFalse || answer is Answer.Text
-            is Question.Identification -> answer is Answer.Text && answer.text.length <= 500
+            is Question.Identification -> answer is Answer.Text
         }
         if (!valid) throw HiveException(ErrorCode.INVALID_REQUEST, "That answer does not fit this question.")
     }
@@ -665,7 +779,8 @@ class RoomService(
         return participant ?: throw HiveException(ErrorCode.NOT_A_PARTICIPANT, "Join this session first.")
     }
 
-    private fun RoomRecord.publicSummary() = summary().copy(acceptsAccounts = accountsSupported)
+    private fun RoomRecord.publicSummary(now: Long = clock.nowMillis()) =
+        summary().copy(status = effectiveStatus(now), acceptsAccounts = accountsSupported)
 
     private suspend fun requireRoom(roomId: RoomId) =
         store.findRoom(roomId) ?: throw HiveException(ErrorCode.ROOM_NOT_FOUND, "This session no longer exists.")
@@ -679,5 +794,7 @@ class RoomService(
 
     private companion object {
         const val MAX_TITLE_LENGTH = 100
+        const val MAX_QUESTIONS = 1_000
+        const val MAX_ANSWER_LENGTH = 500
     }
 }

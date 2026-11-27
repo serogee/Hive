@@ -341,7 +341,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
     }
 
     if (isHost) {
-        val players = room.participants.count { it.role == RoomRole.PLAYER }
+        val players = room.participants.count { it.role == RoomRole.PLAYER && !it.left }
         val start = if (room.room.mode == RoomMode.ASYNCHRONOUS) "Open session" else "Start quiz"
         HiveButton(
             text = if (players > 0) start else "Waiting for Players...",
