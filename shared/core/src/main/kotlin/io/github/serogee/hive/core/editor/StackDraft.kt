@@ -70,8 +70,15 @@ object StackValidation {
     fun validate(draft: StackDraft): List<ValidationIssue> = buildList {
         if (draft.title.isBlank()) add(ValidationIssue(null, "Give this stack a title."))
         if (draft.questions.isEmpty()) add(ValidationIssue(null, "Add at least one question."))
+        val seenQuestionIds = mutableSetOf<QuestionId>()
         draft.questions.forEachIndexed { index, question ->
-            questionIssues(question, index + 1).forEach { add(ValidationIssue(question.id, it)) }
+            val number = index + 1
+            if (question.id.value.isBlank()) {
+                add(ValidationIssue(question.id, "Question $number needs an ID."))
+            } else if (!seenQuestionIds.add(question.id)) {
+                add(ValidationIssue(question.id, "Question $number has a duplicate ID."))
+            }
+            questionIssues(question, number).forEach { add(ValidationIssue(question.id, it)) }
         }
     }
 
@@ -80,7 +87,13 @@ object StackValidation {
         if (question.prompt.isBlank()) add("$label needs a prompt.")
         when (question.type) {
             QuestionType.MULTIPLE_CHOICE -> {
+                val seenChoiceIds = mutableSetOf<ChoiceId>()
                 question.choices.forEachIndexed { index, choice ->
+                    if (choice.id.value.isBlank()) {
+                        add("$label, choice ${index + 1} needs an ID.")
+                    } else if (!seenChoiceIds.add(choice.id)) {
+                        add("$label, choice ${index + 1} has a duplicate ID.")
+                    }
                     if (choice.text.isBlank()) add("$label, choice ${index + 1} is empty.")
                 }
                 if (question.choices.size < 2) add("$label needs at least two choices.")
@@ -155,11 +168,18 @@ object QuestionDrafts {
 
     /** Copies a question with new question and choice IDs. The copy keeps the same correct choice. */
     fun duplicate(question: QuestionDraft, newId: () -> String): QuestionDraft {
-        val ids = question.choices.associate { it.id to ChoiceId(newId()) }
+        var correctChoiceId: ChoiceId? = null
+        val choices = question.choices.map { choice ->
+            val freshId = ChoiceId(newId())
+            if (correctChoiceId == null && choice.id == question.correctChoiceId) {
+                correctChoiceId = freshId
+            }
+            choice.copy(id = freshId)
+        }
         return question.copy(
             id = QuestionId(newId()),
-            choices = question.choices.map { it.copy(id = ids.getValue(it.id)) },
-            correctChoiceId = question.correctChoiceId?.let { ids[it] },
+            choices = choices,
+            correctChoiceId = correctChoiceId,
         )
     }
 }

@@ -102,4 +102,26 @@ class StackValidationTest {
             issues,
         )
     }
+
+    @Test
+    fun duplicateAndBlankIdsAreReported() {
+        val duplicateChoices = complete.copy(
+            id = QuestionId("q2"),
+            choices = listOf(Choice(ChoiceId("c1"), "Network"), Choice(ChoiceId("c1"), "Physical")),
+        )
+        val blankIds = complete.copy(
+            id = QuestionId(" "),
+            choices = listOf(Choice(ChoiceId(""), "Network"), Choice(ChoiceId("c2"), "Physical")),
+            correctChoiceId = ChoiceId("c2"),
+        )
+        val stack = draft(complete, complete, duplicateChoices, blankIds)
+
+        val messages = StackValidation.validate(stack).map { it.message }
+
+        assertTrue("Question 2 has a duplicate ID." in messages)
+        assertTrue("Question 3, choice 2 has a duplicate ID." in messages)
+        assertTrue("Question 4 needs an ID." in messages)
+        assertTrue("Question 4, choice 1 needs an ID." in messages)
+        assertNull(StackValidation.toSnapshot(stack))
+    }
 }

@@ -47,13 +47,15 @@ class StackRepository(private val dao: StackDao, private val now: () -> Long = S
         return draft.id
     }
 
-    /** Saves an independent copy of [snapshot] with new stack, question, and choice IDs. */
-    suspend fun saveCopy(snapshot: StackSnapshot): StackId {
-        val raw = snapshot.toDraft()
-        val draft = raw.copy(id = StackId(newId()), questions = raw.questions.map(::duplicate))
-        save(draft)
-        return draft.id
+    /** Saves an independent copy of [draft] with new stack, question, and choice IDs. */
+    suspend fun saveCopy(draft: StackDraft): StackId {
+        val copy = draft.copy(id = StackId(newId()), questions = draft.questions.map(::duplicate))
+        save(copy)
+        return copy.id
     }
+
+    /** Saves an independent copy of [snapshot] with new stack, question, and choice IDs. */
+    suspend fun saveCopy(snapshot: StackSnapshot): StackId = saveCopy(snapshot.toDraft())
 
     /** Restores a deleted stack under its original [StackId] with fresh question and choice IDs. */
     suspend fun restore(snapshot: StackSnapshot): StackId {

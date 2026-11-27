@@ -14,6 +14,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "stacks")
@@ -66,11 +68,12 @@ data class QuizResultEntity(
  */
 @Entity(
     tableName = "questions",
+    primaryKeys = ["stackId", "id"],
     foreignKeys = [ForeignKey(StackEntity::class, ["id"], ["stackId"], onDelete = ForeignKey.CASCADE)],
     indices = [Index("stackId")],
 )
 data class QuestionEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val stackId: String,
     val position: Int,
     val draftJson: String,
@@ -200,7 +203,7 @@ interface ReviewDao {
         StackDeletionEntity::class,
         QuizResultEntity::class,
     ],
-    version = 7,
+    version = 8,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -220,7 +223,34 @@ abstract class HiveDatabase : RoomDatabase() {
     abstract fun sync(): SyncDao
 
     companion object {
+        /** Scopes question primary keys to (stackId, id) so one stack can never overwrite another's questions. */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `questions_new` (
+                        `id` TEXT NOT NULL,
+                        `stackId` TEXT NOT NULL,
+                        `position` INTEGER NOT NULL,
+                        `draftJson` TEXT NOT NULL,
+                        PRIMARY KEY(`stackId`, `id`),
+                        FOREIGN KEY(`stackId`) REFERENCES `stacks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "INSERT INTO `questions_new` (`id`, `stackId`, `position`, `draftJson`) " +
+                        "SELECT `id`, `stackId`, `position`, `draftJson` FROM `questions`",
+                )
+                db.execSQL("DROP TABLE `questions`")
+                db.execSQL("ALTER TABLE `questions_new` RENAME TO `questions`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_questions_stackId` ON `questions` (`stackId`)")
+            }
+        }
+
         fun create(context: Context): HiveDatabase =
-            Room.databaseBuilder(context.applicationContext, HiveDatabase::class.java, "hive.db").build()
+            Room.databaseBuilder(context.applicationContext, HiveDatabase::class.java, "hive.db")
+                .addMigrations(MIGRATION_7_8)
+                .build()
     }
 }
