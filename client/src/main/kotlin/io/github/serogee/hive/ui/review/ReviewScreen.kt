@@ -29,6 +29,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.correctAnswer
 import io.github.serogee.hive.core.api.describe
+import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.Question
@@ -434,7 +435,7 @@ private fun QuizCard(
             }
             HiveTextField(
                 value = shownTyped,
-                onValueChange = { onTypedChange(it.take(200)) },
+                onValueChange = { onTypedChange(it.take(QuestionDraft.MAX_ANSWER_LENGTH)) },
                 label = if (question is Question.TrueFalse) "Type true or false" else "Type your answer",
                 enabled = !checked,
             )
@@ -499,7 +500,7 @@ private fun FlashCard(
         if (preferTyping) {
             HiveTextField(
                 value = guess,
-                onValueChange = { onGuessChange(it.take(200)) },
+                onValueChange = { onGuessChange(it.take(QuestionDraft.MAX_ANSWER_LENGTH)) },
                 label = "Type a guess (optional)",
                 enabled = !revealed,
             )

@@ -86,4 +86,15 @@ class OnlineGateTest {
         assertEquals(locked("Sign-in is down right now"), facts(demo, google = true, demo = false).accountGate())
         assertEquals(locked("Sign-in is down right now"), facts(production, google = false, demo = true).accountGate())
     }
+
+    @Test
+    fun `googleSignInGate requires a reachable production server with auth and Google keys`() {
+        assertNull(facts(production, google = true, demo = true).googleSignInGate())
+        assertEquals(locked("Sign-in is down right now"), facts(production, google = false).googleSignInGate())
+        assertEquals(locked("Sign-in is down right now"), facts(production.copy(auth = HealthAuth.NOT_CONFIGURED), google = true).googleSignInGate())
+        assertEquals(locked("Sign-in is down right now"), facts(demo, google = true, demo = true).googleSignInGate())
+        assertEquals(locked("The server is down right now"), facts(production.copy(state = ServerState.UNREACHABLE), google = true).googleSignInGate())
+        assertEquals(locked("The server is not set up"), facts(ServerStatus(ServerState.NOT_CONFIGURED), google = true).googleSignInGate())
+        assertEquals(locked("Checking the connection"), facts(ServerStatus(ServerState.CHECKING), google = true).googleSignInGate())
+    }
 }

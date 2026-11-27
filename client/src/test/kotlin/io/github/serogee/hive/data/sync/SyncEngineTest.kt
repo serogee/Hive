@@ -339,13 +339,15 @@ class SyncEngineTest {
     }
 
     @Test
-    fun `unsyncAll removes synced stacks from the server and syncAll brings everything back`() = runTest {
+    fun `unsyncAll removes synced stacks from the server and keeps reviews and results syncing`() = runTest {
         val phone = signedIn()
         phone.phone.create("s1", "Biology")
         phone.phone.create("s2", "Chemistry")
         phone.sync()
         assertEquals(listOf("Biology", "Chemistry"), account.titles())
 
+        phone.phone.finishReview("r1")
+        phone.phone.recordResult("x1")
         phone.engine.unsyncAll()
         phone.sync()
         phone.sync()
@@ -353,6 +355,9 @@ class SyncEngineTest {
         assertEquals(listOf("Biology", "Chemistry"), phone.phone.titles())
         assertTrue(phone.phone.stacks.values.all { it.localOnly })
         assertTrue(account.titles().isEmpty())
+        // Unsync all stacks must not silently hide unsent reviews or quiz results from sync.
+        assertEquals(listOf("r1"), account.reviewIds())
+        assertTrue(("result" to "x1") in account.records)
 
         phone.engine.syncAll()
         phone.sync()

@@ -117,6 +117,30 @@ class StackEditorViewModelTest {
         assertEquals(0, editor.state.value.draft!!.questions.indexOfFirst { it.id == id })
     }
 
+    @Test
+    fun `new drafts and saveOnClose stay out of sync until Save is pressed`() = runTest(dispatcher) {
+        val id = stacks.create()
+        assertFalse(stacks.isPendingSync(id))
+
+        val newEditor = editor(id, isNew = true)
+        newEditor.setTitle("Draft")
+        newEditor.saveOnClose()
+        assertFalse(stacks.isPendingSync(id))
+
+        newEditor.save()
+        assertTrue(stacks.isPendingSync(id))
+
+        // Editing an already-pending stack and discarding after saveOnClose restores its pendingSync flag.
+        val existingEditor = editor(id, isNew = false)
+        existingEditor.setTitle("Unconfirmed")
+        existingEditor.saveOnClose()
+        assertFalse(stacks.isPendingSync(id))
+
+        existingEditor.discard()
+        assertEquals("Draft", stacks.draft(id)?.title)
+        assertTrue(stacks.isPendingSync(id))
+    }
+
     private class FakeStackDao : StackDao {
         private val stacks = mutableMapOf<String, StackEntity>()
         private val questions = mutableMapOf<String, List<QuestionEntity>>()

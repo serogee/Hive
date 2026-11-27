@@ -795,6 +795,6 @@ class RoomService(
     private companion object {
         const val MAX_TITLE_LENGTH = 100
         const val MAX_QUESTIONS = 1_000
-        const val MAX_ANSWER_LENGTH = 500
+        const val MAX_ANSWER_LENGTH = QuestionDraft.MAX_ANSWER_LENGTH
     }
 }

@@ -224,9 +224,6 @@ class FakePhone : SyncLocal {
             if (row.accountVersion != null && !row.localOnly) deletions[id] = row.accountVersion
         }
         stacks.replaceAll { _, row -> row.copy(localOnly = true, accountVersion = null, pending = false) }
-        listOf(reviews, results).forEach { map ->
-            map.replaceAll { _, value -> if (value.second == RecordSync.UNSENT) value.first to RecordSync.LOCAL_ONLY else value }
-        }
     }
 
     override suspend fun unlinkAll() {

@@ -34,8 +34,10 @@ import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.localhost.LocalHost
 import io.github.serogee.hive.localhost.NsdNearbyRooms
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -156,6 +158,27 @@ class AppContainer(application: Application) {
     suspend fun signOut(removeSyncedStacks: Boolean = false) {
         auth.signOut()
         forgetSignedOutAccount(removeSyncedStacks)
+    }
+
+    /**
+     * Resets local data on this phone: leaves any joined session, stops phone hosting, signs out
+     * locally, and removes all local stacks, reviews, history, and hosted sessions.
+     */
+    suspend fun resetPhoneData() {
+        rooms.leaveJoinedRoom()
+        localHost.stop()
+        signOut(removeSyncedStacks = false)
+        withContext(Dispatchers.IO) { database.clearAllTables() }
+        preferences.clearLocalUserData()
+    }
+
+    /**
+     * Deletes synced stacks, reviews, and quiz results on the server for the signed-in account,
+     * then resets all local data on this phone.
+     */
+    suspend fun resetAccountAndPhoneData() {
+        sync.deleteAccountData()
+        resetPhoneData()
     }
 
     private suspend fun forgetSignedOutAccount(removeSyncedStacks: Boolean) {

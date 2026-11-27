@@ -115,4 +115,17 @@ class ReviewTest {
         val finished = Review.finish(back)
         assertTrue(finished.isFinished)
     }
+
+    @Test
+    fun finishedReviewIncludesUnansweredCardsInToRetry() {
+        val started = Review.start("a1", stack, ReviewSettings(), Random(1))
+        val (answeredFirst, _) = Review.answer(started, Answer.SelectedChoice(ChoiceId("nf-q1-c3")))
+        // While still ongoing, unanswered questions are not in toRetry yet.
+        assertEquals(emptyList(), answeredFirst.toRetry)
+
+        val finished = Review.finish(answeredFirst)
+        assertTrue(finished.isFinished)
+        // Once finished early, every unanswered card is included so the user can retry them.
+        assertEquals(stack.questions.drop(1).map { it.id }, finished.toRetry)
+    }
 }

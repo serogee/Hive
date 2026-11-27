@@ -108,11 +108,10 @@ fun QuizRoomScreen(
             JoinedRoomCard(membership, "Joined session", "Reconnect") { onOpenRoom(membership.roomId.value) }
         }
 
-        // Rooms that ended are not listed.
-        val openRooms = localRooms.orEmpty().filter { it.status != RoomStatus.ENDED }
-        if (openRooms.isNotEmpty()) {
+        val hostedHere = localRooms.orEmpty()
+        if (hostedHere.isNotEmpty()) {
             SectionHeader(title = "Hosted on this phone")
-            openRooms.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
+            hostedHere.forEach { room -> HostedRoomCard(room, onClick = { onOpenRoom(room.id.value) }) }
         }
 
         SectionHeader(title = "Online Sessions")

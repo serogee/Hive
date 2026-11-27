@@ -40,10 +40,15 @@ class StackRepository(private val dao: StackDao, private val now: () -> Long = S
 
     suspend fun draft(id: StackId): StackDraft? = dao.stack(id.value)?.toDraft(dao.questions(id.value))
 
-    /** Creates an untitled stack with one empty multiple-choice question. */
+    suspend fun isPendingSync(id: StackId): Boolean = dao.stack(id.value)?.pendingSync == true
+
+    /**
+     * Creates an untitled stack with one empty multiple-choice question. Held out of sync until the
+     * user explicitly saves it, so cancelled drafts are never pushed to the account.
+     */
     suspend fun create(): StackId {
         val draft = StackDraft(StackId(newId()), title = "", description = "", questions = listOf(newQuestion()))
-        save(draft)
+        save(draft, sync = false)
         return draft.id
     }
 
@@ -67,11 +72,16 @@ class StackRepository(private val dao: StackDao, private val now: () -> Long = S
 
     suspend fun addSample(): StackId = saveCopy(SampleStacks.networkingFundamentals)
 
-    suspend fun save(draft: StackDraft) {
+    /**
+     * Saves [draft] locally. When [sync] is false (for unconfirmed working copies), the stack stays
+     * out of pending sync until the user explicitly saves.
+     */
+    suspend fun save(draft: StackDraft, sync: Boolean = true) {
         val existing = dao.stack(draft.id.value)
         val time = now()
-        val stack = existing?.copy(title = draft.title, description = draft.description, updatedAt = time, pendingSync = !existing.localOnly)
-            ?: StackEntity(draft.id.value, draft.title, draft.description, time, time)
+        val pending = if (sync) existing?.localOnly != true else false
+        val stack = existing?.copy(title = draft.title, description = draft.description, updatedAt = time, pendingSync = pending)
+            ?: StackEntity(draft.id.value, draft.title, draft.description, time, time, pendingSync = pending)
         dao.saveStack(
             stack,
             draft.questions.mapIndexed { index, question ->

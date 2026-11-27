@@ -124,4 +124,24 @@ class StackValidationTest {
         assertTrue("Question 4, choice 1 needs an ID." in messages)
         assertNull(StackValidation.toSnapshot(stack))
     }
+
+    @Test
+    fun identificationAnswersRespectMaxAnswerLength() {
+        val exactLimit = QuestionDraft(
+            id = QuestionId("q1"),
+            type = QuestionType.IDENTIFICATION,
+            prompt = "Long answer",
+            identificationAnswer = "a".repeat(QuestionDraft.MAX_ANSWER_LENGTH),
+            acceptedAlternatives = listOf("b".repeat(QuestionDraft.MAX_ANSWER_LENGTH)),
+        )
+        assertEquals(emptyList(), StackValidation.questionIssues(exactLimit, 1))
+
+        val tooLong = exactLimit.copy(
+            identificationAnswer = "a".repeat(QuestionDraft.MAX_ANSWER_LENGTH + 1),
+            acceptedAlternatives = listOf("b".repeat(QuestionDraft.MAX_ANSWER_LENGTH + 1)),
+        )
+        val issues = StackValidation.questionIssues(tooLong, 1)
+        assertTrue("Question 1 answer must be at most ${QuestionDraft.MAX_ANSWER_LENGTH} characters." in issues)
+        assertTrue("Question 1 accepted answers must be at most ${QuestionDraft.MAX_ANSWER_LENGTH} characters." in issues)
+    }
 }

@@ -45,9 +45,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
 import io.github.serogee.hive.core.engine.DisplayNames
 import io.github.serogee.hive.core.model.RoomRole
+import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.review.ReviewMode
 import io.github.serogee.hive.data.auth.UserSession
 import io.github.serogee.hive.data.history.ActivityStats
+import io.github.serogee.hive.data.history.QuizPlace
 import io.github.serogee.hive.data.history.QuizResult
 import io.github.serogee.hive.data.review.FinishedReview
 import io.github.serogee.hive.data.sync.SignOutSummary
@@ -177,6 +179,7 @@ fun AccountsScreen(
     signInRequested: Boolean = false,
     onSignedIn: () -> Unit = {},
     onOpenReview: (attemptId: String) -> Unit,
+    onOpenRoom: (roomId: String) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val container = LocalAppContainer.current
@@ -232,10 +235,12 @@ fun AccountsScreen(
             HiveSegment("History", selected = tab == AccountTab.HISTORY, onClick = { tab = AccountTab.HISTORY }, modifier = Modifier.weight(1f))
         }
 
+        val endedHostedHereIds = hostedRooms.orEmpty().filter { it.status == RoomStatus.ENDED }.map { it.id.value }.toSet()
+        val allHostedHereIds = hostedRooms.orEmpty().map { it.id.value }.toSet()
         val stats = ActivityStats.of(
             reviews = finishedReviews.orEmpty(),
             quizzes = quizResults.orEmpty(),
-            hostedHereIds = hostedRooms.orEmpty().map { it.id.value }.toSet(),
+            hostedHereIds = endedHostedHereIds,
             today = LocalDate.now(),
             zone = ZoneId.systemDefault(),
         )
@@ -276,7 +281,14 @@ fun AccountsScreen(
                             stackDeleted = stacks != null && entry.review.attempt.stack.id !in existingStackIds,
                             onClick = { onOpenReview(entry.review.attempt.id) },
                         )
-                        is HistoryEntry.Quiz -> QuizResultCard(entry.result)
+                        is HistoryEntry.Quiz -> {
+                            val canOpen = (entry.result.place == QuizPlace.THIS_PHONE && entry.result.roomId in allHostedHereIds) ||
+                                (entry.result.place == QuizPlace.ONLINE && session != null && online.serverGate() == null)
+                            QuizResultCard(
+                                quiz = entry.result,
+                                onClick = if (canOpen) ({ onOpenRoom(entry.result.roomId) }) else null,
+                            )
+                        }
                     }
                 }
                 if (entries.size > HISTORY_PREVIEW) {
@@ -492,7 +504,7 @@ private fun ReviewCard(review: FinishedReview, stackDeleted: Boolean = false, on
 
 /** A hosted or played quiz, with the Player's score once it ended. */
 @Composable
-private fun QuizResultCard(quiz: QuizResult) {
+private fun QuizResultCard(quiz: QuizResult, onClick: (() -> Unit)? = null) {
     val score = when {
         quiz.role == RoomRole.HOST -> if (quiz.playerCount == 1) "1 player" else "${quiz.playerCount} players"
         !quiz.ended -> "Live"
@@ -500,7 +512,12 @@ private fun QuizResultCard(quiz: QuizResult) {
         else -> "Ended"
     }
     val rank = quiz.rank?.takeIf { quiz.role == RoomRole.PLAYER && quiz.ended }?.let { ", rank $it" }.orEmpty()
-    HistoryRow(title = quiz.title.ifBlank { "Untitled quiz" }, meta = "${historyDate(quiz.playedAt)}, ${quiz.label}$rank", score = score)
+    HistoryRow(
+        title = quiz.title.ifBlank { "Untitled quiz" },
+        meta = "${historyDate(quiz.playedAt)}, ${quiz.label}$rank",
+        score = score,
+        onClick = onClick,
+    )
 }
 
 @Composable

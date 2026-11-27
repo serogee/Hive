@@ -48,6 +48,7 @@ data class QuestionDraft(
         const val MAX_POINTS = 100
         const val MIN_DURATION_SECONDS = 5
         const val MAX_DURATION_SECONDS = 3600
+        const val MAX_ANSWER_LENGTH = 500
     }
 }
 
@@ -101,8 +102,16 @@ object StackValidation {
             }
             QuestionType.TRUE_FALSE ->
                 if (question.trueFalseAnswer == null) add("$label needs a correct answer.")
-            QuestionType.IDENTIFICATION ->
-                if (question.identificationAnswer.isBlank()) add("$label needs a correct answer.")
+            QuestionType.IDENTIFICATION -> {
+                if (question.identificationAnswer.isBlank()) {
+                    add("$label needs a correct answer.")
+                } else if (question.identificationAnswer.trim().length > QuestionDraft.MAX_ANSWER_LENGTH) {
+                    add("$label answer must be at most ${QuestionDraft.MAX_ANSWER_LENGTH} characters.")
+                }
+                if (question.acceptedAlternatives.any { it.trim().length > QuestionDraft.MAX_ANSWER_LENGTH }) {
+                    add("$label accepted answers must be at most ${QuestionDraft.MAX_ANSWER_LENGTH} characters.")
+                }
+            }
         }
         if (question.points !in 1..QuestionDraft.MAX_POINTS) {
             add("$label needs between 1 and ${QuestionDraft.MAX_POINTS} points.")

@@ -48,6 +48,18 @@ data class OnlineFacts(
     /** The gate of a feature that also needs an account, such as hosting online. */
     fun accountGate(): Gate? = serverGate() ?: if (signInWorks) null else Gate(GateLook.LOCKED, SIGN_IN_DOWN)
 
+    /**
+     * The gate specifically for Continue with Google: requires a reachable production server with
+     * authentication configured, plus this build's Google sign-in values.
+     */
+    fun googleSignInGate(): Gate? = serverGate() ?: if (
+        googleAvailable && server.mode == HealthMode.PRODUCTION && server.auth == HealthAuth.CONFIGURED
+    ) {
+        null
+    } else {
+        Gate(GateLook.LOCKED, SIGN_IN_DOWN)
+    }
+
     companion object {
         const val CHECKING = "Checking the connection"
         const val DISCONNECTED = "Connection is currently unavailable"

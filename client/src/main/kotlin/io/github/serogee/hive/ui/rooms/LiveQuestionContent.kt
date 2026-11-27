@@ -26,6 +26,7 @@ import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.LiveQuestion
 import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.describe
+import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.AnswerTaps
@@ -261,7 +262,7 @@ fun PlayerLiveContent(
             }
             is PlayerQuestion.Identification -> HiveTextField(
                 value = (received?.answer as? Answer.Text)?.text ?: text,
-                onValueChange = { text = it.take(200) },
+                onValueChange = { text = it.take(QuestionDraft.MAX_ANSWER_LENGTH) },
                 label = "Your answer",
                 enabled = !locked,
             )

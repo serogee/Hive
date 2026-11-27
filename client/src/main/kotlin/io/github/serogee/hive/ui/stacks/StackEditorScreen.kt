@@ -518,7 +518,10 @@ private fun QuestionFields(
             QuestionType.IDENTIFICATION -> {
                 HiveTextField(
                     value = question.identificationAnswer,
-                    onValueChange = { text -> viewModel.updateQuestion(question.id) { it.copy(identificationAnswer = text) } },
+                    onValueChange = { text ->
+                        val capped = text.take(QuestionDraft.MAX_ANSWER_LENGTH)
+                        viewModel.updateQuestion(question.id) { it.copy(identificationAnswer = capped) }
+                    },
                     label = "Correct answer",
                 )
                 var alternatives by remember(question.id) { mutableStateOf(question.acceptedAlternatives.joinToString(", ")) }
