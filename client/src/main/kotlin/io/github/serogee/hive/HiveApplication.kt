@@ -53,7 +53,7 @@ class AppContainer(application: Application) {
     val api: HiveApi = HiveApi(
         serverUrl = { preferences.currentServerUrl() },
         accessToken = { auth.accessToken() },
-        onSessionExpired = { auth.sessionRefused() },
+        onSessionExpired = { refusedToken -> auth.sessionRefused(refusedToken) },
     )
 
     private val authConfig = AuthConfig.of(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_KEY, BuildConfig.GOOGLE_WEB_CLIENT_ID)
@@ -65,6 +65,12 @@ class AppContainer(application: Application) {
         sessions = preferences,
         supabase = authConfig?.let { SupabaseAuth(jsonHttpClient(), it) },
         demo = if (BuildConfig.DEBUG) ApiDemoAuth(api) else null,
+        onSessionCleared = {
+            // Run on appScope so a forced sign-out triggered inside SyncEngine.syncOnce never deadlocks its mutex.
+            appScope.launch {
+                if (auth.session.first() == null) forgetSignedOutAccount(removeSyncedStacks = false)
+            }
+        },
     )
     val server = ServerMonitor(preferences.serverUrl, api::health, appScope)
     val database = HiveDatabase.create(application)
@@ -149,6 +155,10 @@ class AppContainer(application: Application) {
     /** Signs out. [removeSyncedStacks] also deletes the stacks that the account keeps from this phone. */
     suspend fun signOut(removeSyncedStacks: Boolean = false) {
         auth.signOut()
+        forgetSignedOutAccount(removeSyncedStacks)
+    }
+
+    private suspend fun forgetSignedOutAccount(removeSyncedStacks: Boolean) {
         sync.forgetAccount(removeSyncedStacks)
         profiles.forget()
     }

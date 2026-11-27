@@ -45,7 +45,9 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.request
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
@@ -77,9 +79,10 @@ fun jsonHttpClient(): HttpClient = HttpClient(OkHttp) {
 class HiveApi(
     private val serverUrl: suspend () -> String,
     private val accessToken: suspend () -> String?,
-    private val onSessionExpired: suspend () -> Unit,
+    /** Called with the refused bearer token. Returns true if a fresh token is now ready to retry with. */
+    private val onSessionExpired: suspend (refusedToken: String?) -> Boolean,
+    private val http: HttpClient = jsonHttpClient(),
 ) {
-    private val http = jsonHttpClient()
 
     suspend fun health(url: String): HealthResponse =
         http.get(url.trimEnd('/') + ApiPaths.HEALTH).unwrap()
@@ -105,50 +108,63 @@ class HiveApi(
         http.get(url(ApiPaths.roomByCode(code), server)).unwrap()
 
     suspend fun createRoom(request: CreateRoomRequest, server: String? = null): Membership =
-        http.post(url(ApiPaths.ROOMS, server)) {
-            signedIn(server)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.unwrap()
+        request(retryOnRefresh = server == null) {
+            http.post(url(ApiPaths.ROOMS, server)) {
+                signedIn(server)
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
 
-    suspend fun hostedRooms(): List<RoomSummary> = http.get(url(ApiPaths.HOSTED_ROOMS)) { signedIn(null) }.unwrap()
+    suspend fun hostedRooms(): List<RoomSummary> =
+        request { http.get(url(ApiPaths.HOSTED_ROOMS)) { signedIn(null) } }
 
     suspend fun join(roomId: RoomId, request: JoinRoomRequest, existingToken: String?, server: String? = null): Membership =
-        http.post(url(ApiPaths.participants(roomId.value), server)) {
-            signedIn(server)
-            participant(existingToken)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.unwrap()
+        request(retryOnRefresh = server == null) {
+            http.post(url(ApiPaths.participants(roomId.value), server)) {
+                signedIn(server)
+                participant(existingToken)
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
 
     suspend fun roomState(roomId: RoomId, participantToken: String?, server: String? = null): RoomState =
-        http.get(url(ApiPaths.state(roomId.value), server)) {
-            signedIn(server)
-            participant(participantToken)
-        }.unwrap()
+        request(retryOnRefresh = server == null) {
+            http.get(url(ApiPaths.state(roomId.value), server)) {
+                signedIn(server)
+                participant(participantToken)
+            }
+        }
 
     suspend fun command(roomId: RoomId, command: HostCommand, participantToken: String?, server: String? = null): RoomState =
-        http.post(url(ApiPaths.commands(roomId.value), server)) {
-            signedIn(server)
-            participant(participantToken)
-            contentType(ContentType.Application.Json)
-            setBody(command)
-        }.unwrap()
+        request(retryOnRefresh = server == null) {
+            http.post(url(ApiPaths.commands(roomId.value), server)) {
+                signedIn(server)
+                participant(participantToken)
+                contentType(ContentType.Application.Json)
+                setBody(command)
+            }
+        }
 
     suspend fun leave(roomId: RoomId, participantToken: String?, server: String? = null) {
-        http.post(url(ApiPaths.leave(roomId.value), server)) {
-            signedIn(server)
-            participant(participantToken)
-        }.also { if (!it.status.isSuccess()) it.unwrap<Unit>() }
+        requestUnit(retryOnRefresh = server == null) {
+            http.post(url(ApiPaths.leave(roomId.value), server)) {
+                signedIn(server)
+                participant(participantToken)
+            }
+        }
     }
 
     suspend fun attempt(roomId: RoomId, command: PlayerCommand, participantToken: String?, server: String? = null): RoomState =
-        http.post(url(ApiPaths.attempt(roomId.value), server)) {
-            signedIn(server)
-            participant(participantToken)
-            contentType(ContentType.Application.Json)
-            setBody(command)
-        }.unwrap()
+        request(retryOnRefresh = server == null) {
+            http.post(url(ApiPaths.attempt(roomId.value), server)) {
+                signedIn(server)
+                participant(participantToken)
+                contentType(ContentType.Application.Json)
+                setBody(command)
+            }
+        }
 
     suspend fun submitAnswer(
         roomId: RoomId,
@@ -156,54 +172,68 @@ class HiveApi(
         participantToken: String?,
         server: String? = null,
     ): AnswerReceipt =
-        http.post(url(ApiPaths.answers(roomId.value), server)) {
-            signedIn(server)
-            participant(participantToken)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.unwrap()
+        request(retryOnRefresh = server == null) {
+            http.post(url(ApiPaths.answers(roomId.value), server)) {
+                signedIn(server)
+                participant(participantToken)
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
 
     suspend fun results(roomId: RoomId, participantToken: String?, server: String? = null): RoomResults =
-        http.get(url(ApiPaths.results(roomId.value), server)) {
-            signedIn(server)
-            participant(participantToken)
-        }.unwrap()
+        request(retryOnRefresh = server == null) {
+            http.get(url(ApiPaths.results(roomId.value), server)) {
+                signedIn(server)
+                participant(participantToken)
+            }
+        }
 
-    suspend fun syncChanges(cursor: Long): SyncChanges = http.get(url(ApiPaths.SYNC_CHANGES)) {
-        signedIn(null)
-        parameter("cursor", cursor)
-    }.unwrap()
+    suspend fun syncChanges(cursor: Long): SyncChanges = request {
+        http.get(url(ApiPaths.SYNC_CHANGES)) {
+            signedIn(null)
+            parameter("cursor", cursor)
+        }
+    }
 
-    suspend fun pushStacks(request: PushStacksRequest): PushStacksResponse = http.post(url(ApiPaths.SYNC_STACKS)) {
-        signedIn(null)
-        contentType(ContentType.Application.Json)
-        setBody(request)
-    }.unwrap()
+    suspend fun pushStacks(request: PushStacksRequest): PushStacksResponse = request {
+        http.post(url(ApiPaths.SYNC_STACKS)) {
+            signedIn(null)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+    }
 
-    suspend fun appendRecords(path: String, records: List<SyncRecord>): AppendRecordsResponse = http.post(url(path)) {
-        signedIn(null)
-        contentType(ContentType.Application.Json)
-        setBody(AppendRecordsRequest(records))
-    }.unwrap()
+    suspend fun appendRecords(path: String, records: List<SyncRecord>): AppendRecordsResponse = request {
+        http.post(url(path)) {
+            signedIn(null)
+            contentType(ContentType.Application.Json)
+            setBody(AppendRecordsRequest(records))
+        }
+    }
 
-    suspend fun onlineRooms(): List<OnlineRoomEntry> = http.get(url(ApiPaths.SYNC_ROOMS)) { signedIn(null) }.unwrap()
+    suspend fun onlineRooms(): List<OnlineRoomEntry> =
+        request { http.get(url(ApiPaths.SYNC_ROOMS)) { signedIn(null) } }
 
-    suspend fun accountProfile(): AccountProfile = http.get(url(ApiPaths.ACCOUNT_PROFILE)) { signedIn(null) }.unwrap()
+    suspend fun accountProfile(): AccountProfile =
+        request { http.get(url(ApiPaths.ACCOUNT_PROFILE)) { signedIn(null) } }
 
-    suspend fun setAccountProfile(profile: AccountProfile): AccountProfile = http.put(url(ApiPaths.ACCOUNT_PROFILE)) {
-        signedIn(null)
-        contentType(ContentType.Application.Json)
-        setBody(profile)
-    }.unwrap()
+    suspend fun setAccountProfile(profile: AccountProfile): AccountProfile = request {
+        http.put(url(ApiPaths.ACCOUNT_PROFILE)) {
+            signedIn(null)
+            contentType(ContentType.Application.Json)
+            setBody(profile)
+        }
+    }
 
     /** Deletes the signed-in account, and everything the server keeps about it. */
     suspend fun deleteAccount() {
-        http.delete(url(ApiPaths.ACCOUNT)) { signedIn(null) }.also { if (!it.status.isSuccess()) it.unwrap<Unit>() }
+        requestUnit { http.delete(url(ApiPaths.ACCOUNT)) { signedIn(null) } }
     }
 
     /** Deletes everything the account synced. */
     suspend fun deleteSyncData() {
-        http.delete(url(ApiPaths.SYNC)) { signedIn(null) }.also { if (!it.status.isSuccess()) it.unwrap<Unit>() }
+        requestUnit { http.delete(url(ApiPaths.SYNC)) { signedIn(null) } }
     }
 
     /** Live room events. The flow ends when the connection closes. */
@@ -229,12 +259,56 @@ class HiveApi(
     private fun HttpRequestBuilder.participant(token: String?) {
         if (token != null) header(ApiPaths.PARTICIPANT_TOKEN_HEADER, token)
     }
+
+    private fun HttpResponse.bearerToken(): String? =
+        request.headers[HttpHeaders.Authorization]
+            ?.takeIf { it.startsWith("Bearer ") }
+            ?.removePrefix("Bearer ")
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
+    private suspend fun HttpResponse.apiError(): ApiError = runCatching { body<ApiError>() }.getOrElse {
+        ApiError(ErrorCode.INVALID_REQUEST, "The server answered with HTTP ${status.value}.")
+    }
+
+    private suspend inline fun <reified T> request(retryOnRefresh: Boolean = true, crossinline call: suspend () -> HttpResponse): T {
+        val first = call()
+        if (first.status.isSuccess()) return first.body()
+        val error = first.apiError()
+        if (error.code == ErrorCode.SESSION_EXPIRED) {
+            val refreshed = onSessionExpired(first.bearerToken())
+            if (retryOnRefresh && refreshed) {
+                val retry = call()
+                if (retry.status.isSuccess()) return retry.body()
+                val retryError = retry.apiError()
+                if (retryError.code == ErrorCode.SESSION_EXPIRED) onSessionExpired(retry.bearerToken())
+                throw ApiException(retryError)
+            }
+        }
+        throw ApiException(error)
+    }
+
+    private suspend inline fun requestUnit(retryOnRefresh: Boolean = true, crossinline call: suspend () -> HttpResponse) {
+        val first = call()
+        if (first.status.isSuccess()) return
+        val error = first.apiError()
+        if (error.code == ErrorCode.SESSION_EXPIRED) {
+            val refreshed = onSessionExpired(first.bearerToken())
+            if (retryOnRefresh && refreshed) {
+                val retry = call()
+                if (retry.status.isSuccess()) return
+                val retryError = retry.apiError()
+                if (retryError.code == ErrorCode.SESSION_EXPIRED) onSessionExpired(retry.bearerToken())
+                throw ApiException(retryError)
+            }
+        }
+        throw ApiException(error)
+    }
+
     private suspend inline fun <reified T> HttpResponse.unwrap(): T {
         if (status.isSuccess()) return body()
-        val error = runCatching { body<ApiError>() }.getOrElse {
-            ApiError(ErrorCode.INVALID_REQUEST, "The server answered with HTTP ${status.value}.")
-        }
-        if (error.code == ErrorCode.SESSION_EXPIRED) onSessionExpired()
+        val error = apiError()
+        if (error.code == ErrorCode.SESSION_EXPIRED) onSessionExpired(bearerToken())
         throw ApiException(error)
     }
 }

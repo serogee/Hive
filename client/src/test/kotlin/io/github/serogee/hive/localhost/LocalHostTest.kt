@@ -32,7 +32,10 @@ class LocalHostTest {
     private val api = HiveApi(
         serverUrl = { "http://127.0.0.1:1" },
         accessToken = { "online-account-token" },
-        onSessionExpired = { sessionCleared = true },
+        onSessionExpired = {
+            sessionCleared = true
+            false
+        },
     )
 
     @AfterTest

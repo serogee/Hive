@@ -1,8 +1,12 @@
 package io.github.serogee.hive.data.auth
 
 import io.github.serogee.hive.core.api.Account
+import io.github.serogee.hive.core.api.AccountProfile
+import io.github.serogee.hive.core.api.ApiError
+import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.model.AccountId
+import io.github.serogee.hive.data.remote.HiveApi
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -47,12 +51,15 @@ class AuthTest {
         }
     }
 
-    private fun repository(handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData): AuthRepository {
+    private fun repository(
+        onSessionCleared: suspend () -> Unit = {},
+        handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
+    ): AuthRepository {
         val http = HttpClient(MockEngine(handler)) {
             expectSuccess = false
             install(ContentNegotiation) { json(HiveJson) }
         }
-        return AuthRepository(store, SupabaseAuth(http, config) { now }, demo = null) { now }
+        return AuthRepository(store, SupabaseAuth(http, config) { now }, demo = null, onSessionCleared = onSessionCleared) { now }
     }
 
     private fun MockRequestHandleScope.tokens(access: String, refresh: String = "refresh-$access", name: String = "Ana Reyes") = respond(
@@ -180,14 +187,67 @@ class AuthTest {
 
     @Test
     fun `a refused access token is replaced before the session ends`() = runTest {
-        val auth = repository { tokens("new") }
+        var cleared = 0
+        val auth = repository(onSessionCleared = { cleared++ }) { tokens("new") }
         store.session.value = expired().copy(expiresAt = now + 3_000_000)
-        auth.sessionRefused()
+        assertTrue(auth.sessionRefused("old"))
         assertEquals("new", store.session.value?.accessToken)
+        assertEquals(0, cleared)
 
-        // The new token is refused as well.
-        auth.sessionRefused()
+        // A delayed refusal from another concurrent request that carried the old token keeps the new session.
+        assertTrue(auth.sessionRefused("old"))
+        assertEquals("new", store.session.value?.accessToken)
+        assertEquals(0, cleared)
+
+        // The new token is refused as well, so the session ends and cleanup runs.
+        assertFalse(auth.sessionRefused("new"))
         assertNull(store.session.value)
+        assertEquals(1, cleared)
+    }
+
+    @Test
+    fun `concurrent 401 SESSION_EXPIRED responses refresh once and retry without signing out`() = runTest {
+        var refreshes = 0
+        var cleared = 0
+        val auth = repository(onSessionCleared = { cleared++ }) {
+            refreshes++
+            tokens("new")
+        }
+        store.session.value = expired().copy(expiresAt = now + 3_000_000)
+
+        val apiClient = HttpClient(
+            MockEngine { request ->
+                if (request.headers[HttpHeaders.Authorization] == "Bearer new") {
+                    respond(
+                        HiveJson.encodeToString(AccountProfile.serializer(), AccountProfile("Ana Reyes")),
+                        HttpStatusCode.OK,
+                        headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                    )
+                } else {
+                    respond(
+                        HiveJson.encodeToString(ApiError.serializer(), ApiError(ErrorCode.SESSION_EXPIRED, "Sign in again.")),
+                        HttpStatusCode.Unauthorized,
+                        headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                    )
+                }
+            },
+        ) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(HiveJson) }
+        }
+        val api = HiveApi(
+            serverUrl = { "https://hive.example" },
+            accessToken = { auth.accessToken() },
+            onSessionExpired = { refusedToken -> auth.sessionRefused(refusedToken) },
+            http = apiClient,
+        )
+
+        val profiles = listOf(async { api.accountProfile() }, async { api.accountProfile() }).map { it.await() }
+
+        assertEquals(listOf(AccountProfile("Ana Reyes"), AccountProfile("Ana Reyes")), profiles)
+        assertEquals(1, refreshes)
+        assertEquals(0, cleared)
+        assertEquals("new", store.session.value?.accessToken)
     }
 
     @Test
