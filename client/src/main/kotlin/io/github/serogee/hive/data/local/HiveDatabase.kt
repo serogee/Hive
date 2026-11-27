@@ -123,6 +123,12 @@ interface StackDao {
     @Query("DELETE FROM stacks WHERE id = :id")
     suspend fun deleteStack(id: String)
 
+    @Query("SELECT * FROM stack_deletions WHERE stackId = :id")
+    suspend fun deletion(id: String): StackDeletionEntity?
+
+    @Query("DELETE FROM stack_deletions WHERE stackId = :id")
+    suspend fun clearDeletion(id: String)
+
     @Upsert
     suspend fun upsertDeletion(deletion: StackDeletionEntity)
 
@@ -135,11 +141,26 @@ interface StackDao {
         deleteStack(id)
     }
 
-    /** Replaces a stack and all its questions in one transaction. */
+    /**
+     * Replaces a stack and all its questions in one transaction. When saving a synced stack that
+     * still has a pending deletion (such as restoring a deleted stack before sync), cancels the
+     * deletion and preserves its base version so sync updates rather than deletes it.
+     */
     @Transaction
     suspend fun saveStack(stack: StackEntity, questions: List<QuestionEntity>) {
-        upsertStack(stack)
-        deleteQuestions(stack.id)
+        val toSave = if (!stack.localOnly) {
+            val pendingDeletion = deletion(stack.id)
+            if (pendingDeletion != null) {
+                clearDeletion(stack.id)
+                stack.copy(accountVersion = stack.accountVersion ?: pendingDeletion.baseVersion)
+            } else {
+                stack
+            }
+        } else {
+            stack
+        }
+        upsertStack(toSave)
+        deleteQuestions(toSave.id)
         upsertQuestions(questions)
     }
 }

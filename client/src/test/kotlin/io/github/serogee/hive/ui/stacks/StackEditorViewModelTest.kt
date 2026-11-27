@@ -148,6 +148,10 @@ class StackEditorViewModelTest {
             questions.remove(id)
         }
 
+        override suspend fun deletion(id: String): StackDeletionEntity? = null
+
+        override suspend fun clearDeletion(id: String) = Unit
+
         override suspend fun upsertDeletion(deletion: StackDeletionEntity) = Unit
     }
 }

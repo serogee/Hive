@@ -1,6 +1,7 @@
 package io.github.serogee.hive.data.stacks
 
 import io.github.serogee.hive.core.editor.QuestionType
+import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.sample.SampleStacks
 import io.github.serogee.hive.core.transfer.HiveStackFile
 import io.github.serogee.hive.data.local.QuestionEntity
@@ -12,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -51,10 +53,53 @@ class StackRepositoryTest {
         assertTrue(secondMc.choices.any { it.id == secondMc.correctChoiceId })
     }
 
+    @Test
+    fun `restoring a deleted synced stack before sync clears its pending deletion and keeps its base version`() = runTest {
+        val dao = GlobalIdSensitiveStackDao()
+        val repository = StackRepository(dao, now = { 10L })
+        val stackId = repository.addSample()
+        val snapshot = assertNotNull(StackValidation.toSnapshot(assertNotNull(repository.draft(stackId))))
+        // Mark the stack as already synced at version 3.
+        dao.upsertStack(assertNotNull(dao.stack(stackId.value)).copy(accountVersion = 3L, pendingSync = false))
+
+        repository.delete(stackId)
+        assertNull(dao.stack(stackId.value))
+        assertEquals(StackDeletionEntity(stackId.value, baseVersion = 3L), dao.deletion(stackId.value))
+
+        repository.restore(snapshot)
+
+        assertNull(dao.deletion(stackId.value))
+        val restored = assertNotNull(dao.stack(stackId.value))
+        assertEquals(3L, restored.accountVersion)
+        assertTrue(restored.pendingSync)
+        assertEquals(false, restored.localOnly)
+    }
+
+    @Test
+    fun `editing a local-only stack with a pending server deletion keeps the pending deletion`() = runTest {
+        val dao = GlobalIdSensitiveStackDao()
+        val repository = StackRepository(dao, now = { 10L })
+        val stackId = repository.addSample()
+        // Simulate an unsynced stack whose server deletion has not synced yet.
+        dao.upsertStack(assertNotNull(dao.stack(stackId.value)).copy(localOnly = true, accountVersion = null, pendingSync = false))
+        dao.upsertDeletion(StackDeletionEntity(stackId.value, baseVersion = 2L))
+
+        val edited = assertNotNull(repository.draft(stackId)).copy(title = "Edited locally")
+        repository.save(edited)
+
+        assertEquals(StackDeletionEntity(stackId.value, baseVersion = 2L), dao.deletion(stackId.value))
+        val saved = assertNotNull(dao.stack(stackId.value))
+        assertEquals("Edited locally", saved.title)
+        assertTrue(saved.localOnly)
+        assertNull(saved.accountVersion)
+        assertEquals(false, saved.pendingSync)
+    }
+
     /** Simulates a global primary key on QuestionEntity.id to prove saveCopy never collides across stacks. */
     private class GlobalIdSensitiveStackDao : StackDao {
         private val stacks = mutableMapOf<String, StackEntity>()
         private val questionsById = linkedMapOf<String, QuestionEntity>()
+        private val deletions = mutableMapOf<String, StackDeletionEntity>()
 
         override fun observeStacks(): Flow<List<StackRow>> = emptyFlow()
 
@@ -84,6 +129,14 @@ class StackRepositoryTest {
             deleteQuestions(id)
         }
 
-        override suspend fun upsertDeletion(deletion: StackDeletionEntity) = Unit
+        override suspend fun deletion(id: String): StackDeletionEntity? = deletions[id]
+
+        override suspend fun clearDeletion(id: String) {
+            deletions.remove(id)
+        }
+
+        override suspend fun upsertDeletion(deletion: StackDeletionEntity) {
+            deletions[deletion.stackId] = deletion
+        }
     }
 }

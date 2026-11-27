@@ -131,6 +131,12 @@ class FakePhone : SyncLocal {
         if (row.accountVersion != null && !row.localOnly) deletions[id] = row.accountVersion
     }
 
+    /** Mirrors StackDao.saveStack when restoring a deleted stack under its original ID. */
+    fun restore(id: String, title: String) {
+        val restoredVersion = deletions.remove(id)
+        stacks[id] = Row(StackDocument(title), restoredVersion, pending = true, localOnly = false, updatedAt = ++time)
+    }
+
     fun finishReview(id: String) {
         reviews[id] = SyncRecord(id, ++time, buildJsonObject {}) to RecordSync.UNSENT
     }

@@ -360,4 +360,27 @@ class SyncEngineTest {
         assertTrue(phone.phone.stacks.values.none { it.localOnly })
         assertEquals(listOf("Biology", "Chemistry"), account.titles())
     }
+
+    @Test
+    fun `restoring a deleted stack before sync cancels the deletion without forking`() = runTest {
+        val first = signedIn()
+        val second = signedIn()
+        first.phone.create("s1", "Biology")
+        first.sync()
+        second.sync()
+
+        // Delete and immediately restore before sync runs (e.g. offline or within the debounce window).
+        first.phone.delete("s1")
+        first.phone.restore("s1", "Biology (restored)")
+        first.sync()
+        // A follow-up pull must not see a tombstone or spawn a "(from this phone)" duplicate.
+        first.sync()
+        second.sync()
+
+        assertEquals(listOf("Biology (restored)"), first.phone.titles())
+        assertEquals(listOf("Biology (restored)"), account.titles())
+        assertEquals(listOf("Biology (restored)"), second.phone.titles())
+        assertTrue(first.phone.deletions.isEmpty())
+        assertEquals(setOf("s1"), first.phone.stacks.keys)
+    }
 }
