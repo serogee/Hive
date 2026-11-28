@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
+import io.github.serogee.hive.audio.SoundPreferences
 import io.github.serogee.hive.data.rooms.HostAddress
 import io.github.serogee.hive.data.server.OnlineFacts
 import io.github.serogee.hive.data.server.ServerState
@@ -49,6 +50,7 @@ import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SleekCard
+import io.github.serogee.hive.ui.common.ToggleRow
 import io.github.serogee.hive.ui.common.userMessage
 import io.github.serogee.hive.ui.common.watchOnline
 import io.github.serogee.hive.ui.theme.AnswerColorChoice
@@ -69,6 +71,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val answerColors = container.preferences.answerColors
         .stateIn(viewModelScope, SharingStarted.Eagerly, AnswerColorChoice.APP_HONEY)
     val answerInput = container.preferences.answerInput.stateIn(viewModelScope, SharingStarted.Eagerly, AnswerInput.CONFIRM)
+    val soundPreferences = container.preferences.soundPreferences
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SoundPreferences())
 
     private val _serverStatus = MutableStateFlow<String?>(null)
     val serverStatus: StateFlow<String?> = _serverStatus.asStateFlow()
@@ -84,6 +88,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setAnswerColors(choice: AnswerColorChoice) = viewModelScope.launch { container.preferences.setAnswerColors(choice) }
 
     fun setAnswerInput(input: AnswerInput) = viewModelScope.launch { container.preferences.setAnswerInput(input) }
+
+    fun setSoloSfx(enabled: Boolean) = viewModelScope.launch { container.preferences.setSoloSfx(enabled) }
+
+    fun setSoloMusic(enabled: Boolean) = viewModelScope.launch { container.preferences.setSoloMusic(enabled) }
+
+    fun setMultiSfx(enabled: Boolean) = viewModelScope.launch { container.preferences.setMultiSfx(enabled) }
+
+    fun setMultiMusic(enabled: Boolean) = viewModelScope.launch { container.preferences.setMultiMusic(enabled) }
 
     /** Saves the address only when a Hive server answers there. */
     fun saveServer(rawUrl: String) = viewModelScope.launch {
@@ -153,6 +165,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val answerColors by viewModel.answerColors.collectAsStateWithLifecycle()
     val answerInput by viewModel.answerInput.collectAsStateWithLifecycle()
+    val sound by viewModel.soundPreferences.collectAsStateWithLifecycle()
     val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
     val serverStatus by viewModel.serverStatus.collectAsStateWithLifecycle()
     val session by viewModel.session.collectAsStateWithLifecycle()
@@ -192,6 +205,23 @@ fun SettingsScreen(onBack: () -> Unit) {
                 SettingsRow("Answer colours", answerColors.label) { showAnswerColors = true }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 SettingsRow("Answering", answerInput.label) { showAnswerInput = true }
+            }
+        }
+
+        Caption("Sound")
+        SleekCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Caption("Solo review", color = MaterialTheme.colorScheme.primary)
+                ToggleRow("Sound effects", sound.soloSfx, onChange = viewModel::setSoloSfx)
+                ToggleRow("Focus music", sound.soloMusic, onChange = viewModel::setSoloMusic)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Caption("Multiplayer sessions", color = MaterialTheme.colorScheme.primary)
+                ToggleRow("Sound effects", sound.multiSfx, onChange = viewModel::setMultiSfx)
+                ToggleRow("Session music", sound.multiMusic, onChange = viewModel::setMultiMusic)
+                SettingsNote(
+                    "In Discussion sessions, music plays on the Host's phone only. " +
+                        "In Asynchronous sessions, music plays on your phone while answering.",
+                )
             }
         }
 
