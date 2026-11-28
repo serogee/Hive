@@ -172,12 +172,21 @@ class AppContainer(application: Application) {
 
     /**
      * Deletes synced stacks, reviews, and quiz results on the server for the signed-in account,
-     * then resets all local data on this phone.
+     * then resets all local data on this phone. Throws [PhoneResetFailed] when only the phone's reset failed.
      */
     suspend fun resetAccountAndPhoneData() {
         sync.deleteAccountData()
-        resetPhoneData()
+        try {
+            resetPhoneData()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw PhoneResetFailed(e)
+        }
     }
+
+    /** The account's synced data is deleted on the server, but this phone could not reset. */
+    class PhoneResetFailed(cause: Exception) : Exception(cause.message, cause)
 
     private suspend fun forgetSignedOutAccount(removeSyncedStacks: Boolean) {
         sync.forgetAccount(removeSyncedStacks)
