@@ -73,13 +73,14 @@ class StackRepository(private val dao: StackDao, private val now: () -> Long = S
     suspend fun addSample(): StackId = saveCopy(SampleStacks.networkingFundamentals)
 
     /**
-     * Saves [draft] locally. When [sync] is false (for unconfirmed working copies), the stack stays
-     * out of pending sync until the user explicitly saves.
+     * Saves [draft] locally. With [sync], the stack waits to sync unless it is kept on this phone only.
+     * Without it, the stack keeps its current sync state: a new stack stays out of sync, and changes
+     * that already wait to sync still do, so that a pull never replaces them.
      */
     suspend fun save(draft: StackDraft, sync: Boolean = true) {
         val existing = dao.stack(draft.id.value)
         val time = now()
-        val pending = if (sync) existing?.localOnly != true else false
+        val pending = if (sync) existing?.localOnly != true else existing?.pendingSync == true
         val stack = existing?.copy(title = draft.title, description = draft.description, updatedAt = time, pendingSync = pending)
             ?: StackEntity(draft.id.value, draft.title, draft.description, time, time, pendingSync = pending)
         dao.saveStack(
