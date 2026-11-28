@@ -16,6 +16,7 @@ import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.model.Answer
+import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.ui.common.Caption
 import io.github.serogee.hive.ui.common.HeroCard
 import io.github.serogee.hive.ui.common.HiveButton
@@ -95,6 +96,8 @@ fun PlayerAsyncContent(
     onTimeUp: () -> Unit,
     externalActions: Boolean = false,
     onDraftAnswer: (Answer?) -> Unit = {},
+    onTap: () -> Unit = {},
+    onTick: (QuestionId, Int) -> Unit = { _, _ -> },
 ) {
     val attempt = room.attempt
     val live = room.live
@@ -132,6 +135,8 @@ fun PlayerAsyncContent(
                 hostPaced = false,
                 externalActions = externalActions,
                 onDraftAnswer = onDraftAnswer,
+                onTap = onTap,
+                onTick = onTick,
             )
             if (!externalActions) {
                 val last = live.question.number == live.questionCount
