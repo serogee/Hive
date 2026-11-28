@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.serogee.hive.BuildConfig
+import io.github.serogee.hive.audio.SoundPreferences
 import io.github.serogee.hive.core.api.HiveJson
 import io.github.serogee.hive.core.model.ParticipantId
 import io.github.serogee.hive.core.model.RoomId
@@ -57,6 +58,7 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore, AccountNa
     }
     val answerColors: Flow<AnswerColorChoice> = store.data.map { AnswerColorChoice.of(it[ANSWER_COLORS]) }
     val answerInput: Flow<AnswerInput> = store.data.map { AnswerInput.of(it[ANSWER_INPUT]) }
+    val soundPreferences: Flow<SoundPreferences> = store.data.map { it.soundPreferences() }
     override val session: Flow<UserSession?> = store.data.map { it.decode(SESSION, UserSession.serializer()) }
     val joinedRoom: Flow<SavedMembership?> = store.data.map { it.decode(JOINED_ROOM, SavedMembership.serializer()) }
     val preferredName: Flow<String?> = store.data.map { it[PREFERRED_NAME] }
@@ -129,6 +131,14 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore, AccountNa
 
     suspend fun setAnswerInput(input: AnswerInput) = store.edit { it[ANSWER_INPUT] = input.name }
 
+    suspend fun setSoloSfx(enabled: Boolean) = store.edit { it[SOLO_SFX] = enabled }
+
+    suspend fun setSoloMusic(enabled: Boolean) = store.edit { it[SOLO_MUSIC] = enabled }
+
+    suspend fun setMultiSfx(enabled: Boolean) = store.edit { it[MULTI_SFX] = enabled }
+
+    suspend fun setMultiMusic(enabled: Boolean) = store.edit { it[MULTI_MUSIC] = enabled }
+
     override suspend fun setSession(session: UserSession?) {
         store.edit { prefs ->
             if (session == null) prefs.remove(SESSION) else prefs[SESSION] = HiveJson.encodeToString(UserSession.serializer(), session)
@@ -160,10 +170,21 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore, AccountNa
         fun Preferences.onboardingCompleted(): Boolean =
             this[ONBOARDING_COMPLETED] ?: (contains(PREFERRED_NAME) || contains(SESSION))
 
+        fun Preferences.soundPreferences(): SoundPreferences = SoundPreferences(
+            soloSfx = this[SOLO_SFX] ?: true,
+            soloMusic = this[SOLO_MUSIC] ?: true,
+            multiSfx = this[MULTI_SFX] ?: true,
+            multiMusic = this[MULTI_MUSIC] ?: true,
+        )
+
         val SERVER_URL = stringPreferencesKey("server_url")
         val THEME = stringPreferencesKey("theme")
         val ANSWER_COLORS = stringPreferencesKey("answer_colors")
         val ANSWER_INPUT = stringPreferencesKey("answer_input")
+        val SOLO_SFX = booleanPreferencesKey("solo_sfx")
+        val SOLO_MUSIC = booleanPreferencesKey("solo_music")
+        val MULTI_SFX = booleanPreferencesKey("multi_sfx")
+        val MULTI_MUSIC = booleanPreferencesKey("multi_music")
         val SESSION = stringPreferencesKey("session")
         val JOINED_ROOM = stringPreferencesKey("joined_room")
         val PREFERRED_NAME = stringPreferencesKey("preferred_name")

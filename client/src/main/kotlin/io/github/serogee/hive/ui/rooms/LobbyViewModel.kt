@@ -2,17 +2,25 @@ package io.github.serogee.hive.ui.rooms
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.serogee.hive.audio.AudioScope
+import io.github.serogee.hive.audio.NoOpSoundCuePlayer
+import io.github.serogee.hive.audio.Sfx
+import io.github.serogee.hive.audio.SoundCuePlayer
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.ParticipantView
 import io.github.serogee.hive.core.api.PlayerCommand
+import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.RoomEvent
 import io.github.serogee.hive.core.api.RoomResults
 import io.github.serogee.hive.core.api.RoomState
 import io.github.serogee.hive.core.api.SubmitAnswerRequest
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.QuestionId
+import io.github.serogee.hive.core.model.RevealPolicy
 import io.github.serogee.hive.core.model.RoomId
+import io.github.serogee.hive.core.model.RoomMode
+import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.data.remote.ApiException
 import io.github.serogee.hive.data.rooms.RoomRepository
@@ -55,7 +63,11 @@ data class LobbyUiState(
  *
  * Each connection starts with a snapshot, so a missed event is repaired on reconnect.
  */
-class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomRepository) : ViewModel() {
+class LobbyViewModel(
+    private val roomId: RoomId,
+    private val rooms: RoomRepository,
+    private val audio: SoundCuePlayer = NoOpSoundCuePlayer,
+) : ViewModel() {
     private val _state = MutableStateFlow(LobbyUiState())
     val state: StateFlow<LobbyUiState> = _state.asStateFlow()
     init {
@@ -80,11 +92,13 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
      */
     fun submit(questionId: QuestionId, answer: Answer) {
         val previous = _state.value.pending
-        val pending = if (previous != null && previous.questionId == questionId && previous.answer == answer) {
+        val isRetry = previous != null && previous.questionId == questionId && previous.answer == answer
+        val pending = if (isRetry) {
             previous.copy(failed = false)
         } else {
             PendingAnswer(questionId, answer, UUID.randomUUID().toString())
         }
+        if (!isRetry) audio.playSfx(Sfx.LOCK_IN, AudioScope.MULTIPLAYER)
         _state.update { it.copy(pending = pending, error = null) }
         viewModelScope.launch {
             try {
@@ -176,9 +190,20 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
     }
 
     private suspend fun show(room: RoomState) {
+        var previousRoom: RoomState? = null
+        var applied = false
         _state.update { current ->
             // Ignore a snapshot older than the one on screen.
-            if (current.room != null && room.revision < current.room.revision) current else current.copy(room = room)
+            if (current.room != null && room.revision < current.room.revision) {
+                current
+            } else {
+                previousRoom = current.room
+                applied = true
+                current.copy(room = room)
+            }
+        }
+        if (applied) {
+            previousRoom?.let { prev -> playTransitionCues(prev, room) }
         }
         if (room.room.status == RoomStatus.ENDED) rooms.markJoinedRoomEnded(roomId)
         if (room.room.status == RoomStatus.ENDED && _state.value.results == null) {
@@ -194,16 +219,23 @@ class LobbyViewModel(private val roomId: RoomId, private val rooms: RoomReposito
     private suspend fun applyJoin(event: RoomEvent.ParticipantJoined) {
         val current = _state.value.room
         if (current != null && event.revision == current.revision + 1) {
-            _state.update {
-                it.copy(
-                    room = current.copy(
-                        participants = mergeJoinedParticipant(current.participants, event.participant),
-                        revision = event.revision,
-                    ),
-                )
-            }
+            val updated = current.copy(
+                participants = mergeJoinedParticipant(current.participants, event.participant),
+                revision = event.revision,
+            )
+            _state.update { it.copy(room = updated) }
+            playTransitionCues(current, updated)
         } else if (current == null || event.revision > current.revision) {
             refresh()
+        }
+    }
+
+    private fun playTransitionCues(previous: RoomState, next: RoomState) {
+        lobbyTransitionCues(previous, next).forEach { cue ->
+            when (cue) {
+                is RoomAudioCue.Once -> audio.playSfxOnce(cue.key, cue.cue, AudioScope.MULTIPLAYER)
+                is RoomAudioCue.Throttled -> audio.playSfxThrottled(cue.bucket, cue.minIntervalMillis, cue.cue, AudioScope.MULTIPLAYER)
+            }
         }
     }
 
@@ -234,3 +266,93 @@ internal fun mergeJoinedParticipant(
     } else {
         participants + joined
     }
+
+internal sealed interface RoomAudioCue {
+    data class Once(val key: String, val cue: Sfx) : RoomAudioCue
+
+    data class Throttled(val bucket: String, val minIntervalMillis: Long, val cue: Sfx) : RoomAudioCue
+}
+
+internal const val JOIN_CUE_THROTTLE_MILLIS = 1_200L
+
+/**
+ * Computes sound cues triggered by a server-driven state transition from [previous] to [next].
+ *
+ * The initial snapshot is never passed here, so reopening an ended room or reconnecting to a closed
+ * question stays silent.
+ */
+internal fun lobbyTransitionCues(previous: RoomState, next: RoomState): List<RoomAudioCue> {
+    val roomKey = next.room.id.value
+    if (previous.room.status != RoomStatus.ENDED && next.room.status == RoomStatus.ENDED) {
+        return listOf(RoomAudioCue.Once("results:$roomKey", Sfx.RESULTS_FANFARE))
+    }
+
+    val cues = mutableListOf<RoomAudioCue>()
+    val isHost = next.you.role == RoomRole.HOST
+
+    if (isHost && next.room.status == RoomStatus.LOBBY) {
+        val prevActivePlayers = previous.participants
+            .filter { it.role == RoomRole.PLAYER && !it.left }
+            .map { it.id }
+            .toSet()
+        val hasNewActivePlayer = next.participants.any {
+            it.role == RoomRole.PLAYER && !it.left && it.id !in prevActivePlayers
+        }
+        if (hasNewActivePlayer) {
+            cues += RoomAudioCue.Throttled("join:$roomKey", JOIN_CUE_THROTTLE_MILLIS, Sfx.PLAYER_JOIN)
+        }
+    }
+
+    val startedDiscussion = previous.room.status == RoomStatus.LOBBY && next.room.status == RoomStatus.LIVE &&
+        (next.room.mode == RoomMode.DISCUSSION || isHost)
+    val startedAsyncAttempt = next.room.mode == RoomMode.ASYNCHRONOUS && !isHost &&
+        previous.attempt?.started != true && next.attempt?.started == true
+    if (startedDiscussion) {
+        cues += RoomAudioCue.Once("start:$roomKey", Sfx.QUIZ_START)
+    } else if (startedAsyncAttempt) {
+        cues += RoomAudioCue.Once("start-attempt:$roomKey", Sfx.QUIZ_START)
+    }
+
+    val prevLive = previous.live
+    val nextLive = next.live
+    if (previous.room.status == RoomStatus.LIVE && next.room.status == RoomStatus.LIVE &&
+        prevLive != null && nextLive != null && prevLive.question.id != nextLive.question.id
+    ) {
+        cues += RoomAudioCue.Once("next:$roomKey:${nextLive.question.id.value}", Sfx.NEXT)
+    }
+
+    var playedVerdict = false
+    val revealedCorrect = nextLive?.correctAnswer
+    val yourAnswer = nextLive?.yourAnswer
+    if (!isHost &&
+        next.room.revealPolicy == RevealPolicy.AFTER_EACH_QUESTION &&
+        nextLive != null &&
+        revealedCorrect != null &&
+        yourAnswer != null
+    ) {
+        val newlyRevealed = prevLive == null ||
+            prevLive.question.id != nextLive.question.id ||
+            prevLive.correctAnswer == null
+        val exactChoiceQuestion = nextLive.question is PlayerQuestion.MultipleChoice ||
+            nextLive.question is PlayerQuestion.TrueFalse
+        if (newlyRevealed && exactChoiceQuestion) {
+            val correct = yourAnswer.answer == revealedCorrect
+            cues += RoomAudioCue.Once(
+                key = "verdict:$roomKey:${nextLive.question.id.value}",
+                cue = if (correct) Sfx.CORRECT else Sfx.INCORRECT,
+            )
+            playedVerdict = true
+        }
+    }
+
+    val questionJustClosed = prevLive != null &&
+        nextLive != null &&
+        prevLive.question.id == nextLive.question.id &&
+        prevLive.isOpen &&
+        !nextLive.isOpen
+    if (questionJustClosed && !playedVerdict) {
+        cues += RoomAudioCue.Once("timeup:$roomKey:${nextLive.question.id.value}", Sfx.TIME_UP)
+    }
+
+    return cues
+}

@@ -1,6 +1,7 @@
 package io.github.serogee.hive
 
 import android.app.Application
+import io.github.serogee.hive.audio.HiveAudio
 import io.github.serogee.hive.data.AppPreferences
 import io.github.serogee.hive.data.auth.ApiDemoAuth
 import io.github.serogee.hive.data.auth.AuthConfig
@@ -51,6 +52,7 @@ import kotlinx.coroutines.launch
 class AppContainer(application: Application) {
     val appScope = CoroutineScope(SupervisorJob())
     val preferences = AppPreferences(application)
+    val audio = HiveAudio(application, preferences, appScope)
 
     val api: HiveApi = HiveApi(
         serverUrl = { preferences.currentServerUrl() },
@@ -212,6 +214,7 @@ class HiveApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.audio.start()
         container.appScope.launch { container.auth.restore() }
         container.startSync()
         ServerTriggers(this, container.server) { container.sync.onForeground() }

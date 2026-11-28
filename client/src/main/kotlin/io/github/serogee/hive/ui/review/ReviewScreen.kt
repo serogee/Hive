@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.serogee.hive.audio.AudioScope
+import io.github.serogee.hive.audio.MusicTrack
+import io.github.serogee.hive.audio.NoOpSoundCuePlayer
+import io.github.serogee.hive.audio.Sfx
+import io.github.serogee.hive.audio.SoundCuePlayer
 import io.github.serogee.hive.core.api.correctAnswer
 import io.github.serogee.hive.core.api.describe
 import io.github.serogee.hive.core.editor.QuestionDraft
@@ -53,6 +59,7 @@ import io.github.serogee.hive.ui.common.HiveTextField
 import io.github.serogee.hive.ui.common.LocalAnswerInput
 import io.github.serogee.hive.ui.common.LocalAppContainer
 import io.github.serogee.hive.ui.common.MetricStatChip
+import io.github.serogee.hive.ui.common.MusicToggleButton
 import io.github.serogee.hive.ui.common.NoteBox
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.ProgressCells
@@ -79,6 +86,7 @@ class ReviewViewModel(
     private val reviews: ReviewRepository,
     private val stacks: StackRepository,
     private val appScope: CoroutineScope,
+    private val audio: SoundCuePlayer = NoOpSoundCuePlayer,
 ) : ViewModel() {
     private val _attempt = MutableStateFlow<ReviewAttempt?>(null)
     val attempt: StateFlow<ReviewAttempt?> = _attempt.asStateFlow()
@@ -110,13 +118,45 @@ class ReviewViewModel(
         }
     }
 
-    fun check(answer: Answer) = update { Review.answer(it, answer).first }
+    fun check(answer: Answer) {
+        var wasCorrect: Boolean? = null
+        val changed = update { current ->
+            val (updated, correct) = Review.answer(current, answer)
+            wasCorrect = correct
+            updated
+        }
+        if (changed) {
+            wasCorrect?.let { correct ->
+                audio.playSfx(if (correct) Sfx.CORRECT else Sfx.INCORRECT, AudioScope.SOLO)
+            }
+        }
+    }
 
-    fun advance() = update(Review::next)
+    fun advance() {
+        val before = _attempt.value ?: return
+        val changed = update(Review::next)
+        if (!changed) return
+        val after = _attempt.value ?: return
+        if (!before.isFinished && after.isFinished) {
+            audio.playSfxOnce("review-finish:$attemptId", Sfx.RESULTS_FANFARE, AudioScope.SOLO)
+        } else if (after.position != before.position) {
+            audio.playSfx(Sfx.NEXT, AudioScope.SOLO)
+        }
+    }
 
     fun previous() = update(Review::previous)
 
-    fun mark(gotIt: Boolean) = update { Review.mark(it, gotIt) }
+    fun mark(gotIt: Boolean) {
+        val before = _attempt.value ?: return
+        val changed = update { Review.mark(it, gotIt) }
+        if (!changed) return
+        val after = _attempt.value ?: return
+        if (!before.isFinished && after.isFinished) {
+            audio.playSfxOnce("review-finish:$attemptId", Sfx.RESULTS_FANFARE, AudioScope.SOLO)
+        } else {
+            audio.playSfx(if (gotIt) Sfx.CORRECT else Sfx.INCORRECT, AudioScope.SOLO)
+        }
+    }
 
     fun abandon(onDone: () -> Unit) = viewModelScope.launch {
         abandoned = true
@@ -152,9 +192,9 @@ class ReviewViewModel(
      * Serialized with [abandon] via [persistenceLock] so rapid taps never persist out of order and
      * an in-flight save can never resurrect an abandoned review.
      */
-    private fun update(change: (ReviewAttempt) -> ReviewAttempt) {
-        if (abandoned) return
-        val current = _attempt.value ?: return
+    private fun update(change: (ReviewAttempt) -> ReviewAttempt): Boolean {
+        if (abandoned) return false
+        val current = _attempt.value ?: return false
         val updated = change(current)
         _attempt.value = updated
         appScope.launch {
@@ -162,6 +202,7 @@ class ReviewViewModel(
                 if (!abandoned) reviews.save(_attempt.value ?: updated)
             }
         }
+        return true
     }
 }
 
@@ -169,20 +210,31 @@ class ReviewViewModel(
 fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel = viewModel(key = attemptId) {
-        ReviewViewModel(attemptId, container.reviews, container.stacks, container.appScope)
+        ReviewViewModel(attemptId, container.reviews, container.stacks, container.appScope, container.audio)
     }
     val attempt by viewModel.attempt.collectAsStateWithLifecycle()
     val stackExists by viewModel.stackExists.collectAsStateWithLifecycle()
     val stackRestored by viewModel.stackRestored.collectAsStateWithLifecycle()
     val next by viewModel.next.collectAsStateWithLifecycle()
+    val musicState by container.audio.musicState.collectAsStateWithLifecycle()
     var confirmAbandon by rememberSaveable { mutableStateOf(false) }
 
+    val sessionKey = "review:$attemptId"
+    val musicOn = musicState.isMusicEnabled(sessionKey, AudioScope.SOLO)
+
+    DisposableEffect(sessionKey) {
+        onDispose { container.audio.clearSessionMusic(sessionKey) }
+    }
     LaunchedEffect(next) { next?.let(onOpenAttempt) }
 
     val current = attempt ?: return
     val mode = if (current.settings.mode == ReviewMode.QUIZ) "Quiz Review" else "Flashcard Review"
     val question = current.current
     val finished = current.isFinished || question == null
+    val desiredTrack = if (finished) null else MusicTrack.QUIZ
+    LaunchedEffect(sessionKey, desiredTrack) {
+        container.audio.setSessionMusic(sessionKey, AudioScope.SOLO, desiredTrack)
+    }
     val answered = current.answeredCount
     val progress = if (current.order.isNotEmpty()) answered.toFloat() / current.order.size.toFloat() else 0f
 
@@ -287,7 +339,10 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
                         if (!shown) {
                             HiveButton(
                                 text = "Reveal answer",
-                                onClick = { revealed = true },
+                                onClick = {
+                                    revealed = true
+                                    container.audio.playSfx(Sfx.FLIP, AudioScope.SOLO)
+                                },
                             )
                         } else if (outcome != null) {
                             HiveButton(
@@ -309,6 +364,11 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
                 HiveTextButton("Done", onClick = onExit)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    MusicToggleButton(
+                        musicOn = musicOn,
+                        onToggle = { container.audio.toggleSessionMusic(sessionKey, AudioScope.SOLO) },
+                        framed = false,
+                    )
                     HiveTextButton("Abandon", onClick = { confirmAbandon = true })
                     HiveTextButton("Pause", onClick = onExit)
                 }
@@ -380,6 +440,7 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
                 onTruthChange = { truth = it },
                 showChoices = showChoices,
                 onToggleChoices = { showChoices = !showChoices },
+                onTap = { container.audio.playSfx(Sfx.TAP, AudioScope.SOLO) },
                 onCheck = viewModel::check,
             )
         } else {
@@ -434,6 +495,7 @@ private fun QuizCard(
     onTruthChange: (Boolean) -> Unit,
     showChoices: Boolean,
     onToggleChoices: () -> Unit,
+    onTap: () -> Unit,
     onCheck: (Answer) -> Unit,
 ) {
     val key = question.id.value
@@ -471,7 +533,11 @@ private fun QuizCard(
                         ),
                         onClick = {
                             onChoiceChange(option.id.value)
-                            if (taps.locksIn(option.id.value, SystemClock.uptimeMillis())) onCheck(Answer.SelectedChoice(option.id))
+                            if (taps.locksIn(option.id.value, SystemClock.uptimeMillis())) {
+                                onCheck(Answer.SelectedChoice(option.id))
+                            } else {
+                                onTap()
+                            }
                         },
                         enabled = !checked,
                         modifier = Modifier.fillMaxWidth(),
@@ -488,7 +554,11 @@ private fun QuizCard(
                             ),
                             onClick = {
                                 onTruthChange(value)
-                                if (taps.locksIn("$value", SystemClock.uptimeMillis())) onCheck(Answer.TrueFalse(value))
+                                if (taps.locksIn("$value", SystemClock.uptimeMillis())) {
+                                    onCheck(Answer.TrueFalse(value))
+                                } else {
+                                    onTap()
+                                }
                             },
                             enabled = !checked,
                             modifier = Modifier.weight(1f),
