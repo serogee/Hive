@@ -43,13 +43,17 @@ class StackEditorViewModel(
     /** Whether storage holds changes that were saved because the app closed. */
     private var savedOnClose = false
     private var discardDeletes = false
-    private var wasPendingSync = false
+
+    /**
+     * Whether the user saved this stack with Save. Until then, a new stack stays out of sync. After
+     * that, every save waits to sync, so that a pull keeps this phone's changes beside the account's.
+     */
+    private var userSaved = !isNew
 
     init {
         viewModelScope.launch {
             val draft = stacks.draft(stackId) ?: return@launch
             original = draft
-            wasPendingSync = stacks.isPendingSync(stackId)
             discardDeletes = isNew && draft.isUntouched()
             _state.value = EditorUiState(draft)
         }
@@ -133,7 +137,7 @@ class StackEditorViewModel(
         val draft = _state.value.draft ?: return
         stacks.save(draft, sync = true)
         original = draft
-        wasPendingSync = stacks.isPendingSync(stackId)
+        userSaved = true
         savedOnClose = false
         discardDeletes = false
         _state.update { it.copy(unsaved = it.draft != draft) }
@@ -144,19 +148,22 @@ class StackEditorViewModel(
         val before = original ?: return
         when {
             discardDeletes -> stacks.delete(stackId)
-            savedOnClose -> stacks.save(before, sync = wasPendingSync)
+            savedOnClose -> stacks.save(before, sync = userSaved)
         }
         savedOnClose = false
         _state.update { it.copy(draft = before, activeQuestionId = null, unsaved = false) }
     }
 
-    /** Saves the working copy locally because the app is closing, without pushing unconfirmed edits to sync. */
+    /**
+     * Saves the working copy because the app is closing. The changes can still be thrown away after a
+     * return. A stack that the user saved before waits to sync, so that a pull cannot replace the changes.
+     */
     fun saveOnClose() {
         val current = _state.value
         val draft = current.draft ?: return
         if (!current.unsaved) return
         savedOnClose = true
-        appScope.launch { stacks.save(draft, sync = false) }
+        appScope.launch { stacks.save(draft, sync = userSaved) }
     }
 
     private fun edit(change: (StackDraft) -> StackDraft) {

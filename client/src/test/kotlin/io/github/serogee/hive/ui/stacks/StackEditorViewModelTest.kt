@@ -28,7 +28,8 @@ import kotlinx.coroutines.test.setMain
 @OptIn(ExperimentalCoroutinesApi::class)
 class StackEditorViewModelTest {
     private val dispatcher = UnconfinedTestDispatcher()
-    private val stacks = StackRepository(FakeStackDao(), now = { 1L })
+    private val dao = FakeStackDao()
+    private val stacks = StackRepository(dao, now = { 1L })
 
     @BeforeTest
     fun setMain() = Dispatchers.setMain(dispatcher)
@@ -129,16 +130,35 @@ class StackEditorViewModelTest {
 
         newEditor.save()
         assertTrue(stacks.isPendingSync(id))
+    }
 
-        // Editing an already-pending stack and discarding after saveOnClose restores its pendingSync flag.
-        val existingEditor = editor(id, isNew = false)
-        existingEditor.setTitle("Unconfirmed")
-        existingEditor.saveOnClose()
+    @Test
+    fun `closing the app keeps saved changes waiting to sync`() = runTest(dispatcher) {
+        val id = saved("Biology")
+        assertTrue(stacks.isPendingSync(id))
+
+        val editor = editor(id, isNew = false)
+        editor.setTitle("Unconfirmed")
+        editor.saveOnClose()
+        assertTrue(stacks.isPendingSync(id))
+
+        editor.discard()
+        assertEquals("Biology", stacks.draft(id)?.title)
+        assertTrue(stacks.isPendingSync(id))
+    }
+
+    @Test
+    fun `closing the app marks a synced stack as changed here`() = runTest(dispatcher) {
+        val id = saved("Biology")
+        dao.markSynced(id.value, version = 3)
         assertFalse(stacks.isPendingSync(id))
 
-        existingEditor.discard()
-        assertEquals("Draft", stacks.draft(id)?.title)
+        val editor = editor(id, isNew = false)
+        editor.setTitle("Chemistry")
+        editor.saveOnClose()
+        // A pull then keeps this phone's changes as a copy beside the account's version.
         assertTrue(stacks.isPendingSync(id))
+        assertEquals("Chemistry", stacks.draft(id)?.title)
     }
 
     private class FakeStackDao : StackDao {
@@ -177,5 +197,10 @@ class StackEditorViewModelTest {
         override suspend fun clearDeletion(id: String) = Unit
 
         override suspend fun upsertDeletion(deletion: StackDeletionEntity) = Unit
+
+        /** Acts as a finished push: the account has [version], and nothing waits to sync. */
+        fun markSynced(id: String, version: Long) {
+            stacks[id] = stacks.getValue(id).copy(accountVersion = version, pendingSync = false)
+        }
     }
 }
