@@ -106,24 +106,49 @@ class AudioPolicyTest {
     }
 
     @Test
-    fun `in-session music toggle overrides saved setting and survives session clears`() {
+    fun `in-session music toggle only mutes, and survives session clears`() {
+        val state = SessionMusicState(
+            preferences = SoundPreferences(soloMusic = true, multiMusic = true),
+        ).withRequest("room:r1", AudioScope.MULTIPLAYER, MusicTrack.LOBBY)
+
+        assertTrue(state.isMusicEnabled("room:r1", AudioScope.MULTIPLAYER))
+        assertEquals(MusicTrack.LOBBY, state.effectiveTrack())
+
+        val muted = state.toggled("room:r1", AudioScope.MULTIPLAYER)
+        assertFalse(muted.isMusicEnabled("room:r1", AudioScope.MULTIPLAYER))
+        assertNull(muted.effectiveTrack())
+
+        // Leaving and re-entering the same session keeps the override; saved Settings stay true.
+        val cleared = muted.clearedSession("room:r1")
+        assertNull(cleared.effectiveTrack())
+        val resumed = cleared.withRequest("room:r1", AudioScope.MULTIPLAYER, MusicTrack.QUIZ)
+        assertNull(resumed.effectiveTrack())
+        assertTrue(resumed.preferences.multiMusic)
+
+        val unmuted = resumed.toggled("room:r1", AudioScope.MULTIPLAYER)
+        assertEquals(MusicTrack.QUIZ, unmuted.effectiveTrack())
+    }
+
+    @Test
+    fun `music stays off when Settings turn it off, and the toggle cannot turn it on`() {
         val state = SessionMusicState(
             preferences = SoundPreferences(soloMusic = false, multiMusic = false),
         ).withRequest("room:r1", AudioScope.MULTIPLAYER, MusicTrack.LOBBY)
 
+        assertFalse(state.isMusicAvailable(AudioScope.MULTIPLAYER))
         assertFalse(state.isMusicEnabled("room:r1", AudioScope.MULTIPLAYER))
         assertNull(state.effectiveTrack())
 
-        val enabled = state.toggled("room:r1", AudioScope.MULTIPLAYER)
-        assertTrue(enabled.isMusicEnabled("room:r1", AudioScope.MULTIPLAYER))
-        assertEquals(MusicTrack.LOBBY, enabled.effectiveTrack())
+        val toggled = state.toggled("room:r1", AudioScope.MULTIPLAYER)
+        assertEquals(state, toggled)
+        assertNull(toggled.effectiveTrack())
 
-        // Leaving and re-entering the same session keeps the override; saved Settings stay false.
-        val cleared = enabled.clearedSession("room:r1")
-        assertNull(cleared.effectiveTrack())
-        val resumed = cleared.withRequest("room:r1", AudioScope.MULTIPLAYER, MusicTrack.QUIZ)
-        assertEquals(MusicTrack.QUIZ, resumed.effectiveTrack())
-        assertFalse(resumed.preferences.multiMusic)
+        // A mute made while Settings allowed music still holds after Settings allow it again.
+        val allowed = state.copy(preferences = SoundPreferences())
+        val muted = allowed.toggled("room:r1", AudioScope.MULTIPLAYER)
+        val offAgain = muted.copy(preferences = SoundPreferences(multiMusic = false))
+        assertNull(offAgain.effectiveTrack())
+        assertNull(offAgain.copy(preferences = SoundPreferences()).effectiveTrack())
     }
 
     @Test

@@ -139,7 +139,7 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     Page(
         title = room?.room?.title ?: "Sessions",
         subtitle = room?.let { "${it.room.mode.label()}, ${it.room.questionCount} questions" },
-        action = if (musicPolicy.allowed) {
+        action = if (musicPolicy.allowed && musicState.isMusicAvailable(AudioScope.MULTIPLAYER)) {
             {
                 MusicToggleButton(
                     musicOn = musicOn,

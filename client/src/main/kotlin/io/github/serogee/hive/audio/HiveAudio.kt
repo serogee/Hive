@@ -175,17 +175,18 @@ class HiveAudio(
             return
         }
         val activePlayer = mediaPlayer
-        if (activePlayer != null && currentTrack == desired) {
-            if (!activePlayer.isPlaying && ensureAudioFocus()) {
-                applyMusicVolume(activePlayer)
-                runCatching { activePlayer.start() }
-            }
-            return
-        }
-        // Do not hijack external music (such as a music player or podcast) that is already playing.
-        if (mediaPlayer == null && audioManager.isMusicActive) return
+        val sameTrack = activePlayer != null && currentTrack == desired
+        if (sameTrack && activePlayer?.isPlaying == true) return
+        // Do not take audio from another app (such as a music player or podcast) that is playing,
+        // also after that app took the audio focus from Hive.
+        if (!focusGranted && audioManager.isMusicActive) return
         if (!ensureAudioFocus()) return
-        startTrack(desired)
+        if (sameTrack && activePlayer != null) {
+            applyMusicVolume(activePlayer)
+            runCatching { activePlayer.start() }
+        } else {
+            startTrack(desired)
+        }
     }
 
     private fun ensureAudioFocus(): Boolean {

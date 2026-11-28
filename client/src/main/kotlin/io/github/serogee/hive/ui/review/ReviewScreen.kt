@@ -364,11 +364,13 @@ fun ReviewScreen(attemptId: String, onOpenAttempt: (String) -> Unit, onExit: () 
                 HiveTextButton("Done", onClick = onExit)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    MusicToggleButton(
-                        musicOn = musicOn,
-                        onToggle = { container.audio.toggleSessionMusic(sessionKey, AudioScope.SOLO) },
-                        framed = false,
-                    )
+                    if (musicState.isMusicAvailable(AudioScope.SOLO)) {
+                        MusicToggleButton(
+                            musicOn = musicOn,
+                            onToggle = { container.audio.toggleSessionMusic(sessionKey, AudioScope.SOLO) },
+                            framed = false,
+                        )
+                    }
                     HiveTextButton("Abandon", onClick = { confirmAbandon = true })
                     HiveTextButton("Pause", onClick = onExit)
                 }
