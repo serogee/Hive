@@ -63,16 +63,14 @@ class AppContainer(application: Application) {
     /** Null when Google sign-in is not set up. */
     val googleIdTokens: GoogleIdTokens? = authConfig?.let { GoogleIdTokens(it.googleWebClientId) }
 
+    /**
+     * A session that ends by itself keeps this phone's links to the account, so that signing in again
+     * continues to sync. Only [signOut] forgets the account, and another account starts over in sync.
+     */
     val auth: AuthRepository = AuthRepository(
         sessions = preferences,
         supabase = authConfig?.let { SupabaseAuth(jsonHttpClient(), it) },
         demo = if (BuildConfig.DEBUG) ApiDemoAuth(api) else null,
-        onSessionCleared = {
-            // Run on appScope so a forced sign-out triggered inside SyncEngine.syncOnce never deadlocks its mutex.
-            appScope.launch {
-                if (auth.session.first() == null) forgetSignedOutAccount(removeSyncedStacks = false)
-            }
-        },
     )
     val server = ServerMonitor(preferences.serverUrl, api::health, appScope)
     val database = HiveDatabase.create(application)

@@ -270,6 +270,26 @@ class SyncEngineTest {
     }
 
     @Test
+    fun `a session that ends by itself keeps the links, and the same account continues to sync`() = runTest {
+        val phone = signedIn()
+        phone.phone.create("s1", "Biology")
+        phone.phone.create("s2", "Chemistry")
+        phone.sync()
+
+        // The session expires. Nothing forgets the account, so the phone only stops syncing.
+        phone.account = null
+        phone.sync()
+        assertEquals(SyncStatus.Off, phone.engine.status.value)
+        phone.phone.edit("s2", "Chemistry 2")
+
+        phone.account = "account-ana"
+        phone.sync()
+        assertNull(phone.engine.choice.value)
+        assertEquals(listOf("Biology", "Chemistry 2"), phone.phone.titles())
+        assertEquals(listOf("Biology", "Chemistry 2"), account.titles())
+    }
+
+    @Test
     fun `account data deleted on another phone makes this phone ask again`() = runTest {
         val first = signedIn()
         val second = signedIn()
