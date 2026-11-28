@@ -127,6 +127,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         try {
             container.resetAccountAndPhoneData()
             onDone()
+        } catch (e: AppContainer.PhoneResetFailed) {
+            _resetError.value = "Your synced data is deleted from your account, but this phone did not reset. Try Reset data again."
         } catch (e: Exception) {
             _resetError.value = "Nothing was deleted. ${e.userMessage()}"
         } finally {
@@ -312,7 +314,8 @@ fun SettingsScreen(onBack: () -> Unit) {
         } else {
             ChoiceDialog(
                 title = "Reset data",
-                message = "Reset this phone only, or delete your synced stacks and history from your account too?",
+                message = "Reset this phone only, or delete your synced stacks and history from your account too? " +
+                    "Both sign you out on this phone.",
                 choices = listOf(
                     DialogChoice("This phone only", HiveButtonStyle.SECONDARY) {
                         if (!resetting) viewModel.resetPhone { showReset = false }
