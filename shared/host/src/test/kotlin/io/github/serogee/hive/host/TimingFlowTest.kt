@@ -14,6 +14,7 @@ import io.github.serogee.hive.core.model.ChoiceId
 import io.github.serogee.hive.core.model.Question
 import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.core.model.RoomMode
+import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.core.sample.SampleStacks
 import kotlin.test.Test
@@ -110,7 +111,58 @@ class TimingFlowTest {
         runCurrent()
 
         assertEquals(20_000L, started.live?.closesAt)
-        assertEquals(false, room.guestState().live?.isOpen)
+        val after = room.guestState()
+        assertEquals(RoomStatus.ENDED, after.room.status)
+        assertNull(after.live)
+    }
+
+    @Test
+    fun deadlineClosesAnUnstartedLobby() = runTest {
+        val room = room(deadlineInMillis = 15_000)
+        advanceTimeBy(15_001)
+        runCurrent()
+
+        assertEquals(RoomStatus.ENDED, room.guestState().room.status)
+        val startError = assertFailsWith<HiveException> { room.hostDoes(HostCommand.Start) }
+        assertEquals(ErrorCode.INVALID_COMMAND, startError.code)
+    }
+
+    @Test
+    fun recoverTimersRestoresOpenQuestionAndDeadlineTimersAfterRestart() = runTest {
+        val sharedStore = InMemoryRoomStore()
+        val firstJob = kotlinx.coroutines.Job()
+        val firstService = RoomService(
+            store = sharedStore,
+            clock = { testScheduler.currentTime },
+            requireAccountToHost = true,
+            timers = kotlinx.coroutines.CoroutineScope(firstJob),
+        )
+        val host = firstService.createRoom(
+            alex,
+            CreateRoomRequest(SampleStacks.networkingFundamentals, RoomMode.DISCUSSION, deadlineAt = 60_000L),
+        )
+        val guest = firstService.join(host.room.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
+        firstService.command(host.room.id, alex, null, HostCommand.Start)
+
+        // Simulate process restart: kill the old timer scope and recover timers on a fresh RoomService.
+        firstJob.cancel()
+        val restarted = RoomService(
+            store = sharedStore,
+            clock = { testScheduler.currentTime },
+            requireAccountToHost = true,
+            timers = backgroundScope,
+        )
+        restarted.recoverTimers()
+
+        // Question 1 has a 30s timer -> closes at 30s.
+        advanceTimeBy(30_001)
+        runCurrent()
+        assertEquals(false, restarted.state(guest.room.id, null, guest.participantToken).live?.isOpen)
+
+        // Session deadline at 60s -> ends the room at 60s.
+        advanceTimeBy(30_000)
+        runCurrent()
+        assertEquals(RoomStatus.ENDED, restarted.state(guest.room.id, null, guest.participantToken).room.status)
     }
 
     @Test

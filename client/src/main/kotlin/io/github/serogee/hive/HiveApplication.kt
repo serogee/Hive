@@ -1,6 +1,7 @@
 package io.github.serogee.hive
 
 import android.app.Application
+import io.github.serogee.hive.audio.HiveAudio
 import io.github.serogee.hive.data.AppPreferences
 import io.github.serogee.hive.data.auth.ApiDemoAuth
 import io.github.serogee.hive.data.auth.AuthConfig
@@ -34,8 +35,10 @@ import io.github.serogee.hive.localhost.HostingService
 import io.github.serogee.hive.localhost.LocalHost
 import io.github.serogee.hive.localhost.NsdNearbyRooms
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,11 +52,12 @@ import kotlinx.coroutines.launch
 class AppContainer(application: Application) {
     val appScope = CoroutineScope(SupervisorJob())
     val preferences = AppPreferences(application)
+    val audio = HiveAudio(application, preferences, appScope)
 
     val api: HiveApi = HiveApi(
         serverUrl = { preferences.currentServerUrl() },
         accessToken = { auth.accessToken() },
-        onSessionExpired = { auth.sessionRefused() },
+        onSessionExpired = { refusedToken -> auth.sessionRefused(refusedToken) },
     )
 
     private val authConfig = AuthConfig.of(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_KEY, BuildConfig.GOOGLE_WEB_CLIENT_ID)
@@ -61,6 +65,10 @@ class AppContainer(application: Application) {
     /** Null when Google sign-in is not set up. */
     val googleIdTokens: GoogleIdTokens? = authConfig?.let { GoogleIdTokens(it.googleWebClientId) }
 
+    /**
+     * A session that ends by itself keeps this phone's links to the account, so that signing in again
+     * continues to sync. Only [signOut] forgets the account, and another account starts over in sync.
+     */
     val auth: AuthRepository = AuthRepository(
         sessions = preferences,
         supabase = authConfig?.let { SupabaseAuth(jsonHttpClient(), it) },
@@ -149,6 +157,40 @@ class AppContainer(application: Application) {
     /** Signs out. [removeSyncedStacks] also deletes the stacks that the account keeps from this phone. */
     suspend fun signOut(removeSyncedStacks: Boolean = false) {
         auth.signOut()
+        forgetSignedOutAccount(removeSyncedStacks)
+    }
+
+    /**
+     * Resets local data on this phone: leaves any joined session, stops phone hosting, signs out
+     * locally, and removes all local stacks, reviews, history, and hosted sessions.
+     */
+    suspend fun resetPhoneData() {
+        rooms.leaveJoinedRoom()
+        localHost.stop()
+        signOut(removeSyncedStacks = false)
+        withContext(Dispatchers.IO) { database.clearAllTables() }
+        preferences.clearLocalUserData()
+    }
+
+    /**
+     * Deletes synced stacks, reviews, and quiz results on the server for the signed-in account,
+     * then resets all local data on this phone. Throws [PhoneResetFailed] when only the phone's reset failed.
+     */
+    suspend fun resetAccountAndPhoneData() {
+        sync.deleteAccountData()
+        try {
+            resetPhoneData()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw PhoneResetFailed(e)
+        }
+    }
+
+    /** The account's synced data is deleted on the server, but this phone could not reset. */
+    class PhoneResetFailed(cause: Exception) : Exception(cause.message, cause)
+
+    private suspend fun forgetSignedOutAccount(removeSyncedStacks: Boolean) {
         sync.forgetAccount(removeSyncedStacks)
         profiles.forget()
     }
@@ -172,6 +214,7 @@ class HiveApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.audio.start()
         container.appScope.launch { container.auth.restore() }
         container.startSync()
         ServerTriggers(this, container.server) { container.sync.onForeground() }

@@ -6,6 +6,9 @@ import io.github.serogee.hive.core.api.OnlineRoomEntry
 import io.github.serogee.hive.core.api.StackChange
 import io.github.serogee.hive.core.api.SyncRecord
 import io.github.serogee.hive.core.engine.Clock
+import io.github.serogee.hive.core.engine.GradedAnswer
+import io.github.serogee.hive.core.engine.Leaderboard
+import io.github.serogee.hive.core.engine.RankedPlayer
 import io.github.serogee.hive.core.model.RoomRole
 import io.github.serogee.hive.core.model.RoomStatus
 import io.github.serogee.hive.host.HiveException
@@ -42,23 +45,36 @@ class SyncService(
 
     suspend fun deleteAll(account: Account) = store.deleteAll(account.id)
 
-    /** The account's online rooms, newest first, with its own results. */
+    /** The account's online rooms, newest first, with its own results loaded in batch queries. */
     suspend fun onlineRooms(account: Account): List<OnlineRoomEntry> {
         val hosted = rooms.roomsHostedBy(account.id).map { it to RoomRole.HOST }
         val played = rooms.roomsPlayedBy(account.id).map { it to RoomRole.PLAYER }
         val now = clock.nowMillis()
-        return (hosted + played).sortedByDescending { it.first.createdAt }.take(MAX_ROOMS).map { (room, role) ->
+        val entries = (hosted + played).sortedByDescending { it.first.createdAt }.take(MAX_ROOMS)
+        if (entries.isEmpty()) return emptyList()
+
+        val participantsByRoom = rooms.participantsByRooms(entries.map { it.first.id })
+        val endedPlayedRoomIds = entries
+            .filter { (room, role) -> role == RoomRole.PLAYER && room.effectiveStatus(now) == RoomStatus.ENDED }
+            .map { it.first.id }
+        val submissionsByRoom = if (endedPlayedRoomIds.isEmpty()) emptyMap() else rooms.submissionsByRooms(endedPlayedRoomIds)
+
+        return entries.map { (room, role) ->
             val status = room.effectiveStatus(now)
-            val participants = rooms.participants(room.id)
+            val participants = participantsByRoom[room.id].orEmpty()
+            val players = participants.filter { it.role == RoomRole.PLAYER }
             val own = if (role == RoomRole.PLAYER && status == RoomStatus.ENDED) {
-                val you = participants.firstOrNull { it.accountId == account.id && it.role == RoomRole.PLAYER }
-                // A room whose results cannot be read still shows, without a score.
-                val results = try {
-                    roomService.results(room.id, account, null)
-                } catch (_: HiveException) {
+                val you = players.firstOrNull { it.accountId == account.id }
+                if (you != null) {
+                    val submissions = submissionsByRoom[room.id].orEmpty()
+                    Leaderboard.build(
+                        players.map { RankedPlayer(it.id, it.displayName, isGuest = it.accountId == null) },
+                        submissions.map { GradedAnswer(it.participantId, it.correct, it.points, it.speedBonusTenths, it.responseMillis) },
+                        timeTiebreak = room.timeTiebreak,
+                    ).firstOrNull { it.participantId == you.id }
+                } else {
                     null
                 }
-                results?.leaderboard?.firstOrNull { it.participantId == you?.id }
             } else {
                 null
             }
@@ -71,7 +87,7 @@ class SyncService(
                 status = status,
                 createdAt = room.createdAt,
                 questionCount = room.stack.questions.size,
-                playerCount = participants.count { it.role == RoomRole.PLAYER },
+                playerCount = players.size,
                 totalTenths = own?.totalTenths,
                 correctCount = own?.correctCount,
                 rank = own?.rank,

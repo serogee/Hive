@@ -38,7 +38,32 @@ class ReviewRepositoryTest {
     }
 
     @Test
-    fun `starting more than five ongoing reviews auto-ends the oldest one`() = runTest {
+    fun `starting more than five ongoing reviews auto-ends an answered oldest one with its original time`() = runTest {
+        time = 1_000L
+        val first = reviews.start(stack, ReviewSettings(ReviewMode.FLASHCARD))
+        time = 1_500L
+        val answeredFirst = Review.mark(first, gotIt = true)
+        reviews.save(answeredFirst)
+
+        val others = (2..6).map { index ->
+            time = index * 10_000L
+            reviews.start(stack, ReviewSettings(ReviewMode.QUIZ))
+        }
+
+        val ongoing = reviews.ongoing.first()
+        val finished = reviews.finished.first()
+
+        assertEquals(ReviewRepository.MAX_ONGOING, ongoing.size)
+        assertEquals(others.reversed().map { it.id }, ongoing.map { it.id })
+        val ended = finished.single()
+        assertEquals(first.id, ended.attempt.id)
+        // Preserves when the user last worked on it, rather than falsely extending today's streak.
+        assertEquals(1_500L, ended.finishedAt)
+        assertEquals(stack.questions.size - 1, ended.attempt.toRetry.size)
+    }
+
+    @Test
+    fun `starting more than five ongoing reviews discards an unanswered oldest one`() = runTest {
         val started = (1..6).map { index ->
             time = index * 1_000L
             reviews.start(stack, ReviewSettings(ReviewMode.QUIZ))
@@ -49,7 +74,7 @@ class ReviewRepositoryTest {
 
         assertEquals(ReviewRepository.MAX_ONGOING, ongoing.size)
         assertEquals(started.drop(1).reversed().map { it.id }, ongoing.map { it.id })
-        assertEquals(listOf(started.first().id), finished.map { it.attempt.id })
+        assertEquals(emptyList(), finished)
     }
 
     @Test

@@ -38,6 +38,10 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
         connection.queryRooms("SELECT * FROM rooms WHERE code = ?", code).firstOrNull()
     }
 
+    override suspend fun activeRooms() = db.read { connection ->
+        connection.queryRooms("SELECT * FROM rooms WHERE status != 'ENDED'")
+    }
+
     override suspend fun roomsHostedBy(accountId: AccountId) = db.read { connection ->
         connection.queryRooms("SELECT * FROM rooms WHERE host_account_id = ?", accountId.value)
     }
@@ -110,6 +114,18 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
 
     override suspend fun submissions(roomId: RoomId) = db.read { connection ->
         connection.querySubmissions("SELECT * FROM submissions WHERE room_id = ? ORDER BY rowid", roomId.value)
+    }
+
+    override suspend fun submissionsByRooms(roomIds: Collection<RoomId>): Map<RoomId, List<SubmissionRecord>> {
+        val ids = roomIds.map { it.value }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        val placeholders = ids.joinToString(",") { "?" }
+        return db.read { connection ->
+            connection.querySubmissions(
+                "SELECT * FROM submissions WHERE room_id IN ($placeholders) ORDER BY rowid",
+                *ids.toTypedArray(),
+            ).groupBy { it.roomId }
+        }
     }
 
     override suspend fun activeMembershipsOf(accountId: AccountId) = db.read { connection ->
@@ -188,6 +204,18 @@ class SqliteRoomStore(private val db: DemoDatabase) : RoomStore {
             "SELECT * FROM participants WHERE room_id = ? ORDER BY rowid",
             roomId.value,
         )
+    }
+
+    override suspend fun participantsByRooms(roomIds: Collection<RoomId>): Map<RoomId, List<ParticipantRecord>> {
+        val ids = roomIds.map { it.value }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        val placeholders = ids.joinToString(",") { "?" }
+        return db.read { connection ->
+            connection.queryParticipants(
+                "SELECT * FROM participants WHERE room_id IN ($placeholders) ORDER BY rowid",
+                *ids.toTypedArray(),
+            ).groupBy { it.roomId }
+        }
     }
 
     companion object {

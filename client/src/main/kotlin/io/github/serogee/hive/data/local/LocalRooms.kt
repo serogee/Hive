@@ -257,6 +257,8 @@ class LocalRoomStore(private val dao: LocalRoomDao) : RoomStore {
 
     override suspend fun findRoomByCode(code: String) = dao.roomByCode(code)?.toRecord()
 
+    override suspend fun activeRooms() = dao.activeRooms().map { it.toRecord() }
+
     override suspend fun roomsHostedBy(accountId: AccountId): List<RoomRecord> = emptyList()
 
     override suspend fun roomsPlayedBy(accountId: AccountId): List<RoomRecord> = emptyList()

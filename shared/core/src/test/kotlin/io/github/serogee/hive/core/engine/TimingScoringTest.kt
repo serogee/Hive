@@ -61,8 +61,26 @@ class TimingScoringTest {
         assertEquals("fast", withTiebreak.first().participantId.value)
         assertEquals(1, withTiebreak.first { it.participantId == fast.participantId }.rank)
         assertEquals(2, withTiebreak.first { it.participantId == slow.participantId }.rank)
-        // Unknown time cannot be ordered, so that Player shares the top rank.
-        assertEquals(1, withTiebreak.first { it.participantId == unknown.participantId }.rank)
+        // Known times strictly precede unknown times so ranking stays transitive (1, 2, 3).
+        assertEquals(3, withTiebreak.first { it.participantId == unknown.participantId }.rank)
+    }
+
+    @Test
+    fun equalScoresWithMixedNullTimesProduceStandardCompetitionRanks() {
+        val fastA = RankedPlayer(ParticipantId("fast-a"), "Fast A", true)
+        val fastB = RankedPlayer(ParticipantId("fast-b"), "Fast B", true)
+        val unknownA = RankedPlayer(ParticipantId("unknown-a"), "Unknown A", true)
+        val unknownB = RankedPlayer(ParticipantId("unknown-b"), "Unknown B", true)
+        val answers = listOf(
+            GradedAnswer(fastA.participantId, correct = true, points = 2, responseMillis = 3_000),
+            GradedAnswer(fastB.participantId, correct = true, points = 2, responseMillis = 3_000),
+            GradedAnswer(unknownA.participantId, correct = true, points = 2, responseMillis = null),
+            GradedAnswer(unknownB.participantId, correct = true, points = 2, responseMillis = null),
+        )
+
+        val board = Leaderboard.build(listOf(unknownA, fastA, unknownB, fastB), answers, timeTiebreak = true)
+
+        assertEquals(listOf(1, 1, 3, 3), board.map { it.rank })
     }
 
     @Test

@@ -41,9 +41,11 @@ fun GoogleSignIn(modifier: Modifier = Modifier, enabled: Boolean = true, onSigne
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val idTokens = container.googleIdTokens
+    val online = watchOnline()
+    val gate = online.googleSignInGate() ?: if (idTokens == null) Gate(GateLook.LOCKED, OnlineFacts.SIGN_IN_DOWN) else null
 
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Gated(if (idTokens == null) Gate(GateLook.LOCKED, OnlineFacts.SIGN_IN_DOWN) else null) { available ->
+        Gated(gate) { available ->
             GoogleButton(
                 enabled = available && enabled && !busy && activity != null,
                 onClick = {

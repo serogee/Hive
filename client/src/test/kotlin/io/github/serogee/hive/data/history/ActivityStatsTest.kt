@@ -97,7 +97,7 @@ class ActivityStatsTest {
     }
 
     @Test
-    fun `unended online sessions do not count toward streaks or quizzes played`() {
+    fun `unended online sessions do not count toward streaks, quizzes played, or rooms hosted`() {
         val stats = stats(
             quizzes = listOf(
                 quiz(today, RoomRole.PLAYER, "live-1", ended = false),
@@ -107,7 +107,18 @@ class ActivityStatsTest {
         assertEquals(0, stats.streakDays)
         assertEquals(0, stats.quizzesPlayed)
         assertEquals(List(7) { false }, stats.weekActive)
-        assertEquals(1, stats.roomsHosted)
+        assertEquals(0, stats.roomsHosted)
+    }
+
+    @Test
+    fun `zero-answered finished reviews do not affect streaks or average score`() {
+        val emptyEnded = FinishedReview(
+            Review.finish(Review.start("empty", stack, ReviewSettings(ReviewMode.QUIZ), Random(1))),
+            at(today),
+        )
+        val stats = stats(reviews = listOf(emptyEnded, review(today.minusDays(2), right = stack.questions.size)))
+        assertEquals(0, stats.streakDays)
+        assertEquals(100, stats.averagePercent)
     }
 
     @Test

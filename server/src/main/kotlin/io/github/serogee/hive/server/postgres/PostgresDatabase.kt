@@ -16,6 +16,22 @@ import kotlinx.coroutines.withContext
 class PostgresDatabase private constructor(private val pool: HikariDataSource) : AutoCloseable {
     suspend fun <T> read(block: (Connection) -> T): T = withContext(Dispatchers.IO) { pool.connection.use(block) }
 
+    /** Runs [block] in a single REPEATABLE READ read-only transaction so multiple queries see one snapshot. */
+    suspend fun <T> readSnapshot(block: (Connection) -> T): T = withContext(Dispatchers.IO) {
+        pool.connection.use { connection ->
+            connection.autoCommit = false
+            try {
+                connection.createStatement().use { it.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY") }
+                return@use block(connection).also { connection.commit() }
+            } catch (e: Throwable) {
+                runCatching { connection.rollback() }
+                throw e
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
     /** Runs [block] in one transaction. */
     suspend fun <T> write(block: (Connection) -> T): T = withContext(Dispatchers.IO) {
         pool.connection.use { it.transaction(block) }
@@ -26,7 +42,7 @@ class PostgresDatabase private constructor(private val pool: HikariDataSource) :
         object : SyncDatabase {
             override val tables = "hive."
 
-            override suspend fun <T> read(block: (Connection) -> T): T = this@PostgresDatabase.read(block)
+            override suspend fun <T> read(block: (Connection) -> T): T = this@PostgresDatabase.readSnapshot(block)
 
             override suspend fun <T> writeForAccount(accountId: AccountId, block: (Connection) -> T): T = write { connection ->
                 // Held until the transaction ends.

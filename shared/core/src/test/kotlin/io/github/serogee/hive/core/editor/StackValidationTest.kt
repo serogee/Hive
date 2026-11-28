@@ -102,4 +102,46 @@ class StackValidationTest {
             issues,
         )
     }
+
+    @Test
+    fun duplicateAndBlankIdsAreReported() {
+        val duplicateChoices = complete.copy(
+            id = QuestionId("q2"),
+            choices = listOf(Choice(ChoiceId("c1"), "Network"), Choice(ChoiceId("c1"), "Physical")),
+        )
+        val blankIds = complete.copy(
+            id = QuestionId(" "),
+            choices = listOf(Choice(ChoiceId(""), "Network"), Choice(ChoiceId("c2"), "Physical")),
+            correctChoiceId = ChoiceId("c2"),
+        )
+        val stack = draft(complete, complete, duplicateChoices, blankIds)
+
+        val messages = StackValidation.validate(stack).map { it.message }
+
+        assertTrue("Question 2 has a duplicate ID." in messages)
+        assertTrue("Question 3, choice 2 has a duplicate ID." in messages)
+        assertTrue("Question 4 needs an ID." in messages)
+        assertTrue("Question 4, choice 1 needs an ID." in messages)
+        assertNull(StackValidation.toSnapshot(stack))
+    }
+
+    @Test
+    fun identificationAnswersRespectMaxAnswerLength() {
+        val exactLimit = QuestionDraft(
+            id = QuestionId("q1"),
+            type = QuestionType.IDENTIFICATION,
+            prompt = "Long answer",
+            identificationAnswer = "a".repeat(QuestionDraft.MAX_ANSWER_LENGTH),
+            acceptedAlternatives = listOf("b".repeat(QuestionDraft.MAX_ANSWER_LENGTH)),
+        )
+        assertEquals(emptyList(), StackValidation.questionIssues(exactLimit, 1))
+
+        val tooLong = exactLimit.copy(
+            identificationAnswer = "a".repeat(QuestionDraft.MAX_ANSWER_LENGTH + 1),
+            acceptedAlternatives = listOf("b".repeat(QuestionDraft.MAX_ANSWER_LENGTH + 1)),
+        )
+        val issues = StackValidation.questionIssues(tooLong, 1)
+        assertTrue("Question 1 answer must be at most ${QuestionDraft.MAX_ANSWER_LENGTH} characters." in issues)
+        assertTrue("Question 1 accepted answers must be at most ${QuestionDraft.MAX_ANSWER_LENGTH} characters." in issues)
+    }
 }

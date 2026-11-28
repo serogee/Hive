@@ -144,4 +144,40 @@ class StackImportTest {
         assertEquals(50, result.questionCount)
         assertEquals((1..50).map { "Answer $it" }, result.draft!!.questions.map { it.identificationAnswer })
     }
+
+    @Test
+    fun duplicateIdsInJsonAreRejectedAndBlankIdsAreGenerated() {
+        val duplicateQuestions = """
+            {"title": "T", "questions": [
+              {"id": "q1", "type": "true_false", "prompt": "First", "answer": true},
+              {"id": "q1", "type": "true_false", "prompt": "Second", "answer": false}
+            ]}
+        """.trimIndent()
+        val duplicateChoices = """
+            {"title": "T", "questions": [
+              {"id": "q1", "type": "multiple_choice", "prompt": "Pick", "choices": [
+                {"id": "c1", "text": "A", "correct": true},
+                {"id": "c1", "text": "B"}
+              ]}
+            ]}
+        """.trimIndent()
+        val blankIds = """
+            {"title": "T", "questions": [
+              {"id": " ", "type": "multiple_choice", "prompt": "Pick", "choices": [
+                {"id": "", "text": "A", "correct": true},
+                {"id": "  ", "text": "B"}
+              ]}
+            ]}
+        """.trimIndent()
+
+        assertEquals(listOf("Question 2 has a duplicate ID."), HiveStackFile.decode(duplicateQuestions, newId).errors)
+        assertEquals(listOf("Question 1, choice 2 has a duplicate ID."), HiveStackFile.decode(duplicateChoices, newId).errors)
+
+        val generated = HiveStackFile.decode(blankIds, newId)
+        assertEquals(emptyList(), generated.errors)
+        val q = assertNotNull(generated.draft).questions.single()
+        assertTrue(q.id.value.isNotBlank())
+        assertTrue(q.choices.all { it.id.value.isNotBlank() })
+        assertEquals(2, q.choices.map { it.id }.toSet().size)
+    }
 }

@@ -21,8 +21,9 @@ data class GradedAnswer(
 object Leaderboard {
     /**
      * Orders Players by score: base points plus any speed bonus. With [timeTiebreak], Players with
-     * equal scores are ordered by their total answer time on correct answers. Players who are still
-     * tied, or whose times are unknown, share a rank, and the next rank skips accordingly (1, 1, 3).
+     * equal scores are ordered by their total answer time on correct answers, with known times ahead
+     * of unknown times so ranking stays strictly transitive. Tied Players share a rank, and the next
+     * rank skips accordingly (1, 1, 3).
      */
     fun build(players: List<RankedPlayer>, answers: List<GradedAnswer>, timeTiebreak: Boolean = false): List<LeaderboardEntry> {
         val byPlayer = answers.groupBy { it.participantId }
@@ -46,7 +47,9 @@ object Leaderboard {
 
         fun ahead(a: LeaderboardEntry, b: LeaderboardEntry): Boolean = when {
             a.totalTenths != b.totalTenths -> a.totalTenths > b.totalTenths
-            !timeTiebreak || a.answerTimeMillis == null || b.answerTimeMillis == null -> false
+            !timeTiebreak -> false
+            a.answerTimeMillis == null -> false
+            b.answerTimeMillis == null -> true
             else -> a.answerTimeMillis < b.answerTimeMillis
         }
 

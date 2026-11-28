@@ -1,6 +1,7 @@
 package io.github.serogee.hive.data.rooms
 
 import io.github.serogee.hive.core.api.AnswerReceipt
+import io.github.serogee.hive.core.api.ApiError
 import io.github.serogee.hive.core.api.CreateRoomRequest
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.JoinRoomRequest
@@ -20,7 +21,9 @@ import io.github.serogee.hive.core.model.StackSnapshot
 import io.github.serogee.hive.data.AppPreferences
 import io.github.serogee.hive.data.SavedMembership
 import io.github.serogee.hive.data.local.LocalRoomStore
+import io.github.serogee.hive.data.remote.ApiException
 import io.github.serogee.hive.data.remote.HiveApi
+import io.github.serogee.hive.host.HiveException
 import io.github.serogee.hive.localhost.LocalHost
 import io.github.serogee.hive.localhost.NearbyRooms
 import kotlinx.coroutines.flow.Flow
@@ -117,11 +120,13 @@ class RoomRepository(
         localRooms.endAbandonedRooms(preferences.hostTokens.first().keys, System.currentTimeMillis())
         if (!localRooms.hasActiveRooms()) return false
         localHost.start()
+        localHost.service.recoverTimers()
         return true
     }
 
     /** Stops the embedded server when every room on this phone has ended. */
     suspend fun stopHostingWhenIdle() {
+        localRooms.endAbandonedRooms(preferences.hostTokens.first().keys, System.currentTimeMillis())
         if (!localRooms.hasActiveRooms()) localHost.stop()
     }
 
@@ -189,10 +194,18 @@ class RoomRepository(
         runCatching { api.leave(membership.roomId, membership.participantToken, server) }
     }
 
+    private suspend fun hostToken(roomId: RoomId): String? = preferences.hostTokens.first()[roomId.value]
+
+    private suspend inline fun <T> localCall(block: suspend () -> T): T = try {
+        block()
+    } catch (e: HiveException) {
+        throw ApiException(ApiError(e.code, e.message))
+    }
+
     /** The server and credential to use for [roomId]. A null server means the configured one. */
     private suspend fun access(roomId: RoomId): Pair<String?, String?> {
-        preferences.hostTokens.first()[roomId.value]?.let {
-            // The server may have stopped, for example when the phone closed the app. The room needs it.
+        hostToken(roomId)?.let {
+            // Active event subscriptions need the embedded server running so Players can connect.
             localHost.start()
             return localHost.selfUrl to it
         }
@@ -201,14 +214,21 @@ class RoomRepository(
         return server to joined.participantToken
     }
 
-    suspend fun state(roomId: RoomId): RoomState =
-        access(roomId).let { (server, token) -> api.roomState(roomId, token, server) }
+    suspend fun state(roomId: RoomId): RoomState {
+        hostToken(roomId)?.let { token -> return localCall { localHost.service.state(roomId, null, token) } }
+        return access(roomId).let { (server, token) -> api.roomState(roomId, token, server) }
+    }
 
     suspend fun events(roomId: RoomId): Flow<RoomEvent> =
         access(roomId).let { (server, token) -> api.roomEvents(roomId, token, server) }
 
-    suspend fun command(roomId: RoomId, command: HostCommand): RoomState =
-        access(roomId).let { (server, token) -> api.command(roomId, command, token, server) }
+    suspend fun command(roomId: RoomId, command: HostCommand): RoomState {
+        hostToken(roomId)?.let { token ->
+            if (command != HostCommand.EndRoom) localHost.start()
+            return localCall { localHost.service.command(roomId, null, token, command) }
+        }
+        return access(roomId).let { (server, token) -> api.command(roomId, command, token, server) }
+    }
 
     suspend fun attempt(roomId: RoomId, command: PlayerCommand): RoomState =
         access(roomId).let { (server, token) -> api.attempt(roomId, command, token, server) }
@@ -217,11 +237,12 @@ class RoomRepository(
         access(roomId).let { (server, token) -> api.submitAnswer(roomId, request, token, server) }
 
     suspend fun results(roomId: RoomId): RoomResults {
+        hostToken(roomId)?.let { token -> return localCall { localHost.service.results(roomId, null, token) } }
         val (server, token) = access(roomId)
         val results = api.results(roomId, token, server)
         // Signed-in online rooms come from the account's own list; nearby rooms and guest online rooms are recorded here.
         val joined = preferences.joinedRoom.first()?.takeIf { it.roomId == roomId }
-        if (joined != null && !isHostedHere(roomId) && (!joined.isOnline || joined.isGuest)) onNearbyResults(results, joined)
+        if (joined != null && (!joined.isOnline || joined.isGuest)) onNearbyResults(results, joined)
         return results
     }
 }

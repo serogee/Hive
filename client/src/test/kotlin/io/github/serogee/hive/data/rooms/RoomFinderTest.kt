@@ -104,7 +104,22 @@ class RoomFinderTest {
         assertEquals(phone, HostAddress.normalize("192.168.43.1"))
         assertEquals(phone, HostAddress.normalize(" 192.168.43.1:8090 "))
         assertEquals(phone, HostAddress.normalize("http://192.168.43.1:8090/"))
+        assertEquals("https://quiz.example.com", HostAddress.normalize("https://quiz.example.com/"))
+        assertEquals("https://quiz.example.com:8443/sub", HostAddress.normalize("https://quiz.example.com:8443/sub/"))
+        assertEquals("http://192.168.43.1:8090/foo", HostAddress.normalize("192.168.43.1/foo/"))
+        assertEquals("http://httpbin.org:8090", HostAddress.normalize("httpbin.org"))
         assertNull(HostAddress.normalize("  "))
+        assertNull(HostAddress.normalize("http://"))
+    }
+
+    @Test
+    fun `server urls normalize schemes and reject blank or hostless input`() {
+        assertNull(HostAddress.normalizeServerUrl(""))
+        assertNull(HostAddress.normalizeServerUrl("   "))
+        assertNull(HostAddress.normalizeServerUrl("http://"))
+        assertEquals("http://httpbin.org", HostAddress.normalizeServerUrl("httpbin.org"))
+        assertEquals("http://10.0.2.2:8080", HostAddress.normalizeServerUrl(" 10.0.2.2:8080/ "))
+        assertEquals("https://hive.example.com", HostAddress.normalizeServerUrl("HTTPS://hive.example.com/"))
     }
 
     @Test

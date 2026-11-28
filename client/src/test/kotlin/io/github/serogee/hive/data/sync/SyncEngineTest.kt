@@ -270,6 +270,26 @@ class SyncEngineTest {
     }
 
     @Test
+    fun `a session that ends by itself keeps the links, and the same account continues to sync`() = runTest {
+        val phone = signedIn()
+        phone.phone.create("s1", "Biology")
+        phone.phone.create("s2", "Chemistry")
+        phone.sync()
+
+        // The session expires. Nothing forgets the account, so the phone only stops syncing.
+        phone.account = null
+        phone.sync()
+        assertEquals(SyncStatus.Off, phone.engine.status.value)
+        phone.phone.edit("s2", "Chemistry 2")
+
+        phone.account = "account-ana"
+        phone.sync()
+        assertNull(phone.engine.choice.value)
+        assertEquals(listOf("Biology", "Chemistry 2"), phone.phone.titles())
+        assertEquals(listOf("Biology", "Chemistry 2"), account.titles())
+    }
+
+    @Test
     fun `account data deleted on another phone makes this phone ask again`() = runTest {
         val first = signedIn()
         val second = signedIn()
@@ -339,13 +359,15 @@ class SyncEngineTest {
     }
 
     @Test
-    fun `unsyncAll removes synced stacks from the server and syncAll brings everything back`() = runTest {
+    fun `unsyncAll removes synced stacks from the server and keeps reviews and results syncing`() = runTest {
         val phone = signedIn()
         phone.phone.create("s1", "Biology")
         phone.phone.create("s2", "Chemistry")
         phone.sync()
         assertEquals(listOf("Biology", "Chemistry"), account.titles())
 
+        phone.phone.finishReview("r1")
+        phone.phone.recordResult("x1")
         phone.engine.unsyncAll()
         phone.sync()
         phone.sync()
@@ -353,11 +375,37 @@ class SyncEngineTest {
         assertEquals(listOf("Biology", "Chemistry"), phone.phone.titles())
         assertTrue(phone.phone.stacks.values.all { it.localOnly })
         assertTrue(account.titles().isEmpty())
+        // Unsync all stacks must not silently hide unsent reviews or quiz results from sync.
+        assertEquals(listOf("r1"), account.reviewIds())
+        assertTrue(("result" to "x1") in account.records)
 
         phone.engine.syncAll()
         phone.sync()
 
         assertTrue(phone.phone.stacks.values.none { it.localOnly })
         assertEquals(listOf("Biology", "Chemistry"), account.titles())
+    }
+
+    @Test
+    fun `restoring a deleted stack before sync cancels the deletion without forking`() = runTest {
+        val first = signedIn()
+        val second = signedIn()
+        first.phone.create("s1", "Biology")
+        first.sync()
+        second.sync()
+
+        // Delete and immediately restore before sync runs (e.g. offline or within the debounce window).
+        first.phone.delete("s1")
+        first.phone.restore("s1", "Biology (restored)")
+        first.sync()
+        // A follow-up pull must not see a tombstone or spawn a "(from this phone)" duplicate.
+        first.sync()
+        second.sync()
+
+        assertEquals(listOf("Biology (restored)"), first.phone.titles())
+        assertEquals(listOf("Biology (restored)"), account.titles())
+        assertEquals(listOf("Biology (restored)"), second.phone.titles())
+        assertTrue(first.phone.deletions.isEmpty())
+        assertEquals(setOf("s1"), first.phone.stacks.keys)
     }
 }

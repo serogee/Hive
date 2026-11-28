@@ -125,8 +125,6 @@ interface SyncDao {
             if (version != null) upsertDeletion(StackDeletionEntity(row.id, version))
         }
         setAllStacksLocalOnly()
-        keepReviewsOnPhone()
-        keepResultsOnPhone()
     }
 
     @Query("SELECT COUNT(*) FROM stacks WHERE accountVersion IS NULL AND localOnly = 0")

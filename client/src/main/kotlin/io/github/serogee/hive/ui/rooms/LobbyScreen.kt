@@ -11,6 +11,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +24,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.serogee.hive.audio.AudioScope
+import io.github.serogee.hive.audio.RoomMusicPolicy
+import io.github.serogee.hive.audio.Sfx
+import io.github.serogee.hive.audio.roomMusicPolicy
 import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.PlayerCommand
 import io.github.serogee.hive.core.api.PlayerQuestion
@@ -40,6 +45,7 @@ import io.github.serogee.hive.ui.common.HiveButtonStyle
 import io.github.serogee.hive.ui.common.HiveDialog
 import io.github.serogee.hive.ui.common.LocalAnswerInput
 import io.github.serogee.hive.ui.common.LocalAppContainer
+import io.github.serogee.hive.ui.common.MusicToggleButton
 import io.github.serogee.hive.ui.common.Page
 import io.github.serogee.hive.ui.common.SectionHeader
 import io.github.serogee.hive.ui.common.SleekCard
@@ -51,14 +57,25 @@ import kotlinx.coroutines.launch
 @Composable
 fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     val container = LocalAppContainer.current
-    val viewModel = viewModel(key = roomId) { LobbyViewModel(RoomId(roomId), container.rooms) }
+    val viewModel = viewModel(key = roomId) { LobbyViewModel(RoomId(roomId), container.rooms, container.audio) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val musicState by container.audio.musicState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var confirmLeave by remember { mutableStateOf(false) }
     var confirmEnd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
 
     val room = state.room
+    val sessionKey = "room:$roomId"
+    val musicPolicy = room?.let(::roomMusicPolicy) ?: RoomMusicPolicy(allowed = false, track = null)
+    val musicOn = musicState.isMusicEnabled(sessionKey, AudioScope.MULTIPLAYER)
+
+    LaunchedEffect(sessionKey, musicPolicy.track) {
+        container.audio.setSessionMusic(sessionKey, AudioScope.MULTIPLAYER, musicPolicy.track)
+    }
+    DisposableEffect(sessionKey) {
+        onDispose { container.audio.clearSessionMusic(sessionKey) }
+    }
     val liveQuestion = room?.live
     var draftAnswer by remember(liveQuestion?.question?.id) { mutableStateOf<Answer?>(null) }
     val answerInput = LocalAnswerInput.current
@@ -122,6 +139,17 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
     Page(
         title = room?.room?.title ?: "Sessions",
         subtitle = room?.let { "${it.room.mode.label()}, ${it.room.questionCount} questions" },
+        action = if (musicPolicy.allowed && musicState.isMusicAvailable(AudioScope.MULTIPLAYER)) {
+            {
+                MusicToggleButton(
+                    musicOn = musicOn,
+                    onToggle = { container.audio.toggleSessionMusic(sessionKey, AudioScope.MULTIPLAYER) },
+                    framed = true,
+                )
+            }
+        } else {
+            null
+        },
         bottomBar = bottomBar,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -177,9 +205,29 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                         onTimeUp = { viewModel.refreshNow() },
                         externalActions = true,
                         onDraftAnswer = { draftAnswer = it },
+                        onTap = { container.audio.playSfx(Sfx.TAP, AudioScope.MULTIPLAYER) },
+                        onTick = { questionId, seconds ->
+                            container.audio.playSfxOnce(
+                                key = "tick:$roomId:${questionId.value}:$seconds",
+                                cue = Sfx.TICK,
+                                scope = AudioScope.MULTIPLAYER,
+                            )
+                        },
                     )
                     live == null -> Text("Waiting for the first question.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    isHost -> HostLiveContent(live, state.busy, onCommand = viewModel::command, onTimeUp = { viewModel.refreshNow() })
+                    isHost -> HostLiveContent(
+                        live = live,
+                        busy = state.busy,
+                        onCommand = viewModel::command,
+                        onTimeUp = { viewModel.refreshNow() },
+                        onTick = { questionId, seconds ->
+                            container.audio.playSfxOnce(
+                                key = "tick:$roomId:${questionId.value}:$seconds",
+                                cue = Sfx.TICK,
+                                scope = AudioScope.MULTIPLAYER,
+                            )
+                        },
+                    )
                     else -> PlayerLiveContent(
                         live = live,
                         pending = state.pending,
@@ -188,6 +236,14 @@ fun LobbyScreen(roomId: String, onLeft: () -> Unit) {
                         onTimeUp = { viewModel.refreshNow() },
                         externalActions = true,
                         onDraftAnswer = { draftAnswer = it },
+                        onTap = { container.audio.playSfx(Sfx.TAP, AudioScope.MULTIPLAYER) },
+                        onTick = { questionId, seconds ->
+                            container.audio.playSfxOnce(
+                                key = "tick:$roomId:${questionId.value}:$seconds",
+                                cue = Sfx.TICK,
+                                scope = AudioScope.MULTIPLAYER,
+                            )
+                        },
                     )
                 }
             }
@@ -341,7 +397,7 @@ private fun LobbyContent(room: RoomState, isHost: Boolean, busy: Boolean, onStar
     }
 
     if (isHost) {
-        val players = room.participants.count { it.role == RoomRole.PLAYER }
+        val players = room.participants.count { it.role == RoomRole.PLAYER && !it.left }
         val start = if (room.room.mode == RoomMode.ASYNCHRONOUS) "Open session" else "Start quiz"
         HiveButton(
             text = if (players > 0) start else "Waiting for Players...",

@@ -227,7 +227,8 @@ fun HostSetupScreen(stackId: StackId, onEdit: () -> Unit, onSignIn: () -> Unit, 
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
             Text(
-                "Question time limits still apply. When both apply, the earlier one ends answering.",
+                "The session ends for everyone at that time, also before it starts. Question time limits still apply. " +
+                    "When both apply, the earlier one ends answering.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

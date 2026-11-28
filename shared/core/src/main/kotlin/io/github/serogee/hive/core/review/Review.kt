@@ -73,9 +73,12 @@ data class ReviewAttempt(
 
     val correctCount: Int get() = outcomes.values.count { it == Outcome.CORRECT || it == Outcome.GOT_IT }
 
-    /** Missed questions in Quiz Review, or cards marked Review again in Flashcard Review. */
+    /** Missed questions, cards marked Review again, and (once finished) unanswered cards. */
     val toRetry: List<QuestionId>
-        get() = order.filter { outcomes[it.value] == Outcome.INCORRECT || outcomes[it.value] == Outcome.REVIEW_AGAIN }
+        get() = order.filter {
+            val outcome = outcomes[it.value]
+            outcome == Outcome.INCORRECT || outcome == Outcome.REVIEW_AGAIN || (isFinished && outcome == null)
+        }
 }
 
 object Review {

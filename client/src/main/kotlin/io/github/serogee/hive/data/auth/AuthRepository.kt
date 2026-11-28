@@ -31,6 +31,8 @@ class AuthRepository(
     private val supabase: SupabaseAuth?,
     /** Null in release apps. */
     private val demo: DemoAuth?,
+    /** Runs when an expired or revoked session is cleared automatically (not on explicit signOut). */
+    private val onSessionCleared: suspend () -> Unit = {},
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val refreshLock = Mutex()
@@ -75,15 +77,29 @@ class AuthRepository(
         return if (session.needsRefresh(now())) refresh(session)?.accessToken else session.accessToken
     }
 
-    /** Called when the server refused the access token. Tries a new one before the session ends. */
-    suspend fun sessionRefused() {
-        val session = sessions.currentSession() ?: return
+    /**
+     * Called when the server refused [refusedToken]. Tries a new one before the session ends.
+     *
+     * Returns whether a refreshed token is now available (either just refreshed or already replaced
+     * by a concurrent request).
+     */
+    suspend fun sessionRefused(refusedToken: String? = null): Boolean {
+        val session = sessions.currentSession() ?: return false
+        // Another concurrent request already replaced the refused token; keep the new session.
+        if (refusedToken != null && session.accessToken != refusedToken) return true
         // A token that was refused right after it was received will be refused again.
         val isNew = now() - session.receivedAt < NEW_MILLIS
         if (supabase == null || session.refreshToken == null || isNew) {
-            sessions.setSession(null)
-        } else {
-            ignoringFailure { refresh(session) }
+            clearSessionIfMatching(session.accessToken)
+            return false
+        }
+        return try {
+            refresh(session) != null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Offline. The session stays, and the next request tries again.
+            false
         }
     }
 
@@ -100,29 +116,49 @@ class AuthRepository(
     }
 
     private suspend fun restoreDemo(session: UserSession) {
-        val demo = demo ?: return sessions.setSession(null)
+        val demo = demo ?: return clearSessionIfMatching(session.accessToken)
         try {
             val account = demo.restore(session.accessToken)
             if (account != session.account) sessions.setSession(session.copy(account = account))
         } catch (e: ApiException) {
-            if (e.error.code == ErrorCode.SESSION_EXPIRED || e.error.code == ErrorCode.SIGN_IN_REQUIRED) sessions.setSession(null)
+            if (e.error.code == ErrorCode.SESSION_EXPIRED || e.error.code == ErrorCode.SIGN_IN_REQUIRED) {
+                clearSessionIfMatching(session.accessToken)
+            }
         }
     }
 
-    /** Replaces the tokens of [stale]. Requests that arrive together share one refresh. */
-    private suspend fun refresh(stale: UserSession): UserSession? = refreshLock.withLock {
-        val current = sessions.currentSession() ?: return null
-        if (current.accessToken != stale.accessToken) return current
-        val supabase = supabase ?: return current
-        val refreshToken = current.refreshToken ?: return current
-        val renewed = try {
-            supabase.refresh(refreshToken)
-        } catch (_: SessionEndedException) {
-            null
+    private suspend fun clearSessionIfMatching(accessToken: String) {
+        val cleared = refreshLock.withLock {
+            val current = sessions.currentSession() ?: return@withLock false
+            if (current.accessToken != accessToken) return@withLock false
+            sessions.setSession(null)
+            true
         }
-        // The user can sign out while the request is on its way.
-        if (sessions.currentSession()?.refreshToken == refreshToken) sessions.setSession(renewed)
-        renewed
+        if (cleared) onSessionCleared()
+    }
+
+    /** Replaces the tokens of [stale]. Requests that arrive together share one refresh. */
+    private suspend fun refresh(stale: UserSession): UserSession? {
+        var cleared = false
+        val renewed = refreshLock.withLock {
+            val current = sessions.currentSession() ?: return@withLock null
+            if (current.accessToken != stale.accessToken) return@withLock current
+            val supabase = supabase ?: return@withLock current
+            val refreshToken = current.refreshToken ?: return@withLock current
+            val next = try {
+                supabase.refresh(refreshToken)
+            } catch (_: SessionEndedException) {
+                null
+            }
+            // The user can sign out while the request is on its way.
+            if (sessions.currentSession()?.refreshToken == refreshToken) {
+                sessions.setSession(next)
+                cleared = next == null
+            }
+            next
+        }
+        if (cleared) onSessionCleared()
+        return renewed
     }
 
     private suspend fun ignoringFailure(block: suspend () -> Unit) {

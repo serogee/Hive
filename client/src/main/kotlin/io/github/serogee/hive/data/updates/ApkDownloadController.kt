@@ -102,6 +102,7 @@ class ApkDownloadController(
     val state: StateFlow<ApkDownloadState> = mutableState.asStateFlow()
     private val mutex = Mutex()
     private var loaded = false
+    @Volatile
     private var record: ApkDownloadRecord? = null
     private var refreshJob: Job? = null
 

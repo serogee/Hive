@@ -50,9 +50,9 @@ class AccountDeleter(
 ) {
     suspend fun delete(accountId: AccountId): List<EndedRoom> {
         signIn.delete(accountId)
-        val ended = data.delete(accountId)
+        // Block unexpired cached JWTs before mutating server rows so concurrent requests cannot race with deletion.
         forget(accountId)
-        return ended
+        return data.delete(accountId)
     }
 }
 

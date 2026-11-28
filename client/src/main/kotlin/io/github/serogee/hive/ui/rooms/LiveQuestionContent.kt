@@ -26,7 +26,9 @@ import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.LiveQuestion
 import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.describe
+import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.model.Answer
+import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.AnswerTaps
 import io.github.serogee.hive.ui.common.AnswerTile
@@ -44,14 +46,18 @@ import io.github.serogee.hive.ui.common.choiceLetter
 import kotlinx.coroutines.delay
 
 @Composable
-private fun QuestionHeader(live: LiveQuestion, onTimeUp: () -> Unit) {
+private fun QuestionHeader(
+    live: LiveQuestion,
+    onTimeUp: () -> Unit,
+    onTick: (QuestionId, Int) -> Unit = { _, _ -> },
+) {
     val question = live.question
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TagPill(text = "QUESTION ${question.number} OF ${live.questionCount}", selected = true)
         TagPill(text = question.typeLabel(), selected = false)
         TagPill(text = if (question.points == 1) "1 pt" else "${question.points} pts", selected = false)
     }
-    Countdown(live, onTimeUp)
+    Countdown(live, onTimeUp, onTick)
     Text(
         question.prompt,
         style = MaterialTheme.typography.titleLarge,
@@ -64,7 +70,11 @@ private fun QuestionHeader(live: LiveQuestion, onTimeUp: () -> Unit) {
  * difference between this phone's clock and the server's.
  */
 @Composable
-private fun Countdown(live: LiveQuestion, onTimeUp: () -> Unit) {
+private fun Countdown(
+    live: LiveQuestion,
+    onTimeUp: () -> Unit,
+    onTick: (QuestionId, Int) -> Unit = { _, _ -> },
+) {
     val closesAt = live.closesAt ?: return
     if (!live.isOpen) return
     val offset = remember(live.serverTime) { live.serverTime - System.currentTimeMillis() }
@@ -77,6 +87,9 @@ private fun Countdown(live: LiveQuestion, onTimeUp: () -> Unit) {
     }
     LaunchedEffect(left <= 0) { if (left <= 0) onTimeUp() }
     val seconds = ((left + 999) / 1000).coerceAtLeast(0)
+    LaunchedEffect(live.question.id, seconds) {
+        if (seconds in 1..5) onTick(live.question.id, seconds.toInt())
+    }
     Text(
         (if (seconds > 0) "Time left: $seconds s" else "Time is up").uppercase(),
         style = MaterialTheme.typography.headlineSmall,
@@ -100,13 +113,19 @@ private fun RevealedAnswer(live: LiveQuestion) {
 private fun LiveQuestion.isCorrect(answer: Answer): Boolean? = correctAnswer?.let { it == answer }
 
 @Composable
-fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) -> Unit, onTimeUp: () -> Unit) {
+fun HostLiveContent(
+    live: LiveQuestion,
+    busy: Boolean,
+    onCommand: (HostCommand) -> Unit,
+    onTimeUp: () -> Unit,
+    onTick: (QuestionId, Int) -> Unit = { _, _ -> },
+) {
     var confirm by rememberSaveable { mutableStateOf<String?>(null) }
     val isLast = live.question.number == live.questionCount
-    val waiting = live.playerCount - live.answeredCount
+    val waiting = (live.playerCount - live.answeredCount).coerceAtLeast(0)
 
     SleekCard(active = true) {
-        QuestionHeader(live, onTimeUp)
+        QuestionHeader(live, onTimeUp, onTick)
         (live.question as? PlayerQuestion.MultipleChoice)?.choices?.forEachIndexed { index, option ->
             AnswerTile(
                 letter = choiceLetter(index),
@@ -200,6 +219,8 @@ fun PlayerLiveContent(
     /** When true, the caller renders Confirm / Send again in a pinned bottom bar instead of inside the card. */
     externalActions: Boolean = false,
     onDraftAnswer: (Answer?) -> Unit = {},
+    onTap: () -> Unit = {},
+    onTick: (QuestionId, Int) -> Unit = { _, _ -> },
 ) {
     val question = live.question
     val received = live.yourAnswer
@@ -220,7 +241,7 @@ fun PlayerLiveContent(
     LaunchedEffect(question.id, answer) { onDraftAnswer(answer) }
 
     SleekCard(active = true) {
-        QuestionHeader(live, onTimeUp)
+        QuestionHeader(live, onTimeUp, onTick)
 
         when (question) {
             is PlayerQuestion.MultipleChoice -> question.choices.forEachIndexed { index, option ->
@@ -234,7 +255,11 @@ fun PlayerLiveContent(
                     ),
                     onClick = {
                         choice = option.id.value
-                        if (taps.locksIn(option.id.value, SystemClock.uptimeMillis())) onSubmit(Answer.SelectedChoice(option.id))
+                        if (taps.locksIn(option.id.value, SystemClock.uptimeMillis())) {
+                            onSubmit(Answer.SelectedChoice(option.id))
+                        } else {
+                            onTap()
+                        }
                     },
                     enabled = !locked,
                     modifier = Modifier.fillMaxWidth(),
@@ -252,7 +277,11 @@ fun PlayerLiveContent(
                         ),
                         onClick = {
                             truth = value
-                            if (taps.locksIn("$value", SystemClock.uptimeMillis())) onSubmit(Answer.TrueFalse(value))
+                            if (taps.locksIn("$value", SystemClock.uptimeMillis())) {
+                                onSubmit(Answer.TrueFalse(value))
+                            } else {
+                                onTap()
+                            }
                         },
                         enabled = !locked,
                         modifier = Modifier.weight(1f),
@@ -261,7 +290,7 @@ fun PlayerLiveContent(
             }
             is PlayerQuestion.Identification -> HiveTextField(
                 value = (received?.answer as? Answer.Text)?.text ?: text,
-                onValueChange = { text = it.take(200) },
+                onValueChange = { text = it.take(QuestionDraft.MAX_ANSWER_LENGTH) },
                 label = "Your answer",
                 enabled = !locked,
             )

@@ -6,6 +6,7 @@ import io.github.serogee.hive.core.model.ParticipantId
 import io.github.serogee.hive.core.model.QuestionId
 import io.github.serogee.hive.core.model.RoomId
 import io.github.serogee.hive.core.model.RoomRole
+import io.github.serogee.hive.core.model.RoomStatus
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -26,6 +27,10 @@ class InMemoryRoomStore : RoomStore {
 
     override suspend fun findRoomByCode(code: String) = mutex.withLock {
         rooms.values.firstOrNull { it.code == code }
+    }
+
+    override suspend fun activeRooms() = mutex.withLock {
+        rooms.values.filter { it.status != RoomStatus.ENDED }
     }
 
     override suspend fun roomsHostedBy(accountId: AccountId) = mutex.withLock {
