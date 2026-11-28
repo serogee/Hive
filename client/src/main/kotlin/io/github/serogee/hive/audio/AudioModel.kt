@@ -162,15 +162,22 @@ data class SessionMusicState(
     val sessionOverrides: Map<String, Boolean> = emptyMap(),
     val activeRequest: ActiveMusicRequest? = null,
 ) {
-    /** Effective music toggle state for [sessionKey] in [scope]. */
+    /** Whether the saved Settings allow music in [scope], so that the top-bar button is shown. */
+    fun isMusicAvailable(scope: AudioScope): Boolean = preferences.musicEnabled(scope)
+
+    /**
+     * Effective music toggle state for [sessionKey] in [scope]. Music plays only when Settings allow
+     * it; the in-session override can then mute it, or turn it on after the TalkBack default.
+     */
     fun isMusicEnabled(sessionKey: String, scope: AudioScope): Boolean {
+        if (!isMusicAvailable(scope)) return false
         sessionOverrides[sessionKey]?.let { return it }
-        if (talkBackEnabled) return false
-        return preferences.musicEnabled(scope)
+        return !talkBackEnabled
     }
 
-    /** Flips the in-session music override for [sessionKey]. */
+    /** Flips the in-session music override for [sessionKey]. Does nothing when Settings turn music off. */
     fun toggled(sessionKey: String, scope: AudioScope): SessionMusicState {
+        if (!isMusicAvailable(scope)) return this
         val next = !isMusicEnabled(sessionKey, scope)
         val updated = LinkedHashMap(sessionOverrides)
         updated.remove(sessionKey)
