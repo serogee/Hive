@@ -29,6 +29,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.core.api.correctAnswer
 import io.github.serogee.hive.core.api.describe
+import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.editor.StackValidation
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.core.model.Question
@@ -69,6 +70,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class ReviewViewModel(
@@ -91,6 +94,10 @@ class ReviewViewModel(
     private val _next = MutableStateFlow<String?>(null)
     val next: StateFlow<String?> = _next.asStateFlow()
 
+    private val persistenceLock = Mutex()
+    @Volatile
+    private var abandoned = false
+
     init {
         viewModelScope.launch {
             val loaded = reviews.observe(attemptId).first()
@@ -112,7 +119,12 @@ class ReviewViewModel(
     fun mark(gotIt: Boolean) = update { Review.mark(it, gotIt) }
 
     fun abandon(onDone: () -> Unit) = viewModelScope.launch {
-        withContext(NonCancellable) { reviews.abandon(attemptId) }
+        abandoned = true
+        withContext(NonCancellable) {
+            persistenceLock.withLock {
+                reviews.abandon(attemptId)
+            }
+        }
         onDone()
     }
 
@@ -135,12 +147,21 @@ class ReviewViewModel(
         _stackRestored.value = true
     }
 
-    /** Applies a change and saves it on appScope so exiting right after answering never drops it. */
+    /**
+     * Applies a change and saves it on appScope so exiting right after answering never drops it.
+     * Serialized with [abandon] via [persistenceLock] so rapid taps never persist out of order and
+     * an in-flight save can never resurrect an abandoned review.
+     */
     private fun update(change: (ReviewAttempt) -> ReviewAttempt) {
+        if (abandoned) return
         val current = _attempt.value ?: return
         val updated = change(current)
         _attempt.value = updated
-        appScope.launch { reviews.save(updated) }
+        appScope.launch {
+            persistenceLock.withLock {
+                if (!abandoned) reviews.save(_attempt.value ?: updated)
+            }
+        }
     }
 }
 
@@ -434,7 +455,7 @@ private fun QuizCard(
             }
             HiveTextField(
                 value = shownTyped,
-                onValueChange = { onTypedChange(it.take(200)) },
+                onValueChange = { onTypedChange(it.take(QuestionDraft.MAX_ANSWER_LENGTH)) },
                 label = if (question is Question.TrueFalse) "Type true or false" else "Type your answer",
                 enabled = !checked,
             )
@@ -499,7 +520,7 @@ private fun FlashCard(
         if (preferTyping) {
             HiveTextField(
                 value = guess,
-                onValueChange = { onGuessChange(it.take(200)) },
+                onValueChange = { onGuessChange(it.take(QuestionDraft.MAX_ANSWER_LENGTH)) },
                 label = "Type a guess (optional)",
                 enabled = !revealed,
             )

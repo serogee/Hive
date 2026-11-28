@@ -18,6 +18,7 @@ import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.launch
 
 /**
  * The storage and sign-in implementations for one configuration.
@@ -44,12 +45,21 @@ fun Application.hiveModule(backend: Backend) {
 
     val hub = RoomEventHub()
     val roomService = RoomService(backend.rooms, hub = hub, requireAccountToHost = true, accountsSupported = backend.accounts.configured)
+    launch { roomService.recoverTimers() }
 
     routing {
         route("/v1") {
             healthRoutes(backend.mode, backend.accounts, sync = backend.sync != null)
-            accountRoutes(backend.accounts, backend.deleter, backend.profiles) { ended ->
-                ended.forEach { hub.publish(RoomEvent.RoomEnded(it.roomId, it.revision)) }
+            accountRoutes(
+                backend.accounts,
+                backend.deleter,
+                backend.profiles,
+                withHostedRoomLocks = { accountId, block -> roomService.withHostedRoomLocks(accountId, block) },
+            ) { ended ->
+                ended.forEach {
+                    hub.publish(RoomEvent.RoomEnded(it.roomId, it.revision))
+                    roomService.evictEndedRoom(it.roomId)
+                }
             }
             roomRoutes(roomService, backend.accounts)
             backend.sync?.let { syncRoutes(SyncService(it, backend.rooms, roomService), backend.accounts) }

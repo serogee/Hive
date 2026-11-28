@@ -26,6 +26,7 @@ import io.github.serogee.hive.core.api.HostCommand
 import io.github.serogee.hive.core.api.LiveQuestion
 import io.github.serogee.hive.core.api.PlayerQuestion
 import io.github.serogee.hive.core.api.describe
+import io.github.serogee.hive.core.editor.QuestionDraft
 import io.github.serogee.hive.core.model.Answer
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.AnswerTaps
@@ -103,7 +104,7 @@ private fun LiveQuestion.isCorrect(answer: Answer): Boolean? = correctAnswer?.le
 fun HostLiveContent(live: LiveQuestion, busy: Boolean, onCommand: (HostCommand) -> Unit, onTimeUp: () -> Unit) {
     var confirm by rememberSaveable { mutableStateOf<String?>(null) }
     val isLast = live.question.number == live.questionCount
-    val waiting = live.playerCount - live.answeredCount
+    val waiting = (live.playerCount - live.answeredCount).coerceAtLeast(0)
 
     SleekCard(active = true) {
         QuestionHeader(live, onTimeUp)
@@ -261,7 +262,7 @@ fun PlayerLiveContent(
             }
             is PlayerQuestion.Identification -> HiveTextField(
                 value = (received?.answer as? Answer.Text)?.text ?: text,
-                onValueChange = { text = it.take(200) },
+                onValueChange = { text = it.take(QuestionDraft.MAX_ANSWER_LENGTH) },
                 label = "Your answer",
                 enabled = !locked,
             )

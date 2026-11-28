@@ -58,6 +58,8 @@ class PostgresRoomStore(private val db: PostgresDatabase) : RoomStore {
 
     override suspend fun findRoomByCode(code: String) = db.read { it.rooms("WHERE code = ?", code).firstOrNull() }
 
+    override suspend fun activeRooms() = db.read { it.rooms("WHERE status != ?", RoomStatus.ENDED.name) }
+
     override suspend fun roomsHostedBy(accountId: AccountId) = db.read { it.rooms("WHERE host_account_id = ?", accountId.value) }
 
     override suspend fun roomsPlayedBy(accountId: AccountId) = db.read {
@@ -111,6 +113,19 @@ class PostgresRoomStore(private val db: PostgresDatabase) : RoomStore {
 
     override suspend fun participants(roomId: RoomId) = db.read { it.participants("WHERE room_id = ?", roomId.value) }
 
+    override suspend fun participantsByRooms(roomIds: Collection<RoomId>): Map<RoomId, List<ParticipantRecord>> {
+        val ids = roomIds.map { it.value }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        return db.read { connection ->
+            val array = connection.createArrayOf("text", ids.toTypedArray())
+            try {
+                connection.participants("WHERE room_id = ANY(?)", array).groupBy { it.roomId }
+            } finally {
+                array.free()
+            }
+        }
+    }
+
     override suspend fun insertSubmission(submission: SubmissionRecord, revision: Long) = db.write { connection ->
         connection.update(
             """
@@ -152,6 +167,19 @@ class PostgresRoomStore(private val db: PostgresDatabase) : RoomStore {
     }
 
     override suspend fun submissions(roomId: RoomId) = db.read { it.submissions("WHERE room_id = ?", roomId.value) }
+
+    override suspend fun submissionsByRooms(roomIds: Collection<RoomId>): Map<RoomId, List<SubmissionRecord>> {
+        val ids = roomIds.map { it.value }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        return db.read { connection ->
+            val array = connection.createArrayOf("text", ids.toTypedArray())
+            try {
+                connection.submissions("WHERE room_id = ANY(?)", array).groupBy { it.roomId }
+            } finally {
+                array.free()
+            }
+        }
+    }
 
     override suspend fun activeMembershipsOf(accountId: AccountId) = db.read {
         it.participants("WHERE account_id = ? AND role = ? AND left_at IS NULL", accountId.value, RoomRole.PLAYER.name)

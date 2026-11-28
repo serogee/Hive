@@ -237,4 +237,21 @@ class AccountDeletionTest {
         assertEquals("sb_secret_test", config.supabaseSecretKey?.reveal())
         assertNull(ServerConfig.from(emptyArray(), mapOf("SUPABASE_SECRET_KEY" to " ")).supabaseSecretKey)
     }
+
+    @Test
+    fun deleterBlocksCachedTokensBeforeDeletingServerRows() = runBlocking {
+        val steps = mutableListOf<String>()
+        val deleter = AccountDeleter(
+            data = {
+                steps += "delete-db"
+                emptyList()
+            },
+            signIn = { steps += "delete-auth" },
+            forget = { steps += "forget-cache" },
+        )
+
+        deleter.delete(AccountId("account-1"))
+
+        assertEquals(listOf("delete-auth", "forget-cache", "delete-db"), steps)
+    }
 }

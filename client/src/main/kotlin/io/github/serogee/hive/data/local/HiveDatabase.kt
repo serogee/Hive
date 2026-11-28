@@ -14,6 +14,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "stacks")
@@ -66,11 +68,12 @@ data class QuizResultEntity(
  */
 @Entity(
     tableName = "questions",
+    primaryKeys = ["stackId", "id"],
     foreignKeys = [ForeignKey(StackEntity::class, ["id"], ["stackId"], onDelete = ForeignKey.CASCADE)],
     indices = [Index("stackId")],
 )
 data class QuestionEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val stackId: String,
     val position: Int,
     val draftJson: String,
@@ -120,6 +123,12 @@ interface StackDao {
     @Query("DELETE FROM stacks WHERE id = :id")
     suspend fun deleteStack(id: String)
 
+    @Query("SELECT * FROM stack_deletions WHERE stackId = :id")
+    suspend fun deletion(id: String): StackDeletionEntity?
+
+    @Query("DELETE FROM stack_deletions WHERE stackId = :id")
+    suspend fun clearDeletion(id: String)
+
     @Upsert
     suspend fun upsertDeletion(deletion: StackDeletionEntity)
 
@@ -132,11 +141,26 @@ interface StackDao {
         deleteStack(id)
     }
 
-    /** Replaces a stack and all its questions in one transaction. */
+    /**
+     * Replaces a stack and all its questions in one transaction. When saving a synced stack that
+     * still has a pending deletion (such as restoring a deleted stack before sync), cancels the
+     * deletion and preserves its base version so sync updates rather than deletes it.
+     */
     @Transaction
     suspend fun saveStack(stack: StackEntity, questions: List<QuestionEntity>) {
-        upsertStack(stack)
-        deleteQuestions(stack.id)
+        val toSave = if (!stack.localOnly) {
+            val pendingDeletion = deletion(stack.id)
+            if (pendingDeletion != null) {
+                clearDeletion(stack.id)
+                stack.copy(accountVersion = stack.accountVersion ?: pendingDeletion.baseVersion)
+            } else {
+                stack
+            }
+        } else {
+            stack
+        }
+        upsertStack(toSave)
+        deleteQuestions(toSave.id)
         upsertQuestions(questions)
     }
 }
@@ -200,7 +224,7 @@ interface ReviewDao {
         StackDeletionEntity::class,
         QuizResultEntity::class,
     ],
-    version = 7,
+    version = 8,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -220,7 +244,34 @@ abstract class HiveDatabase : RoomDatabase() {
     abstract fun sync(): SyncDao
 
     companion object {
+        /** Scopes question primary keys to (stackId, id) so one stack can never overwrite another's questions. */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `questions_new` (
+                        `id` TEXT NOT NULL,
+                        `stackId` TEXT NOT NULL,
+                        `position` INTEGER NOT NULL,
+                        `draftJson` TEXT NOT NULL,
+                        PRIMARY KEY(`stackId`, `id`),
+                        FOREIGN KEY(`stackId`) REFERENCES `stacks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "INSERT INTO `questions_new` (`id`, `stackId`, `position`, `draftJson`) " +
+                        "SELECT `id`, `stackId`, `position`, `draftJson` FROM `questions`",
+                )
+                db.execSQL("DROP TABLE `questions`")
+                db.execSQL("ALTER TABLE `questions_new` RENAME TO `questions`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_questions_stackId` ON `questions` (`stackId`)")
+            }
+        }
+
         fun create(context: Context): HiveDatabase =
-            Room.databaseBuilder(context.applicationContext, HiveDatabase::class.java, "hive.db").build()
+            Room.databaseBuilder(context.applicationContext, HiveDatabase::class.java, "hive.db")
+                .addMigrations(MIGRATION_7_8)
+                .build()
     }
 }

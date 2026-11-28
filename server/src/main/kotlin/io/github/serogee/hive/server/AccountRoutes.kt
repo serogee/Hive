@@ -3,6 +3,7 @@ package io.github.serogee.hive.server
 import io.github.serogee.hive.core.api.AccountProfile
 import io.github.serogee.hive.core.api.ErrorCode
 import io.github.serogee.hive.core.engine.DisplayNames
+import io.github.serogee.hive.core.model.AccountId
 import io.github.serogee.hive.host.AccountVerifier
 import io.github.serogee.hive.host.HiveException
 import io.github.serogee.hive.host.requireAccount
@@ -22,6 +23,7 @@ fun Route.accountRoutes(
     accounts: AccountVerifier,
     deleter: AccountDeleter? = null,
     profiles: AccountProfiles? = null,
+    withHostedRoomLocks: suspend (AccountId, suspend () -> List<EndedRoom>) -> List<EndedRoom> = { _, block -> block() },
     onRoomsEnded: suspend (List<EndedRoom>) -> Unit = {},
 ) {
     get("/me") {
@@ -46,7 +48,8 @@ fun Route.accountRoutes(
     delete("/account") {
         val account = call.requireAccount(accounts, "Sign in to delete your account.")
         val delete = deleter ?: throw HiveException(ErrorCode.AUTH_NOT_CONFIGURED, "This server cannot delete accounts yet.")
-        onRoomsEnded(delete.delete(account.id))
+        val ended = withHostedRoomLocks(account.id) { delete.delete(account.id) }
+        onRoomsEnded(ended)
         call.respond(HttpStatusCode.NoContent)
     }
 }

@@ -19,4 +19,11 @@ class RoomEventHub {
     suspend fun publish(event: RoomEvent) {
         flowFor(event.roomId).emit(event)
     }
+
+    /** Drops an ended room's channel from the map so long-running servers do not leak entries. */
+    fun evict(roomId: RoomId) {
+        flows.remove(roomId)
+    }
+
+    internal fun activeRoomCount(): Int = flows.size
 }

@@ -51,6 +51,10 @@ class StaleRoomChecker(
     private val _failed = MutableStateFlow<List<RoomSummary>>(emptyList())
     val failed: StateFlow<List<RoomSummary>> = _failed.asStateFlow()
 
+    /** How many rooms actually closed in the last [closeAll] call alongside [failed]. */
+    private val _closedCount = MutableStateFlow(0)
+    val closedCount: StateFlow<Int> = _closedCount.asStateFlow()
+
     fun now(): Long = clock()
 
     /** Finds the rooms to ask about, among rooms hosted on this phone and online. */
@@ -63,7 +67,10 @@ class StaleRoomChecker(
     /** Ends every room in [list] for everyone. The rooms that could not end are in [failed]. */
     suspend fun closeAll(list: List<RoomSummary>) {
         _due.value = emptyList()
-        _failed.value = list.filter { room -> quietly { rooms.command(room.id, HostCommand.EndRoom) } == null }
+        val notClosed = list.filter { room -> quietly { rooms.command(room.id, HostCommand.EndRoom) } == null }
+        _closedCount.value = list.size - notClosed.size
+        _failed.value = notClosed
+        quietly { rooms.stopHostingWhenIdle() }
     }
 
     /** Asks again about every room in [list] after another [StaleRooms.OPEN_MILLIS]. */
@@ -74,6 +81,7 @@ class StaleRoomChecker(
 
     fun clearFailed() {
         _failed.value = emptyList()
+        _closedCount.value = 0
     }
 
     private suspend fun <T> quietly(block: suspend () -> T): T? = try {

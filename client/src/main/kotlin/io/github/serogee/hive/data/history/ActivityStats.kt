@@ -22,22 +22,23 @@ data class ActivityStats(
         fun of(
             reviews: List<FinishedReview>,
             quizzes: List<QuizResult>,
-            /** Rooms that this phone hosts or hosted, whether they ended or not. */
+            /** Ended rooms that this phone hosted. */
             hostedHereIds: Set<String>,
             today: LocalDate,
             zone: ZoneId,
         ): ActivityStats {
+            val completedReviews = reviews.filter { it.attempt.answeredCount > 0 }
             val endedQuizzes = quizzes.filter { it.ended }
-            val days = (reviews.map { it.finishedAt } + endedQuizzes.map { it.playedAt })
+            val days = (completedReviews.map { it.finishedAt } + endedQuizzes.map { it.playedAt })
                 .map { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() }
                 .toSet()
             val playedQuizzes = endedQuizzes.filter { it.role == RoomRole.PLAYER }.distinctBy { it.roomId }
-            val scores = reviews.mapNotNull { review ->
+            val scores = completedReviews.mapNotNull { review ->
                 review.attempt.order.size.takeIf { it > 0 }?.let { review.attempt.correctCount.toDouble() / it }
             } + playedQuizzes.mapNotNull { it.scoreFraction }
             return ActivityStats(
                 quizzesPlayed = playedQuizzes.size,
-                roomsHosted = (quizzes.filter { it.role == RoomRole.HOST }.map { it.roomId } + hostedHereIds).toSet().size,
+                roomsHosted = (endedQuizzes.filter { it.role == RoomRole.HOST }.map { it.roomId } + hostedHereIds).toSet().size,
                 streakDays = streak(days, today),
                 averagePercent = scores.takeIf { it.isNotEmpty() }?.let { (it.average() * 100).roundToInt() },
                 weekActive = today.minusDays(today.dayOfWeek.value - 1L).let { monday -> List(7) { monday.plusDays(it.toLong()) in days } },

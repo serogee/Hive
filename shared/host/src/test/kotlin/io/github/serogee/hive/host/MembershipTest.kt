@@ -80,4 +80,49 @@ class MembershipTest {
         assertEquals(guest.participant.id, back.participant.id)
         assertEquals(false, back.participant.left)
     }
+
+    @Test
+    fun rejoiningWithExistingTokenRejectsEndedRoomsAndEnforcesSingleActiveRoom() = runTest {
+        val endedRoom = room()
+        val guest = service.join(endedRoom.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
+        service.leave(endedRoom.id, null, guest.participantToken)
+        service.command(endedRoom.id, alex, null, HostCommand.EndRoom)
+
+        val closed = assertFailsWith<HiveException> {
+            service.join(endedRoom.id, null, JoinRoomRequest("Jamie", asGuest = true), guest.participantToken)
+        }
+        assertEquals(ErrorCode.ROOM_CLOSED, closed.code)
+        assertEquals(true, service.state(endedRoom.id, alex, null).participants.single { it.displayName == "Jamie" }.left)
+
+        // Signed-in player leaves room A, joins room B, then tries to rejoin room A with old token.
+        val roomA = room()
+        val roomB = room()
+        val inA = service.join(roomA.id, sam, JoinRoomRequest(asGuest = false), null)
+        service.leave(roomA.id, sam, inA.participantToken)
+        service.join(roomB.id, sam, JoinRoomRequest(asGuest = false), null)
+
+        val conflict = assertFailsWith<HiveException> {
+            service.join(roomA.id, sam, JoinRoomRequest(asGuest = false, leaveOtherRoom = false), inA.participantToken)
+        }
+        assertEquals(ErrorCode.ALREADY_IN_ROOM, conflict.code)
+
+        // Explicitly leaving room B lets them rejoin room A with the saved token.
+        val backInA = service.join(roomA.id, sam, JoinRoomRequest(asGuest = false, leaveOtherRoom = true), inA.participantToken)
+        assertEquals(false, backInA.participant.left)
+        assertEquals(true, service.state(roomB.id, alex, null).participants.single { it.displayName == "Sam Cruz" }.left)
+    }
+
+    @Test
+    fun leftPlayersDoNotCountTowardLivePlayerCount() = runTest {
+        val first = room()
+        val jamie = service.join(first.id, null, JoinRoomRequest("Jamie", asGuest = true), null)
+        service.join(first.id, null, JoinRoomRequest("Riley", asGuest = true), null)
+        service.command(first.id, alex, null, HostCommand.Start)
+
+        assertEquals(2, service.state(first.id, alex, null).live?.playerCount)
+        service.leave(first.id, null, jamie.participantToken)
+        assertEquals(1, service.state(first.id, alex, null).live?.playerCount)
+        service.join(first.id, null, JoinRoomRequest("Jamie", asGuest = true), jamie.participantToken)
+        assertEquals(2, service.state(first.id, alex, null).live?.playerCount)
+    }
 }

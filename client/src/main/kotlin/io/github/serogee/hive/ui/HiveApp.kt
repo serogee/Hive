@@ -345,6 +345,7 @@ fun HiveApp() {
             composable<AccountsRoute> {
                 AccountsScreen(
                     onOpenReview = { navController.navigate(ReviewRoute(it)) },
+                    onOpenRoom = { navController.navigate(LobbyRoute(it)) },
                     onOpenSettings = { navController.navigate(SettingsRoute) },
                 )
             }
@@ -356,6 +357,7 @@ fun HiveApp() {
                     signInRequested = true,
                     onSignedIn = { navController.popBackStack() },
                     onOpenReview = { navController.navigate(ReviewRoute(it)) },
+                    onOpenRoom = { navController.navigate(LobbyRoute(it)) },
                     onOpenSettings = { navController.navigate(SettingsRoute) },
                 )
             }

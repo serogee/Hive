@@ -144,6 +144,14 @@ class AppPreferences(context: Context) : SessionStore, SyncStateStore, AccountNa
         }
     }
 
+    /** Clears user session/room data on this phone while keeping theme, answering, and server settings. */
+    suspend fun clearLocalUserData() = store.edit { prefs ->
+        prefs.remove(JOINED_ROOM)
+        prefs.remove(PREFERRED_NAME)
+        prefs.remove(HOST_TOKENS)
+        prefs.remove(ROOM_SNOOZES)
+    }
+
     private fun <T> Preferences.decode(key: Preferences.Key<String>, serializer: KSerializer<T>): T? =
         this[key]?.let { runCatching { HiveJson.decodeFromString(serializer, it) }.getOrNull() }
 

@@ -60,18 +60,26 @@ class ReviewRepository(private val dao: ReviewDao, private val now: () -> Long =
         ),
     )
 
-    /** Keeps at most [MAX_ONGOING] ongoing reviews; older ones automatically end. */
+    /**
+     * Keeps at most [MAX_ONGOING] ongoing reviews. Excess reviews with no answers are discarded so they
+     * never pollute history, stats, or sync; partially answered ones finish with their last activity time.
+     */
     private suspend fun autoEndExcess() {
         val excess = dao.unfinished().drop(MAX_ONGOING)
         excess.forEach { row ->
-            val ended = Review.finish(row.decode())
-            dao.upsert(
-                row.copy(
-                    attemptJson = HiveJson.encodeToString(ReviewAttempt.serializer(), ended),
-                    finished = true,
-                    updatedAt = now(),
-                ),
-            )
+            val attempt = row.decode()
+            if (attempt.answeredCount == 0) {
+                dao.delete(row.id)
+            } else {
+                val ended = Review.finish(attempt)
+                dao.upsert(
+                    row.copy(
+                        attemptJson = HiveJson.encodeToString(ReviewAttempt.serializer(), ended),
+                        finished = true,
+                        updatedAt = row.updatedAt,
+                    ),
+                )
+            }
         }
     }
 

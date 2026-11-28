@@ -82,12 +82,11 @@ class ImportViewModel(private val stacks: StackRepository) : ViewModel() {
 
     fun setTitle(title: String) = _state.update { it.copy(title = title) }
 
-    /** Saves an independent, editable copy. */
+    /** Saves an independent, editable copy with fresh stack, question, and choice IDs. */
     fun save() = viewModelScope.launch {
         val draft = _state.value.result?.draft ?: return@launch
-        val copy = draft.copy(title = _state.value.title.trim())
-        stacks.save(copy)
-        _state.update { it.copy(saved = copy.id) }
+        val savedId = stacks.saveCopy(draft.copy(title = _state.value.title.trim()))
+        _state.update { it.copy(saved = savedId) }
     }
 
     private fun parse(name: String, text: String): ImportResult {

@@ -138,7 +138,7 @@ object HiveStackFile {
 
     private fun FileQuestion.toDraft(number: Int, newId: () -> String, errors: MutableList<String>): QuestionDraft? {
         val base = QuestionDraft(
-            id = QuestionId(id ?: newId()),
+            id = QuestionId(id?.trim()?.ifEmpty { null } ?: newId()),
             prompt = prompt,
             explanation = explanation.orEmpty(),
             points = points,
@@ -146,7 +146,7 @@ object HiveStackFile {
         )
         return when (type.trim().lowercase()) {
             "multiple_choice" -> {
-                val choices = choices.map { Choice(ChoiceId(it.id ?: newId()), it.text) }
+                val choices = choices.map { Choice(ChoiceId(it.id?.trim()?.ifEmpty { null } ?: newId()), it.text) }
                 val correct = this.choices.indices.filter { this.choices[it].correct }
                 if (correct.size > 1) errors += "Question $number marks more than one correct choice."
                 base.copy(

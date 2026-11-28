@@ -32,10 +32,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.serogee.hive.AppContainer
+import io.github.serogee.hive.data.rooms.HostAddress
 import io.github.serogee.hive.data.server.OnlineFacts
 import io.github.serogee.hive.data.server.ServerState
 import io.github.serogee.hive.ui.common.AnswerInput
 import io.github.serogee.hive.ui.common.Caption
+import io.github.serogee.hive.ui.common.ErrorText
 import io.github.serogee.hive.ui.common.GateNote
 import io.github.serogee.hive.ui.common.HiveButton
 import io.github.serogee.hive.ui.common.HiveButtonStyle
@@ -71,6 +73,12 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     private val _serverStatus = MutableStateFlow<String?>(null)
     val serverStatus: StateFlow<String?> = _serverStatus.asStateFlow()
 
+    private val _resetting = MutableStateFlow(false)
+    val resetting: StateFlow<Boolean> = _resetting.asStateFlow()
+
+    private val _resetError = MutableStateFlow<String?>(null)
+    val resetError: StateFlow<String?> = _resetError.asStateFlow()
+
     fun setTheme(theme: ThemePreference) = viewModelScope.launch { container.preferences.setTheme(theme) }
 
     fun setAnswerColors(choice: AnswerColorChoice) = viewModelScope.launch { container.preferences.setAnswerColors(choice) }
@@ -79,7 +87,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Saves the address only when a Hive server answers there. */
     fun saveServer(rawUrl: String) = viewModelScope.launch {
-        val url = rawUrl.trim().trimEnd('/').let { if (it.startsWith("http")) it else "http://$it" }
+        val url = HostAddress.normalizeServerUrl(rawUrl)
+        if (url == null) {
+            _serverStatus.value = "Enter a server address."
+            return@launch
+        }
         _serverStatus.value = "Checking $url…"
         try {
             val health = container.api.health(url)
@@ -94,8 +106,39 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Leaves the joined room on its server too, so that the Host sees the Player leave. */
-    fun resetPhone() = viewModelScope.launch { container.rooms.leaveJoinedRoom() }
+    /** Clears all local stacks, reviews, history, and sessions on this phone. */
+    fun resetPhone(onDone: () -> Unit) = viewModelScope.launch {
+        _resetting.value = true
+        _resetError.value = null
+        try {
+            container.resetPhoneData()
+            onDone()
+        } catch (e: Exception) {
+            _resetError.value = e.userMessage()
+        } finally {
+            _resetting.value = false
+        }
+    }
+
+    /** Deletes synced account data on the server, then clears all local data on this phone. */
+    fun resetAccountAndPhone(onDone: () -> Unit) = viewModelScope.launch {
+        _resetting.value = true
+        _resetError.value = null
+        try {
+            container.resetAccountAndPhoneData()
+            onDone()
+        } catch (e: AppContainer.PhoneResetFailed) {
+            _resetError.value = "Your synced data is deleted from your account, but this phone did not reset. Try Reset data again."
+        } catch (e: Exception) {
+            _resetError.value = "Nothing was deleted. ${e.userMessage()}"
+        } finally {
+            _resetting.value = false
+        }
+    }
+
+    fun clearResetError() {
+        _resetError.value = null
+    }
 
     fun syncAll() = viewModelScope.launch { container.sync.syncAll() }
 
@@ -114,11 +157,14 @@ fun SettingsScreen(onBack: () -> Unit) {
     val serverStatus by viewModel.serverStatus.collectAsStateWithLifecycle()
     val session by viewModel.session.collectAsStateWithLifecycle()
     val stacks by viewModel.stacks.collectAsStateWithLifecycle()
+    val resetting by viewModel.resetting.collectAsStateWithLifecycle()
+    val resetError by viewModel.resetError.collectAsStateWithLifecycle()
     val online = watchOnline()
 
     var showAnswerColors by rememberSaveable { mutableStateOf(false) }
     var showAnswerInput by rememberSaveable { mutableStateOf(false) }
     var showReset by rememberSaveable { mutableStateOf(false) }
+    var showResetAccountConfirm by rememberSaveable { mutableStateOf(false) }
     var showUnsyncAll by rememberSaveable { mutableStateOf(false) }
 
     Page(
@@ -207,17 +253,20 @@ fun SettingsScreen(onBack: () -> Unit) {
         Caption("Updates")
         SleekCard { UpdatesSection() }
 
-        Caption("This phone")
+        Caption("Data")
         SleekCard {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
-                    .clickable { showReset = true },
+                    .clickable {
+                        viewModel.clearResetError()
+                        showReset = true
+                    },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Reset data on this phone",
+                    "Reset data",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -246,19 +295,58 @@ fun SettingsScreen(onBack: () -> Unit) {
         )
     }
     if (showReset) {
+        if (session == null) {
+            HiveDialog(
+                title = "Reset data on this phone?",
+                confirmText = if (resetting) "Resetting" else "Reset",
+                onConfirm = { if (!resetting) viewModel.resetPhone { showReset = false } },
+                dismissText = "Cancel",
+                onDismiss = { if (!resetting) showReset = false },
+                danger = true,
+            ) {
+                Text(
+                    "This leaves any active session and removes your stacks, reviews, quiz history, hosted sessions, and name from " +
+                        "this phone. Your server and look settings stay.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                ErrorText(resetError)
+            }
+        } else {
+            ChoiceDialog(
+                title = "Reset data",
+                message = "Reset this phone only, or delete your synced stacks and history from your account too? " +
+                    "Both sign you out on this phone.",
+                choices = listOf(
+                    DialogChoice("This phone only", HiveButtonStyle.SECONDARY) {
+                        if (!resetting) viewModel.resetPhone { showReset = false }
+                    },
+                    DialogChoice("This phone and account", HiveButtonStyle.DANGER) {
+                        showReset = false
+                        viewModel.clearResetError()
+                        showResetAccountConfirm = true
+                    },
+                ),
+                dismissText = "Cancel",
+                onDismiss = { if (!resetting) showReset = false },
+            )
+        }
+    }
+    if (showResetAccountConfirm) {
         HiveDialog(
-            title = "Reset data on this phone",
-            message = "This leaves the session you joined and forgets it on this phone. Your stacks, reviews, hosted sessions, " +
-                "name, sign-in, and settings stay.",
-            confirmText = "Reset",
-            onConfirm = {
-                viewModel.resetPhone()
-                showReset = false
-            },
+            title = "Reset this phone and account?",
+            confirmText = if (resetting) "Deleting" else "Reset everything",
+            onConfirm = { if (!resetting) viewModel.resetAccountAndPhone { showResetAccountConfirm = false } },
             dismissText = "Cancel",
-            onDismiss = { showReset = false },
+            onDismiss = { if (!resetting) showResetAccountConfirm = false },
             danger = true,
-        )
+        ) {
+            Text(
+                "This deletes your synced stacks, reviews, and quiz results from the server, signs you out, and removes all data " +
+                    "from this phone. Other phones keep their copies and will ask again. You cannot undo this.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            ErrorText(resetError)
+        }
     }
 }
 

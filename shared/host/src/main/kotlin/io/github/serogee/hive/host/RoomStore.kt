@@ -69,12 +69,12 @@ data class RoomRecord(
     /** When answers to the current question stop, from its time limit and the quiz deadline. */
     fun cutoff(): Long? = Timing.cutoff(questionOpenedAt, questionIndex?.let { stack.questions[it].durationSeconds }, deadlineAt)
 
-    /** An Asynchronous room is over once its deadline passes, even before the Host ends it. */
+    /** A room whose deadline passed is over, even before the Host ends it. */
     fun effectiveStatus(now: Long): RoomStatus =
-        if (status == RoomStatus.LIVE && mode == RoomMode.ASYNCHRONOUS && !Timing.isBefore(now, deadlineAt)) RoomStatus.ENDED else status
+        if (status != RoomStatus.ENDED && !Timing.isBefore(now, deadlineAt)) RoomStatus.ENDED else status
 
-    /** Whether the current question accepts answers at [now]. An expired timer closes it. */
-    fun acceptsAnswers(now: Long): Boolean = status == RoomStatus.LIVE && questionOpen && Timing.isBefore(now, cutoff())
+    /** Whether the current question accepts answers at [now]. An expired timer or deadline closes it. */
+    fun acceptsAnswers(now: Long): Boolean = effectiveStatus(now) == RoomStatus.LIVE && questionOpen && Timing.isBefore(now, cutoff())
 }
 
 data class ParticipantRecord(
@@ -140,6 +140,9 @@ interface RoomStore {
 
     suspend fun findRoomByCode(code: String): RoomRecord?
 
+    /** All rooms whose stored status is not ENDED, for restoring timers on startup. */
+    suspend fun activeRooms(): List<RoomRecord>
+
     suspend fun roomsHostedBy(accountId: AccountId): List<RoomRecord>
 
     /** Rooms where the account is a Player, left or not. */
@@ -164,6 +167,10 @@ interface RoomStore {
     /** Returns participants in join order. */
     suspend fun participants(roomId: RoomId): List<ParticipantRecord>
 
+    /** Batch-loads participants for [roomIds], grouped by room ID in join order. */
+    suspend fun participantsByRooms(roomIds: Collection<RoomId>): Map<RoomId, List<ParticipantRecord>> =
+        roomIds.distinct().associateWith { participants(it) }
+
     /** Saves an accepted answer and stores [revision] as the room's new revision. */
     suspend fun insertSubmission(submission: SubmissionRecord, revision: Long)
 
@@ -173,6 +180,10 @@ interface RoomStore {
 
     /** Returns accepted answers in the order they arrived. */
     suspend fun submissions(roomId: RoomId): List<SubmissionRecord>
+
+    /** Batch-loads accepted answers for [roomIds], grouped by room ID in arrival order. */
+    suspend fun submissionsByRooms(roomIds: Collection<RoomId>): Map<RoomId, List<SubmissionRecord>> =
+        roomIds.distinct().associateWith { submissions(it) }
 
     /** The account's Player memberships that it has not left, in any room on this server. */
     suspend fun activeMembershipsOf(accountId: AccountId): List<ParticipantRecord>
